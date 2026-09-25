@@ -1,0 +1,2311 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rozpis Inštruktori</title>
+<style>
+  @media (prefers-reduced-motion: reduce) { *{ animation-duration:0.001ms !important; transition-duration:0.001ms !important; } }
+
+  :root{
+    --bg:#EEF1EF; --surface:#FFFFFF; --surface-2:#F4F6F4;
+    --ink:#151B1A; --ink-dim:#57625F; --ink-faint:#8B958F;
+    --border:#DAE0DC; --border-soft:#E7EBE8;
+    --accent:#1F6F78; --accent-ink:#FFFFFF; --accent-soft:#E4EFEF;
+    --success:#3F8F5F; --success-soft:#E4F1E8;
+    --warning:#B9791E; --warning-soft:#FBF0DD;
+    --danger:#C74B3F; --danger-soft:#FAE7E4;
+    --swatch-blue:#0072B2; --swatch-orange:#E69F00; --swatch-green:#009E73;
+    --swatch-yellow:#F0E442; --swatch-red:#D55E00; --swatch-purple:#CC79A7;
+    --shadow: 0 8px 28px rgba(21,27,26,0.14);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#121615; --surface:#1B211F; --surface-2:#212826;
+      --ink:#ECEFED; --ink-dim:#9FADA9; --ink-faint:#6D7975;
+      --border:#2E3633; --border-soft:#242B29;
+      --accent:#59BFC7; --accent-ink:#0C1817; --accent-soft:#1D3133;
+      --success:#6FCB92; --success-soft:#173324;
+      --warning:#E3AA55; --warning-soft:#382A12;
+      --danger:#E58176; --danger-soft:#3A1E1B;
+      --swatch-blue:#0072B2; --swatch-orange:#E69F00; --swatch-green:#009E73;
+      --swatch-yellow:#F0E442; --swatch-red:#D55E00; --swatch-purple:#CC79A7;
+      --shadow: 0 8px 28px rgba(0,0,0,0.45);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#121615; --surface:#1B211F; --surface-2:#212826;
+    --ink:#ECEFED; --ink-dim:#9FADA9; --ink-faint:#6D7975;
+    --border:#2E3633; --border-soft:#242B29;
+    --accent:#59BFC7; --accent-ink:#0C1817; --accent-soft:#1D3133;
+    --success:#6FCB92; --success-soft:#173324;
+    --warning:#E3AA55; --warning-soft:#382A12;
+    --danger:#E58176; --danger-soft:#3A1E1B;
+    --swatch-blue:#0072B2; --swatch-orange:#E69F00; --swatch-green:#009E73;
+    --swatch-yellow:#F0E442; --swatch-red:#D55E00; --swatch-purple:#CC79A7;
+    --shadow: 0 8px 28px rgba(0,0,0,0.45);
+  }
+
+  *{ box-sizing:border-box; }
+  /* .btn and a few other classes set their own `display`, which otherwise silently
+     overrides the browser's built-in [hidden]{display:none} rule — an element with
+     e.g. class="btn" stayed visibly rendered even with the hidden attribute set. */
+  [hidden]{ display:none !important; }
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans',system-ui,sans-serif; padding-inline:16px; padding-block:16px; }
+  h1,h2,h3{ font-family:'Archivo',system-ui,sans-serif; letter-spacing:-0.01em; margin:0; }
+  .num{ font-family:'IBM Plex Mono',ui-monospace,monospace; font-variant-numeric:tabular-nums; }
+  button{ font-family:inherit; }
+  :focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  .app{ max-width:1180px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+
+  .topbar{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  .brand{ display:flex; align-items:center; gap:10px; margin-right:auto; }
+  .brand-mark{ height:34px; padding:5px 8px; border-radius:8px; background:#fff; display:flex; align-items:center; justify-content:center; flex:none; }
+  .brand-mark img{ height:100%; width:auto; display:block; }
+  .brand-text h1{ font-size:19px; font-weight:800; }
+  .brand-text span{ font-size:11px; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.08em; }
+  .tabs{ display:flex; gap:4px; background:var(--surface-2); border:1px solid var(--border-soft); border-radius:10px; padding:4px; flex-wrap:wrap; }
+  .tab{ border:none; background:transparent; color:var(--ink-dim); font-size:13px; font-weight:600; padding:8px 14px; border-radius:7px; cursor:pointer; }
+  .tab.active{ background:var(--surface); color:var(--ink); box-shadow:var(--shadow); }
+  .btn{ border:1px solid var(--border); background:var(--surface); color:var(--ink); font-size:13px; font-weight:600; padding:8px 13px; border-radius:8px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+  .btn:hover{ border-color:var(--ink-faint); }
+  .btn-primary{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  .btn-warning{ background:var(--warning); border-color:var(--warning); color:#241a06; }
+  .btn-danger{ background:var(--danger); border-color:var(--danger); color:#2a0b07; }
+  .btn-ghost{ background:transparent; border-color:transparent; color:var(--ink-dim); }
+  .btn-ghost:hover{ color:var(--ink); background:var(--surface-2); }
+  .btn-sm{ padding:5px 9px; font-size:12px; }
+  .btn:disabled{ opacity:0.5; cursor:not-allowed; }
+
+  .notice{ background:var(--accent-soft); border:1px solid var(--border-soft); border-radius:10px; padding:11px 14px; font-size:12.5px; color:var(--ink-dim); display:flex; gap:8px; align-items:flex-start; }
+  .notice b{ color:var(--ink); }
+
+  .card{ background:var(--surface); border:1px solid var(--border-soft); border-radius:var(--radius); padding:16px; }
+
+  .cal-toolbar{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:space-between; }
+  .cal-nav{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .cal-date-label{ font-weight:700; font-size:15px; min-width:160px; }
+  .week-strip{ display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; }
+  .day-btn{ position:relative; border:1px solid var(--border); background:var(--surface); border-radius:9px; padding:7px 4px 8px; min-width:44px; display:flex; flex-direction:column; align-items:center; gap:2px; cursor:pointer; color:var(--ink-dim); }
+  .day-btn .dow{ font-size:10px; text-transform:uppercase; letter-spacing:0.05em; }
+  .day-btn .dom{ font-family:'IBM Plex Mono'; font-weight:600; font-size:14px; color:var(--ink); }
+  .day-btn.today{ border-color:var(--accent); }
+  .day-btn.active{ background:var(--accent); border-color:var(--accent); }
+  .day-btn.active .dow, .day-btn.active .dom{ color:var(--accent-ink); }
+  .day-btn .dot{ width:4px; height:4px; border-radius:50%; background:var(--accent); }
+  .day-btn.active .dot{ background:var(--accent-ink); }
+
+  .legend{ display:none; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--ink-dim); }
+  .legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .legend i{ width:9px; height:9px; border-radius:3px; display:inline-block; }
+
+  .cal-grid-wrap{ display:flex; overflow-x:auto; border:1px solid var(--border-soft); border-radius:var(--radius); background:var(--surface); }
+  .cal-col{ flex:1 1 0; min-width:160px; border-left:1px solid var(--border-soft); }
+  .cal-col:first-child{ border-left:none; }
+  .cal-timecol{ flex:0 0 52px; min-width:52px; }
+  .col-head{ height:40px; display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:0; padding:0 10px; font-size:12px; font-weight:700; border-bottom:1px solid var(--border-soft); position:sticky; top:0; background:var(--surface); }
+  .col-head .ch-dow{ font-size:10px; color:var(--ink-dim); font-weight:600; text-transform:uppercase; letter-spacing:0.04em; }
+  .cal-body{ position:relative; height:624px; background-image: repeating-linear-gradient(to bottom, var(--border-soft) 0, var(--border-soft) 1px, transparent 1px, transparent 48px); cursor:copy; }
+  .time-label{ position:absolute; right:8px; transform:translateY(-50%); font-size:10.5px; color:var(--ink-faint); font-family:'IBM Plex Mono'; }
+  .session-block{ position:absolute; border-radius:7px; padding:2px 6px; overflow:hidden; cursor:pointer; border:1px solid transparent; box-shadow:0 1px 2px rgba(0,0,0,0.08); line-height:1.1; }
+  .session-block:hover{ filter:brightness(0.97); }
+  #authGate{ position:fixed; inset:0; z-index:1000; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:16px; }
+  #resetBtn, #addSessionBtn, #addBlockBtn, .trainer-add{ display:none !important; }
+  .team-role-select, .team-flag, .toggle-status, .delete-trainer, .restore-trainer, .mark-paid-btn{ pointer-events:none; opacity:0.55; }
+  .session-block.busy{ background:var(--surface-2); border:1px solid var(--border); color:var(--ink-dim); cursor:default; }
+  .session-block.busy:hover{ filter:none; }
+  .session-block .sb-time{ font-family:'IBM Plex Mono'; font-size:9.5px; font-weight:600; opacity:0.85; }
+  .session-block .sb-type{ font-size:11px; font-weight:700; margin-bottom:1px; }
+  .session-block .sb-trainers{ font-size:9.5px; opacity:0.85; }
+  .session-block .sb-badges{ font-size:9.5px; font-weight:700; }
+  .session-block .sb-missing{ color:var(--warning); }
+  .session-block.status-tentative{ border-style:dashed; }
+  .session-block.status-completed{ opacity:0.8; }
+  .session-block .sb-done{ color:var(--success); }
+  .session-block.status-cancelled{ background:var(--surface-2) !important; border:1px dashed var(--border); }
+  .session-block.status-cancelled .sb-type{ text-decoration:line-through; color:var(--ink-faint); }
+  .session-block.status-cancelled .sb-trainers, .session-block.status-cancelled .sb-time{ color:var(--ink-faint); }
+
+  .agenda-list{ display:none; flex-direction:column; gap:8px; }
+  .agenda-item{ display:flex; align-items:center; gap:10px; border:1px solid var(--border-soft); border-radius:9px; padding:10px 12px; background:var(--surface); cursor:pointer; }
+  .agenda-item .dot{ width:9px; height:9px; border-radius:50%; flex:none; }
+  .agenda-item .a-time{ font-family:'IBM Plex Mono'; font-size:11.5px; color:var(--ink-dim); flex:none; width:150px; }
+  .agenda-item .a-main{ flex:1; min-width:0; }
+  .agenda-item .a-type{ font-weight:700; font-size:13px; }
+  .agenda-item .a-sub{ font-size:11.5px; color:var(--ink-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .agenda-item.cancelled{ opacity:0.55; }
+  .agenda-item.blocked{ background:repeating-linear-gradient(45deg, var(--surface), var(--surface) 6px, var(--surface-2) 6px, var(--surface-2) 12px); border-style:dashed; }
+  .agenda-empty{ padding:24px; text-align:center; color:var(--ink-faint); font-size:13px; }
+
+  .block-band{ position:absolute; left:0; right:0; background:repeating-linear-gradient(45deg, var(--surface-2), var(--surface-2) 7px, var(--border-soft) 7px, var(--border-soft) 14px); border:1px dashed var(--ink-faint); border-radius:6px; padding:4px 7px; font-size:10.5px; color:var(--ink-dim); cursor:pointer; overflow:hidden; }
+  .block-band b{ display:block; font-size:11px; color:var(--ink); }
+
+  @media (max-width:820px){
+    .cal-grid-wrap{ display:none; }
+    .agenda-list{ display:flex; }
+    .cal-date-label{ min-width:0; }
+  }
+
+  .modal-overlay{ position:fixed; inset:0; background:rgba(10,14,13,0.5); display:flex; align-items:center; justify-content:center; padding:16px; z-index:50; }
+  .modal-overlay[hidden]{ display:none; }
+  .modal{ background:var(--surface); border-radius:14px; width:460px; max-width:100%; max-height:88vh; overflow-y:auto; box-shadow:var(--shadow); border:1px solid var(--border-soft); }
+  .modal-head{ display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--border-soft); position:sticky; top:0; background:var(--surface); }
+  .modal-body{ padding:16px 18px; display:flex; flex-direction:column; gap:13px; }
+  .modal-foot{ padding:14px 18px; border-top:1px solid var(--border-soft); display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; position:sticky; bottom:0; background:var(--surface); }
+  .field{ display:flex; flex-direction:column; gap:5px; }
+  .field label{ font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-dim); }
+  .field label span{ text-transform:none; font-weight:400; }
+  .field input, .field select, .field textarea{ border:1px solid var(--border); background:var(--surface); color:var(--ink); border-radius:8px; padding:8px 10px; font-size:13.5px; font-family:inherit; }
+  .field textarea{ resize:vertical; min-height:56px; }
+  .field select[multiple]{ min-height:96px; }
+  .row2{ display:flex; gap:10px; }
+  .row2 > *{ flex:1; }
+  .check-field{ display:flex; align-items:center; gap:7px; font-size:13px; font-weight:600; }
+  .check-field input{ width:15px; height:15px; }
+  .trainer-list{ display:flex; flex-direction:column; gap:6px; max-height:170px; overflow-y:auto; border:1px solid var(--border-soft); border-radius:8px; padding:8px; }
+  .trainer-opt{ display:flex; align-items:center; gap:8px; font-size:13px; }
+  .trainer-opt input{ width:15px; height:15px; }
+  .trainer-opt.inactive{ color:var(--ink-faint); }
+  .required-counter{ font-size:11.5px; font-weight:700; margin-top:6px; }
+  .end-display{ font-size:11.5px; color:var(--ink-dim); }
+  .conflict-box{ background:var(--warning-soft); border:1px solid var(--warning); border-radius:9px; padding:10px 12px; font-size:12.5px; display:flex; flex-direction:column; gap:5px; }
+  .conflict-box b{ color:var(--warning); font-size:11.5px; text-transform:uppercase; letter-spacing:0.04em; }
+  .err{ color:var(--danger); font-size:12px; }
+  .series-note{ font-size:12px; color:var(--ink-dim); background:var(--surface-2); border-radius:8px; padding:8px 10px; }
+  .scope-chooser{ display:flex; gap:8px; flex-wrap:wrap; width:100%; }
+  .scope-chooser .btn{ flex:1; justify-content:center; }
+  .swatch-row{ display:flex; gap:8px; flex-wrap:wrap; }
+  .swatch{ width:26px; height:26px; border-radius:7px; cursor:pointer; border:2px solid transparent; }
+  .swatch.selected{ border-color:var(--ink); }
+  .swatch.locked{ pointer-events:none; opacity:0.4; }
+  .field input:disabled, .field select:disabled, .field textarea:disabled{ opacity:0.6; cursor:not-allowed; }
+  .trainer-opt input:disabled{ cursor:not-allowed; }
+  .trainer-opt:has(input:disabled){ color:var(--ink-faint); }
+
+  .trainer-add{ display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; }
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  thead th{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-dim); padding:8px 10px; border-bottom:1px solid var(--border); }
+  tbody td{ padding:9px 10px; border-bottom:1px solid var(--border-soft); vertical-align:middle; }
+  tbody tr:last-child td{ border-bottom:none; }
+  .status-pill{ display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:99px; font-size:11.5px; font-weight:700; }
+  .status-pill.active{ background:var(--success-soft); color:var(--success); }
+  .status-pill.inactive{ background:var(--surface-2); color:var(--ink-faint); }
+  .table-wrap{ overflow-x:auto; }
+
+  .tag-chip{ display:inline-flex; align-items:center; gap:5px; background:var(--accent-soft); color:var(--accent); font-size:11.5px; font-weight:600; padding:3px 9px; border-radius:99px; }
+  .tag-chip button{ border:none; background:none; color:inherit; cursor:pointer; font-weight:700; padding:0; line-height:1; font-size:12px; }
+
+  .stat-row{ display:flex; gap:12px; flex-wrap:wrap; }
+  .stat-tile{ flex:1; min-width:140px; background:var(--surface-2); border-radius:10px; padding:13px 15px; }
+  .stat-tile .v{ font-family:'IBM Plex Mono'; font-size:24px; font-weight:600; }
+  .stat-tile .l{ font-size:11.5px; color:var(--ink-dim); margin-top:2px; }
+  .bar-row{ display:grid; grid-template-columns:150px 1fr 64px; align-items:center; gap:10px; font-size:13px; padding:6px 0; }
+  .bar-row .bn{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bar-track{ height:8px; background:var(--surface-2); border-radius:99px; overflow:hidden; }
+  .bar-fill{ height:100%; background:var(--accent); border-radius:99px; }
+  .bar-row .bv{ text-align:right; }
+  .tag-inactive{ font-size:10.5px; color:var(--ink-faint); margin-left:4px; }
+  textarea.csv{ width:100%; min-height:180px; font-family:'IBM Plex Mono'; font-size:12px; border:1px solid var(--border); border-radius:8px; padding:10px; background:var(--surface-2); color:var(--ink); }
+
+  .subtabs{ display:flex; gap:4px; background:var(--surface-2); border:1px solid var(--border-soft); border-radius:9px; padding:3px; align-self:flex-start; flex-wrap:wrap; }
+  .subtab{ border:none; background:transparent; color:var(--ink-dim); font-size:12.5px; font-weight:600; padding:6px 12px; border-radius:6px; cursor:pointer; }
+  .subtab.active{ background:var(--surface); color:var(--ink); }
+  .subtab.subtab-urgent{ color:var(--danger); }
+  .subtab.subtab-urgent.active{ background:var(--danger-soft); color:var(--danger); }
+  .subview[hidden]{ display:none; }
+
+  .flag-row{ display:flex; align-items:center; gap:10px; border:1px solid var(--warning); background:var(--warning-soft); border-radius:9px; padding:9px 12px; font-size:13px; cursor:pointer; }
+  .flag-row .fr-main{ flex:1; }
+  .flag-row .fr-sub{ font-size:11.5px; color:var(--ink-dim); }
+  .conflict-pair{ border:1px solid var(--danger); background:var(--danger-soft); border-radius:9px; padding:9px 12px; font-size:13px; }
+
+  .view[hidden]{ display:none; }
+  .flexbar{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark"><img src="data:image/png;base64,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/GMzLdsAAE57aVRYdFhNTDpjb20uYWRvYmUueG1wAAAAAAA8P3hwYWNrZXQgYmVnaW49Iu+7vyIgaWQ9Ilc1TTBNcENlaGlIenJlU3pOVGN6a2M5ZCI/Pgo8eDp4bXBtZXRhIHhtbG5zOng9ImFkb2JlOm5zOm1ldGEvIiB4OnhtcHRrPSJBZG9iZSBYTVAgQ29yZSA1LjUtYzAxNCA3OS4xNTE0ODEsIDIwMTMvMDMvMTMtMTI6MDk6MTUgICAgICAgICI+CiAgIDxyZGY6UkRGIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyI+CiAgICAgIDxyZGY6RGVzY3JpcHRpb24gcmRmOmFib3V0PSIiCiAgICAgICAgICAgIHhtbG5zOnhtcD0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wLyIKICAgICAgICAgICAgeG1sbnM6ZGM9Imh0dHA6Ly9wdXJsLm9yZy9kYy9lbGVtZW50cy8xLjEvIgogICAgICAgICAgICB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIKICAgICAgICAgICAgeG1sbnM6c3RFdnQ9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZUV2ZW50IyIKICAgICAgICAgICAgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiCiAgICAgICAgICAgIHhtbG5zOnBob3Rvc2hvcD0iaHR0cDovL25zLmFkb2JlLmNvbS9waG90b3Nob3AvMS4wLyIKICAgICAgICAgICAgeG1sbnM6eG1wUmlnaHRzPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvcmlnaHRzLyIKICAgICAgICAgICAgeG1sbnM6RXh0ZW5zaXNGb250U2Vuc2U9Imh0dHA6Ly93d3cuZXh0ZW5zaXMuY29tL21ldGEvRm9udFNlbnNlLyIKICAgICAgICAgICAgeG1sbnM6dGlmZj0iaHR0cDovL25zLmFkb2JlLmNvbS90aWZmLzEuMC8iCiAgICAgICAgICAgIHhtbG5zOmV4aWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20vZXhpZi8xLjAvIj4KICAgICAgICAgPHhtcDpDcmVhdG9yVG9vbD5BZG9iZSBQaG90b3Nob3AgQ0MgKFdpbmRvd3MpPC94bXA6Q3JlYXRvclRvb2w+CiAgICAgICAgIDx4bXA6Q3JlYXRlRGF0ZT4yMDE1LTEyLTAxVDE4OjU1OjMzKzAxOjAwPC94bXA6Q3JlYXRlRGF0ZT4KICAgICAgICAgPHhtcDpNZXRhZGF0YURhdGU+MjAxOS0xMi0xMFQxNTowNTowNCswMTowMDwveG1wOk1ldGFkYXRhRGF0ZT4KICAgICAgICAgPHhtcDpNb2RpZnlEYXRlPjIwMTktMTItMTBUMTU6MDU6MDQrMDE6MDA8L3htcDpNb2RpZnlEYXRlPgogICAgICAgICA8ZGM6Zm9ybWF0PmltYWdlL3BuZzwvZGM6Zm9ybWF0PgogICAgICAgICA8eG1wTU06SW5zdGFuY2VJRD54bXAuaWlkOjhlNzBhODI5LTJjMjEtMzQ0Mi04YmFlLTkxN2ZlMTc5MWZiYzwveG1wTU06SW5zdGFuY2VJRD4KICAgICAgICAgPHhtcE1NOkRvY3VtZW50SUQ+YWRvYmU6ZG9jaWQ6cGhvdG9zaG9wOmE3ZjZmNjFlLTNkNmItY2I0ZS1hNWMyLTBhZDI1MDFkY2UyNzwveG1wTU06RG9jdW1lbnRJRD4KICAgICAgICAgPHhtcE1NOk9yaWdpbmFsRG9jdW1lbnRJRD54bXAuZGlkOmFhZmQzNTc5LTFmYjEtNmI0MS05ZGQ4LTk1YjJjNjEyZDk4YjwveG1wTU06T3JpZ2luYWxEb2N1bWVudElEPgogICAgICAgICA8eG1wTU06SGlzdG9yeT4KICAgICAgICAgICAgPHJkZjpTZXE+CiAgICAgICAgICAgICAgIDxyZGY6bGkgcmRmOnBhcnNlVHlwZT0iUmVzb3VyY2UiPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6YWN0aW9uPmNyZWF0ZWQ8L3N0RXZ0OmFjdGlvbj4KICAgICAgICAgICAgICAgICAgPHN0RXZ0Omluc3RhbmNlSUQ+eG1wLmlpZDphYWZkMzU3OS0xZmIxLTZiNDEtOWRkOC05NWIyYzYxMmQ5OGI8L3N0RXZ0Omluc3RhbmNlSUQ+CiAgICAgICAgICAgICAgICAgIDxzdEV2dDp3aGVuPjIwMTUtMTItMDFUMTg6NTU6MzMrMDE6MDA8L3N0RXZ0OndoZW4+CiAgICAgICAgICAgICAgICAgIDxzdEV2dDpzb2Z0d2FyZUFnZW50PkFkb2JlIFBob3Rvc2hvcCBDQyAyMDE1IChXaW5kb3dzKTwvc3RFdnQ6c29mdHdhcmVBZ2VudD4KICAgICAgICAgICAgICAgPC9yZGY6bGk+CiAgICAgICAgICAgICAgIDxyZGY6bGkgcmRmOnBhcnNlVHlwZT0iUmVzb3VyY2UiPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6YWN0aW9uPnNhdmVkPC9zdEV2dDphY3Rpb24+CiAgICAgICAgICAgICAgICAgIDxzdEV2dDppbnN0YW5jZUlEPnhtcC5paWQ6N2U1MTg1MDYtMjZiZi1jMjRjLTg3ODUtODY5NDZkZjE4N2VlPC9zdEV2dDppbnN0YW5jZUlEPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6d2hlbj4yMDE1LTEyLTAxVDE4OjU3OjE2KzAxOjAwPC9zdEV2dDp3aGVuPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6c29mdHdhcmVBZ2VudD5BZG9iZSBQaG90b3Nob3AgQ0MgMjAxNSAoV2luZG93cyk8L3N0RXZ0OnNvZnR3YXJlQWdlbnQ+CiAgICAgICAgICAgICAgICAgIDxzdEV2dDpjaGFuZ2VkPi88L3N0RXZ0OmNoYW5nZWQ+CiAgICAgICAgICAgICAgIDwvcmRmOmxpPgogICAgICAgICAgICAgICA8cmRmOmxpIHJkZjpwYXJzZVR5cGU9IlJlc291cmNlIj4KICAgICAgICAgICAgICAgICAgPHN0RXZ0OmFjdGlvbj5zYXZlZDwvc3RFdnQ6YWN0aW9uPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6aW5zdGFuY2VJRD54bXAuaWlkOmExNzEyYjQxLWFhYTAtNTk0OS1iYjIyLTI2MmRlZWE1MWUwMzwvc3RFdnQ6aW5zdGFuY2VJRD4KICAgICAgICAgICAgICAgICAgPHN0RXZ0OndoZW4+MjAxOS0xMi0xMFQxNTowNTowMyswMTowMDwvc3RFdnQ6d2hlbj4KICAgICAgICAgICAgICAgICAgPHN0RXZ0OnNvZnR3YXJlQWdlbnQ+QWRvYmUgUGhvdG9zaG9wIENDIChXaW5kb3dzKTwvc3RFdnQ6c29mdHdhcmVBZ2VudD4KICAgICAgICAgICAgICAgICAgPHN0RXZ0OmNoYW5nZWQ+Lzwvc3RFdnQ6Y2hhbmdlZD4KICAgICAgICAgICAgICAgPC9yZGY6bGk+CiAgICAgICAgICAgICAgIDxyZGY6bGkgcmRmOnBhcnNlVHlwZT0iUmVzb3VyY2UiPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6YWN0aW9uPmNvbnZlcnRlZDwvc3RFdnQ6YWN0aW9uPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6cGFyYW1ldGVycz5mcm9tIGFwcGxpY2F0aW9uL3ZuZC5hZG9iZS5waG90b3Nob3AgdG8gaW1hZ2UvcG5nPC9zdEV2dDpwYXJhbWV0ZXJzPgogICAgICAgICAgICAgICA8L3JkZjpsaT4KICAgICAgICAgICAgICAgPHJkZjpsaSByZGY6cGFyc2VUeXBlPSJSZXNvdXJjZSI+CiAgICAgICAgICAgICAgICAgIDxzdEV2dDphY3Rpb24+ZGVyaXZlZDwvc3RFdnQ6YWN0aW9uPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6cGFyYW1ldGVycz5jb252ZXJ0ZWQgZnJvbSBhcHBsaWNhdGlvbi92bmQuYWRvYmUucGhvdG9zaG9wIHRvIGltYWdlL3BuZzwvc3RFdnQ6cGFyYW1ldGVycz4KICAgICAgICAgICAgICAgPC9yZGY6bGk+CiAgICAgICAgICAgICAgIDxyZGY6bGkgcmRmOnBhcnNlVHlwZT0iUmVzb3VyY2UiPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6YWN0aW9uPnNhdmVkPC9zdEV2dDphY3Rpb24+CiAgICAgICAgICAgICAgICAgIDxzdEV2dDppbnN0YW5jZUlEPnhtcC5paWQ6OGU3MGE4MjktMmMyMS0zNDQyLThiYWUtOTE3ZmUxNzkxZmJjPC9zdEV2dDppbnN0YW5jZUlEPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6d2hlbj4yMDE5LTEyLTEwVDE1OjA1OjA0KzAxOjAwPC9zdEV2dDp3aGVuPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6c29mdHdhcmVBZ2VudD5BZG9iZSBQaG90b3Nob3AgQ0MgKFdpbmRvd3MpPC9zdEV2dDpzb2Z0d2FyZUFnZW50PgogICAgICAgICAgICAgICAgICA8c3RFdnQ6Y2hhbmdlZD4vPC9zdEV2dDpjaGFuZ2VkPgogICAgICAgICAgICAgICA8L3JkZjpsaT4KICAgICAgICAgICAgPC9yZGY6U2VxPgogICAgICAgICA8L3htcE1NOkhpc3Rvcnk+CiAgICAgICAgIDx4bXBNTTpEZXJpdmVkRnJvbSByZGY6cGFyc2VUeXBlPSJSZXNvdXJjZSI+CiAgICAgICAgICAgIDxzdFJlZjppbnN0YW5jZUlEPnhtcC5paWQ6YTE3MTJiNDEtYWFhMC01OTQ5LWJiMjItMjYyZGVlYTUxZTAzPC9zdFJlZjppbnN0YW5jZUlEPgogICAgICAgICAgICA8c3RSZWY6ZG9jdW1lbnRJRD5hZG9iZTpkb2NpZDpwaG90b3Nob3A6YTdmNmY2MWUtM2Q2Yi1jYjRlLWE1YzItMGFkMjUwMWRjZTI3PC9zdFJlZjpkb2N1bWVudElEPgogICAgICAgICAgICA8c3RSZWY6b3JpZ2luYWxEb2N1bWVudElEPnhtcC5kaWQ6YWFmZDM1NzktMWZiMS02YjQxLTlkZDgtOTViMmM2MTJkOThiPC9zdFJlZjpvcmlnaW5hbERvY3VtZW50SUQ+CiAgICAgICAgIDwveG1wTU06RGVyaXZlZEZyb20+CiAgICAgICAgIDxwaG90b3Nob3A6Q29sb3JNb2RlPjM8L3Bob3Rvc2hvcDpDb2xvck1vZGU+CiAgICAgICAgIDxwaG90b3Nob3A6SUNDUHJvZmlsZT5zUkdCIElFQzYxOTY2LTIuMTwvcGhvdG9zaG9wOklDQ1Byb2ZpbGU+CiAgICAgICAgIDxwaG90b3Nob3A6RG9jdW1lbnRBbmNlc3RvcnM+CiAgICAgICAgICAgIDxyZGY6QmFnPgogICAgICAgICAgICAgICA8cmRmOmxpPjM5NjhBNTgyREY3NTU0Mzg4OTlGNTA0NDlFRERBN0JFPC9yZGY6bGk+CiAgICAgICAgICAgICAgIDxyZGY6bGk+OEQwMjczMTM4RTk1M0QwRDEwRkQ3OEQ0NURDOUYwRjQ8L3JkZjpsaT4KICAgICAgICAgICAgICAgPHJkZjpsaT45NkVCQTE3RkM1REJGMEI2Rjc0RTBGRDFFNkMyOUUzQTwvcmRmOmxpPgogICAgICAgICAgICAgICA8cmRmOmxpPkExMkZFQjRCRDlDN0ZDNjVGQkNDMEI3ODVDRUVFOTUzPC9yZGY6bGk+CiAgICAgICAgICAgICAgIDxyZGY6bGk+Q0MyN0IyOTVEODgzQzc1OEJBODc1NEU5RTZDNjRDMUQ8L3JkZjpsaT4KICAgICAgICAgICAgICAgPHJkZjpsaT5hZG9iZTpkb2NpZDpwaG90b3Nob3A6N2ZmZDkxOWYtMWE3MS0xMTc5LWFhMzItOTgwY2E2NzUzNTllPC9yZGY6bGk+CiAgICAgICAgICAgICAgIDxyZGY6bGk+YWRvYmU6ZG9jaWQ6cGhvdG9zaG9wOjlmOTRmZTVhLWZkYTctOGU0ZC1hNWQzLTc5M2I1MzMzOTBiZjwvcmRmOmxpPgogICAgICAgICAgICAgICA8cmRmOmxpPmFkb2JlOmRvY2lkOnBob3Rvc2hvcDphOWQ3YjhmNS0xYTcxLTExNzktYWEzMi05ODBjYTY3NTM1OWU8L3JkZjpsaT4KICAgICAgICAgICAgICAgPHJkZjpsaT5hZG9iZTpkb2NpZDpwaG90b3Nob3A6YmNlNTcyYTUtMWE3MS0xMTc5LWFhMzItOTgwY2E2NzUzNTllPC9yZGY6bGk+CiAgICAgICAgICAgICAgIDxyZGY6bGk+eG1wLmRpZDowMTgwMTE3NDA3MjA2ODExQkZGMEY0QUM3MTNGQTM0MTwvcmRmOmxpPgogICAgICAgICAgICAgICA8cmRmOmxpPnhtcC5kaWQ6MDc4MDExNzQwNzIwNjgxMUI4QzZFNEIwNjQzNzcxRkU8L3JkZjpsaT4KICAgICAgICAgICAgICAgPHJkZjpsaT54bXAuZGlkOjgwNTUyMENGMDgyMDY4MTE4RjJFQzQ3MDI3RDA1ODU0PC9yZGY6bGk+CiAgICAgICAgICAgICAgIDxyZGY6bGk+eG1wLmRpZDpDMkFEODBCMEMxODAxMUU2OENFOUUzQjgyQzVFRTA3MTwvcmRmOmxpPgogICAgICAgICAgICAgICA8cmRmOmxpPnhtcC5kaWQ6YmQ2NDgyMWMtMjM4Zi1kMjRlLWFlMWItMmFjYWNjMDg0ODc1PC9yZGY6bGk+CiAgICAgICAgICAgICAgIDxyZGY6bGk+eG1wLmRpZDpjNzU0MTBmMS0wZjAwLTU5NGEtYmEwMS1iNjVjMDc1Njk3YTY8L3JkZjpsaT4KICAgICAgICAgICAgPC9yZGY6QmFnPgogICAgICAgICA8L3Bob3Rvc2hvcDpEb2N1bWVudEFuY2VzdG9ycz4KICAgICAgICAgPHhtcFJpZ2h0czpNYXJrZWQ+RmFsc2U8L3htcFJpZ2h0czpNYXJrZWQ+CiAgICAgICAgIDxFeHRlbnNpc0ZvbnRTZW5zZTpzbHVnPgogICAgICAgICAgICA8cmRmOkJhZz4KICAgICAgICAgICAgICAgPHJkZjpsaSByZGY6cGFyc2VUeXBlPSJSZXNvdXJjZSI+CiAgICAgICAgICAgICAgICAgIDxFeHRlbnNpc0ZvbnRTZW5zZTpGb250S2luZD5PcGVuVHlwZSAtIFRUPC9FeHRlbnNpc0ZvbnRTZW5zZTpGb250S2luZD4KICAgICAgICAgICAgICAgICAgPEV4dGVuc2lzRm9udFNlbnNlOkZhbWlseT5Db3VyaWVyIE5ldzwvRXh0ZW5zaXNGb250U2Vuc2U6RmFtaWx5PgogICAgICAgICAgICAgICAgICA8RXh0ZW5zaXNGb250U2Vuc2U6T3V0bGluZUZpbGVTaXplPjA8L0V4dGVuc2lzRm9udFNlbnNlOk91dGxpbmVGaWxlU2l6ZT4KICAgICAgICAgICAgICAgICAgPEV4dGVuc2lzRm9udFNlbnNlOkZvdW5kcnk+TW9ub3R5cGUgVHlwb2dyYXBoeTwvRXh0ZW5zaXNGb250U2Vuc2U6Rm91bmRyeT4KICAgICAgICAgICAgICAgICAgPEV4dGVuc2lzRm9udFNlbnNlOlZlcnNpb24+Ni44NTwvRXh0ZW5zaXNGb250U2Vuc2U6VmVyc2lvbj4KICAgICAgICAgICAgICAgICAgPEV4dGVuc2lzRm9udFNlbnNlOktlcm5pbmdDaGVja3N1bT4wPC9FeHRlbnNpc0ZvbnRTZW5zZTpLZXJuaW5nQ2hlY2tzdW0+CiAgICAgICAgICAgICAgICAgIDxFeHRlbnNpc0ZvbnRTZW5zZTpGb250U2Vuc2VfMS4yX0NoZWNrc3VtPjEyMzA2NzQwMzc8L0V4dGVuc2lzRm9udFNlbnNlOkZvbnRTZW5zZV8xLjJfQ2hlY2tzdW0+CiAgICAgICAgICAgICAgICAgIDxFeHRlbnNpc0ZvbnRTZW5zZTpDaGVja3N1bT4xMjMwNjc0MDM3PC9FeHRlbnNpc0ZvbnRTZW5zZTpDaGVja3N1bT4KICAgICAgICAgICAgICAgICAgPEV4dGVuc2lzRm9udFNlbnNlOlBvc3RTY3JpcHROYW1lPkNvdXJpZXJOZXdQU01UPC9FeHRlbnNpc0ZvbnRTZW5zZTpQb3N0U2NyaXB0TmFtZT4KICAgICAgICAgICAgICAgPC9yZGY6bGk+CiAgICAgICAgICAgICAgIDxyZGY6bGkgcmRmOnBhcnNlVHlwZT0iUmVzb3VyY2UiPgogICAgICAgICAgICAgICAgICA8RXh0ZW5zaXNGb250U2Vuc2U6Rm9udEtpbmQ+T3BlblR5cGUgLSBUVDwvRXh0ZW5zaXNGb250U2Vuc2U6Rm9udEtpbmQ+CiAgICAgICAgICAgICAgICAgIDxFeHRlbnNpc0ZvbnRTZW5zZTpGYW1pbHk+Q291cmllciBOZXc8L0V4dGVuc2lzRm9udFNlbnNlOkZhbWlseT4KICAgICAgICAgICAgICAgICAgPEV4dGVuc2lzRm9udFNlbnNlOk91dGxpbmVGaWxlU2l6ZT4wPC9FeHRlbnNpc0ZvbnRTZW5zZTpPdXRsaW5lRmlsZVNpemU+CiAgICAgICAgICAgICAgICAgIDxFeHRlbnNpc0ZvbnRTZW5zZTpGb3VuZHJ5Pk1vbm90eXBlIFR5cG9ncmFwaHk8L0V4dGVuc2lzRm9udFNlbnNlOkZvdW5kcnk+CiAgICAgICAgICAgICAgICAgIDxFeHRlbnNpc0ZvbnRTZW5zZTpWZXJzaW9uPjYuODU8L0V4dGVuc2lzRm9udFNlbnNlOlZlcnNpb24+CiAgICAgICAgICAgICAgICAgIDxFeHRlbnNpc0ZvbnRTZW5zZTpLZXJuaW5nQ2hlY2tzdW0+MDwvRXh0ZW5zaXNGb250U2Vuc2U6S2VybmluZ0NoZWNrc3VtPgogICAgICAgICAgICAgICAgICA8RXh0ZW5zaXNGb250U2Vuc2U6Rm9udFNlbnNlXzEuMl9DaGVja3N1bT40MDA5OTE4MDg0PC9FeHRlbnNpc0ZvbnRTZW5zZTpGb250U2Vuc2VfMS4yX0NoZWNrc3VtPgogICAgICAgICAgICAgICAgICA8RXh0ZW5zaXNGb250U2Vuc2U6Q2hlY2tzdW0+NDAwOTkxODA4NDwvRXh0ZW5zaXNGb250U2Vuc2U6Q2hlY2tzdW0+CiAgICAgICAgICAgICAgICAgIDxFeHRlbnNpc0ZvbnRTZW5zZTpQb3N0U2NyaXB0TmFtZT5Db3VyaWVyTmV3UFMtQm9sZE1UPC9FeHRlbnNpc0ZvbnRTZW5zZTpQb3N0U2NyaXB0TmFtZT4KICAgICAgICAgICAgICAgPC9yZGY6bGk+CiAgICAgICAgICAgIDwvcmRmOkJhZz4KICAgICAgICAgPC9FeHRlbnNpc0ZvbnRTZW5zZTpzbHVnPgogICAgICAgICA8dGlmZjpPcmllbnRhdGlvbj4xPC90aWZmOk9yaWVudGF0aW9uPgogICAgICAgICA8dGlmZjpYUmVzb2x1dGlvbj43MjAwMDAvMTAwMDA8L3RpZmY6WFJlc29sdXRpb24+CiAgICAgICAgIDx0aWZmOllSZXNvbHV0aW9uPjcyMDAwMC8xMDAwMDwvdGlmZjpZUmVzb2x1dGlvbj4KICAgICAgICAgPHRpZmY6UmVzb2x1dGlvblVuaXQ+MjwvdGlmZjpSZXNvbHV0aW9uVW5pdD4KICAgICAgICAgPGV4aWY6Q29sb3JTcGFjZT4xPC9leGlmOkNvbG9yU3BhY2U+CiAgICAgICAgIDxleGlmOlBpeGVsWERpbWVuc2lvbj4yODg8L2V4aWY6UGl4ZWxYRGltZW5zaW9uPgogICAgICAgICA8ZXhpZjpQaXhlbFlEaW1lbnNpb24+Nzk8L2V4aWY6UGl4ZWxZRGltZW5zaW9uPgogICAgICA8L3JkZjpEZXNjcmlwdGlvbj4KICAgPC9yZGY6UkRGPgo8L3g6eG1wbWV0YT4KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAKPD94cGFja2V0IGVuZD0idyI/PseZbJIAAAAgY0hSTQAAeiUAAICDAAD5/wAAgOkAAHUwAADqYAAAOpgAABdvkl/FRgAAFLZJREFUeNrsnXtATVn7x7+nzjk1XUk1IjRGuUTImMmIOhiXcevCDMaQS8qtEsZlmkxlyiW6+EnvzDARiTBILuFNhGgUYVyKIYwmUlJKp3PO7w/Tee126tw6Rc/nv/OcvdZee+29vvtZa6/1LI5EIpGAIAiiEdCgKiAIggSIIAgSIIIgCBIggiBIgAiCIEiACIIgASIIgiABIgiCBIggCIIEiCAIEiCCIAgSIIIgSIAIgiBIgAiCaHJw1XUiiUSC0NBQlJWVMuyzZnmgTZs2CucrLrgCybNbDBunZSdofGgrd15CoRCRkZF48aJEqWtt3bo1PD1nK5XHpk1R+Oeff2Q+ns/XgqmpKezs7GBtbQ0Oh6PS+7d//35cvpyl8ufCyckZvXr1UihtcXExiouLYWFhobYG8+TJE1y8eBF3795FYeFTad23a9cO1tbWsLGxAZfLbbQGXVxcjIyMi8jNzUVBQQEkEgl4PD7atGmD7t2tYWPTE1paWs1PgDgcDjQ1NbF582aGvaKiAqtWrVYsU1ElRDe2Q/LqTcHggGdur1B2PB4PgwYNwqRJk1Ba+kLha+3WrZvSAtS6tRmCg4MVStuhQwcsXLgIzs7OKrt/p0+nIiEhQeXPhbW1tcICVFr6AuPHj0NCwp4GFaGqqiocPHgQW7fGIDMzs85jW7ZsibFjneDh4QFzc3O1vdxPnDiOLVu24Ny5cxCLxW89Vk9PHyNH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" alt="Vertigo"></div>
+      <div class="brand-text">
+        <h1>Rozpis Inštruktori</h1>
+        <span>Prototyp &middot; testovacia verzia, nepripojené k reálnemu kalendáru</span>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-view="calendar">Kalendár</button>
+      <button class="tab" data-view="team" id="teamTabBtn">Tím</button>
+      <button class="tab" data-view="reports">Reporty</button>
+    </nav>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span style="font-size:11px; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.04em;">Prihlásený ako</span>
+      <select id="viewingAsSelect" autocomplete="off" style="border:1px solid var(--border); background:var(--surface); color:var(--ink); border-radius:8px; padding:6px 9px; font-size:12.5px;"></select>
+    </div>
+    <button class="btn btn-ghost btn-sm" id="resetBtn">Obnoviť vzorové dáta</button>
+    <button class="btn btn-sm" id="refreshBtn">Obnoviť dáta</button>
+    <button class="btn btn-ghost btn-sm" id="signOutBtn">Odhlásiť</button>
+  </div>
+
+  <div class="notice" id="roleBanner"></div>
+
+  <div id="authGate" hidden>
+    <div class="card" style="max-width:380px; width:100%; text-align:center; display:flex; flex-direction:column; gap:14px;">
+      <h2 style="margin:0;">Rozpis Inštruktori</h2>
+      <p style="margin:0; color:var(--ink-dim); font-size:13px;">Prihláste sa účtom Google, ktorý je v zozname tímu.</p>
+      <div id="gsiBtn" style="display:flex; justify-content:center; min-height:44px;"></div>
+      <p id="gateMsg" style="margin:0; font-size:13px; color:var(--danger);"></p>
+    </div>
+  </div>
+
+  <!-- CALENDAR VIEW -->
+  <section class="view" id="view-calendar">
+    <div class="card" style="display:flex; flex-direction:column; gap:14px;">
+      <div class="cal-toolbar">
+        <div class="cal-nav">
+          <button class="btn btn-sm" id="prevDay">&larr;</button>
+          <div class="cal-date-label" id="calDateLabel">&nbsp;</div>
+          <button class="btn btn-sm" id="nextDay">&rarr;</button>
+          <button class="btn btn-sm" id="todayBtn">Dnes</button>
+          <div class="tabs" style="padding:3px;">
+            <button class="tab" data-mode="day" id="modeDay">Deň</button>
+            <button class="tab active" data-mode="week" id="modeWeek">Týždeň</button>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-primary btn-sm" id="addSessionBtn">+ Pridať tréning</button>
+          <button class="btn btn-sm" id="addBlockBtn">+ Blokovať čas</button>
+        </div>
+      </div>
+      <div class="subtabs" id="clientScopeToggle">
+        <button class="subtab" data-scope="gym">Vertigo</button>
+        <button class="subtab" data-scope="private">Súkromné</button>
+        <button class="subtab active" data-scope="both">Oboje</button>
+      </div>
+      <div class="week-strip" id="weekStrip"></div>
+      <div class="legend" id="legend"></div>
+      <div class="cal-grid-wrap" id="calGridWrap">
+        <div class="cal-col cal-timecol"><div class="col-head"></div><div class="cal-body" id="timeGutter"></div></div>
+      </div>
+      <div class="agenda-list" id="agendaList"></div>
+    </div>
+  </section>
+
+  <!-- REPORTS VIEW -->
+  <section class="view" id="view-reports" hidden>
+    <div class="card" style="display:flex; flex-direction:column; gap:16px;">
+      <div class="row2" style="flex-wrap:wrap; align-items:flex-start;">
+        <div class="field" style="min-width:170px;">
+          <label for="reportMonth">Mesiac(e)</label>
+          <select id="reportMonth" multiple size="4"></select>
+          <span style="font-size:11px; color:var(--ink-dim);">Cmd/Ctrl-klik pre výber viacerých</span>
+        </div>
+        <div class="field" style="min-width:150px;">
+          <label for="reportStatus">Stav</label>
+          <select id="reportStatus" multiple size="4">
+            <option value="confirmed">Potvrdené</option>
+            <option value="tentative">Predbežné</option>
+            <option value="completed">Dokončené</option>
+            <option value="cancelled">Zrušené</option>
+          </select>
+          <span style="font-size:11px; color:var(--ink-dim);"><a href="#" id="statusSelectAll" style="color:var(--accent);">Vybrať všetko</a> &middot; <a href="#" id="statusSelectNone" style="color:var(--accent);">Vymazať</a> &middot; nič = všetky stavy</span>
+        </div>
+        <div class="field" style="min-width:220px;">
+          <label for="reportTagInput">Značka obsahuje</label>
+          <div style="display:flex; gap:6px;">
+            <input id="reportTagInput" type="text" list="reportTagDatalist" placeholder="napr. Medvedica">
+            <button class="btn btn-sm" id="reportTagAddBtn">+ Pridať</button>
+          </div>
+          <datalist id="reportTagDatalist"></datalist>
+          <div id="reportTagChips" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;"></div>
+        </div>
+      </div>
+      <div class="subtabs" id="reportSubtabs">
+        <button class="subtab subtab-urgent active" data-sub="missing">Chýba tréner</button>
+        <button class="subtab subtab-urgent" data-sub="conflicts">Konflikty</button>
+        <button class="subtab" data-sub="activity">Aktivita</button>
+        <button class="subtab" data-sub="summary">Prehľad</button>
+        <button class="subtab" data-sub="vertigo">Vertigo</button>
+        <button class="subtab" data-sub="private">Súkromné</button>
+        <button class="subtab" data-sub="bytrainer">Podľa trénera</button>
+        <button class="subtab" data-sub="load">Vyťaženosť</button>
+      </div>
+
+      <div class="subview" id="sub-missing">
+        <div id="missingList" style="display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
+
+      <div class="subview" id="sub-conflicts" hidden>
+        <div id="conflictsList" style="display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
+
+      <div class="subview" id="sub-activity" hidden>
+        <div class="flexbar" style="margin-bottom:12px;">
+          <div class="subtabs" id="activityRange">
+            <button class="subtab" data-h="24">24 hodín</button>
+            <button class="subtab active" data-h="168">7 dní</button>
+          </div>
+          <span style="font-size:11.5px; color:var(--ink-dim);">Nezávisí od filtrov vyššie.</span>
+        </div>
+        <div id="activityBody" style="display:flex; flex-direction:column; gap:16px;"></div>
+      </div>
+
+      <div class="subview" id="sub-summary" hidden>
+        <div class="flexbar" style="margin-bottom:10px;">
+          <div></div>
+          <button class="btn btn-sm" id="exportBtn">Exportovať dáta (CSV)</button>
+        </div>
+        <div class="stat-row" id="reportStats"></div>
+        <div style="margin-top:16px; display:flex; flex-direction:column; gap:12px;">
+          <div class="flexbar">
+            <h3 style="font-size:13px;">Podľa trénera</h3>
+            <div class="field" style="min-width:190px;">
+              <label for="summaryOrderBy" style="font-size:10.5px;">Zoradiť podľa</label>
+              <select id="summaryOrderBy">
+                <option value="name">Meno trénera</option>
+                <option value="completedHours">Dokončené hodiny</option>
+                <option value="plannedHours">Plánované hodiny</option>
+                <option value="cancelledHours">Zrušené hodiny</option>
+                <option value="privateHours">Súkromné hodiny</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Tréner</th><th>Dokonč. hod.</th><th>Plán. hod.</th><th>Zruš. hod.</th><th>Súkromné hod.</th></tr></thead>
+              <tbody id="reportByTrainerBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="subview" id="sub-vertigo" hidden>
+        <div class="stat-row" id="vertigoStats"></div>
+        <label class="check-field" style="margin-top:14px;"><input type="checkbox" id="vertigoUnpaidOnly" checked> Iba nezaplatené</label>
+        <div id="vertigoList" style="margin-top:10px; display:flex; flex-direction:column; gap:6px;"></div>
+      </div>
+
+      <div class="subview" id="sub-private" hidden>
+        <div class="stat-row" id="privateStats"></div>
+        <label class="check-field" style="margin-top:14px;"><input type="checkbox" id="privateUnpaidOnly"> Iba nezaplatené</label>
+        <div id="privateList" style="margin-top:10px; display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
+
+      <div class="subview" id="sub-load" hidden>
+        <div class="flexbar" style="margin-bottom:8px;">
+          <button class="btn" id="loadPrev">&larr;</button>
+          <b id="loadWeekLabel" style="min-width:150px; text-align:center;"></b>
+          <button class="btn" id="loadNext">&rarr;</button>
+          <button class="btn" id="loadToday">Tento týždeň</button>
+        </div>
+        <p style="font-size:11.5px; color:var(--ink-dim); margin:0 0 10px;">Počet osôb v telocvični v danej hodine (všetky tréningy Vertigo aj súkromné, bez zrušených). Ak počet osôb nie je zadaný, počíta sa 1. Čísla slúžia len na odhad vyťaženosti; nič iné sa z nich nepočíta. Nezávisí od filtrov vyššie.</p>
+        <div id="loadGrid" style="overflow-x:auto;"></div>
+      </div>
+
+      <div class="subview" id="sub-bytrainer" hidden>
+        <div class="field" style="max-width:260px; margin-bottom:12px;">
+          <label for="byTrainerSelect">Zobraziť tréningy pre</label>
+          <select id="byTrainerSelect"></select>
+        </div>
+        <div id="byTrainerList" style="display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TEAM VIEW (Admin & Owner only) -->
+  <section class="view" id="view-team" hidden>
+    <div class="card" style="display:flex; flex-direction:column; gap:16px;">
+      <div class="flexbar">
+        <div>
+          <h2 style="font-size:16px;">Tím</h2>
+          <p style="font-size:12.5px; color:var(--ink-dim); margin:4px 0 0;">Zoznam ľudí, roly a kto je aktívny. Zmena roly tu je presne to, čo by sa stalo naozaj &mdash; rovnaký Google účet, len iný prístup od tej chvíle.</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="font-size:12px; color:var(--ink-dim);" id="rosterCount"></span>
+          <button class="btn btn-ghost btn-sm" id="toggleHiddenBtn"></button>
+        </div>
+      </div>
+      <div class="trainer-add">
+        <div class="field" style="flex:2; min-width:160px;">
+          <label for="newTrainerName">Meno</label>
+          <input id="newTrainerName" type="text" placeholder="napr. Radka Horná">
+        </div>
+        <button class="btn btn-primary" id="addTrainerBtn">+ Pridať osobu</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Meno</th><th>Rola</th><th>Stav</th><th>Tréningy (tento mes.)</th><th>Hodiny (tento mes.)</th><th></th><th></th></tr></thead>
+          <tbody id="teamTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Session modal -->
+<div class="modal-overlay" id="sessionOverlay" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h3 id="modalTitle" style="font-size:15px;">Pridať tréning</h3>
+        <div id="modalMeta" style="font-size:10.5px; color:var(--ink-faint); margin-top:2px;" hidden></div>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="closeModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="series-note" id="modalLockNote" hidden></div>
+      <div class="field"><label for="f-client">Klient / skupina</label><input id="f-client" type="text" placeholder="napr. rodina Nováková, alebo skupina 7-9 rokov"></div>
+      <div class="row2">
+        <div class="field"><label for="f-tag">Značka <span>(na filtrovanie v reportoch)</span></label><input id="f-tag" type="text" list="tagDatalist" placeholder="napr. Medvedica"><datalist id="tagDatalist"></datalist></div>
+        <div class="field"><label for="f-type">Typ tréningu</label><select id="f-type"></select></div>
+      </div>
+      <div class="field" id="recurRow"><label class="check-field"><input type="checkbox" id="f-repeat"> Opakuje sa týždenne</label></div>
+      <div class="row2" id="recurUntilRow" hidden>
+        <div class="field"><label for="f-until">Opakovať do <span id="occurrenceCount" style="font-weight:400; text-transform:none;"></span></label><input id="f-until" type="date"></div>
+        <div class="field"><span style="font-size:11.5px; color:var(--ink-dim); align-self:flex-end;">Vytvorí jeden tréning týždenne, v rovnaký deň a čas.</span></div>
+      </div>
+      <div class="series-note" id="seriesNote" hidden></div>
+      <div class="field"><label>Farba</label><div class="swatch-row" id="colorSwatches"></div></div>
+      <div class="row2">
+        <div class="field"><label for="f-date">Dátum</label><input id="f-date" type="date"></div>
+        <div class="field"><label for="f-status">Stav</label>
+          <select id="f-status"><option value="confirmed">Potvrdené</option><option value="tentative">Predbežné</option><option value="completed">Dokončené</option></select>
+        </div>
+      </div>
+      <div class="field">
+        <label class="check-field"><input type="checkbox" id="f-paid"> Zaplatené</label>
+        <div id="paidMeta" style="font-size:10.5px; color:var(--ink-faint); margin-top:2px;" hidden></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="f-start">Začiatok</label><input id="f-start" type="time" step="900"></div>
+        <div class="field"><label for="f-duration">Trvanie <span>(minúty)</span></label><input id="f-duration" type="number" min="15" step="15" value="60"></div>
+      </div>
+      <div class="end-display" id="endDisplay"></div>
+      <div class="row2">
+        <div class="field"><label for="f-phone">Telefón <span>(nepovinné)</span></label><input id="f-phone" type="text" placeholder="napr. 0905 123 456"></div>
+        <div class="field"><label for="f-people">Počet osôb <span>(nepovinné, slúži len na výpočet vyťaženosti)</span></label><input id="f-people" type="number" min="0" placeholder="napr. 8"></div>
+      </div>
+      <div class="field"><label for="f-required">Potrebných trénerov</label><input id="f-required" type="number" min="0" step="1" placeholder="napr. 2"></div>
+      <div class="field">
+        <label>Priradení tréneri</label>
+        <div class="trainer-list" id="trainerCheckList"></div>
+        <div class="required-counter" id="requiredCounter"></div>
+      </div>
+      <div class="field"><label for="f-notes">Poznámky</label><textarea id="f-notes" placeholder="napr. 1x bezlepkové, len voda"></textarea></div>
+      <div id="dateErr" class="err" hidden>Dátum a čas začiatku sú povinné.</div>
+      <div id="backdateErr" class="err" hidden>Tréner môže tréning zadať najviac 1 deň spätne. Staršie zmeny robí administrátor alebo majiteľ.</div>
+      <div class="conflict-box" id="conflictBox" hidden></div>
+    </div>
+    <div class="modal-foot">
+      <div style="display:flex; gap:6px; flex-wrap:wrap;" id="editOnlyActions"></div>
+      <div class="scope-chooser" id="scopeChooser" hidden>
+        <button class="btn" id="scopeJust">Len tento tréning</button>
+        <button class="btn" id="scopeFuture">Tento a budúce tréningy</button>
+        <button class="btn btn-ghost btn-sm" id="scopeBack">Späť</button>
+      </div>
+      <button class="btn btn-primary" id="saveBtn">Uložiť tréning</button>
+    </div>
+  </div>
+</div>
+
+<!-- Block time modal -->
+<div class="modal-overlay" id="blockOverlay" hidden>
+  <div class="modal" style="width:420px;">
+    <div class="modal-head">
+      <div>
+        <h3 id="blockTitle" style="font-size:15px;">Blokovať čas</h3>
+        <div id="blockModalMeta" style="font-size:10.5px; color:var(--ink-faint); margin-top:2px;" hidden></div>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="closeBlock">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="series-note" id="blockLockNote" hidden></div>
+      <div class="field"><label for="b-label">Dôvod</label><input id="b-label" type="text" placeholder="napr. Kontrola steny, posilňovňa zatvorená"></div>
+      <div class="row2">
+        <div class="field"><label for="b-date">Dátum</label><input id="b-date" type="date"></div>
+        <div class="field"><label class="check-field" style="margin-top:22px;"><input type="checkbox" id="b-allday"> Blokovať celý deň</label></div>
+      </div>
+      <div class="row2" id="blockTimeRow">
+        <div class="field"><label for="b-start">Začiatok</label><input id="b-start" type="time" step="900"></div>
+        <div class="field"><label for="b-duration">Trvanie <span>(minúty)</span></label><input id="b-duration" type="number" min="15" step="15" value="60"></div>
+      </div>
+      <div class="end-display" id="blockEndDisplay"></div>
+      <div class="conflict-box" id="blockConflictBox" hidden></div>
+    </div>
+    <div class="modal-foot">
+      <div style="display:flex; gap:6px;" id="blockEditOnlyActions"></div>
+      <button class="btn btn-primary" id="blockSaveBtn">Uložiť blok</button>
+    </div>
+  </div>
+</div>
+
+<!-- Export modal -->
+<div class="modal-overlay" id="exportOverlay" hidden>
+  <div class="modal" style="width:420px;">
+    <div class="modal-head"><h3 style="font-size:15px;">Exportovať dáta</h3><button class="btn btn-ghost btn-sm" id="closeExport">✕</button></div>
+    <div class="modal-body">
+      <p style="font-size:12px; color:var(--ink-dim); margin:0;">Jeden riadok na tréning, vrátane dátumu, takže sa dá ľahko prehľadovať podľa týždňa alebo mesiaca v tabuľkovom editore. V reálnom systéme by to bol stiahnuteľný súbor (alebo živý Google Sheet). Tu si text skopírujte nižšie.</p>
+      <textarea class="csv" id="csvOut" readonly></textarea>
+      <button class="btn btn-primary btn-sm" id="copyCsvBtn" style="align-self:flex-start;">Vybrať všetko</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+(function(){
+  "use strict";
+  // ---- LIVE MODE settings (public values, not secrets) ----
+  var BACKEND_URL = 'PASTE_BACKEND_URL_HERE';       // Apps Script web app URL, ends with /exec
+  var GOOGLE_CLIENT_ID = 'PASTE_GOOGLE_CLIENT_ID_HERE'; // OAuth web client ID from Google Cloud Console
+  var READ_ONLY = true;       // first phase: the board only shows data, it changes nothing
+  var idToken = null, me = null;
+
+  var TODAY = isoOf(new Date());
+  var START_MIN = 8*60, END_MIN = 21*60, SLOT_MIN = 30, ROW_PX = 24;
+  var TYPES = ['Jednorazový','Opakovaný','Vlastný klient'];
+  var COLOR_PALETTE = [
+    {id:'blue', label:'Blue'}, {id:'orange', label:'Orange'}, {id:'green', label:'Green'},
+    {id:'yellow', label:'Yellow'}, {id:'red', label:'Red'}, {id:'purple', label:'Purple'}
+  ];
+  var TYPE_DEFAULT_COLOR = {'Opakovaný':'blue', 'Jednorazový':'green', 'Vlastný klient':'purple'};
+
+  // Gym-run trainings vs the trainer's own clients (trainer collects payment
+  // directly and gives the gym a cut) — different accounting, so kept
+  // separate throughout: a calendar toggle, a distinct color marker, and a
+  // dedicated report, instead of relying on the general-purpose "type" filter.
+  var TYPE_PRIVATE = 'Vlastný klient';
+  function isPrivateSession(s){ return s.type === TYPE_PRIVATE; }
+  function isGymSession(s){ return !isPrivateSession(s); }
+
+  function uid(prefix){ return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+  function defaultTrainers(){ return []; }
+  function defaultBlocks(){ return []; }
+  function blockEnd(b){ return b.allDay ? toHHMM(END_MIN) : toHHMM(toMin(b.start)+b.durationMin); }
+  function blockStartMin(b){ return b.allDay ? START_MIN : toMin(b.start); }
+  function blockEndMin(b){ return b.allDay ? END_MIN : toMin(b.start)+b.durationMin; }
+
+  function S(o){
+    return {
+      id:o.id, date:o.date, start:o.start, durationMin:o.dur, end:toHHMM(toMin(o.start)+o.dur),
+      tag:o.tag||'', color: o.color || TYPE_DEFAULT_COLOR[o.type] || 'blue', type:o.type,
+      clientName:o.client||'', phone:o.phone||'', people:(o.people==null?null:o.people),
+      requiredTrainers:o.req, trainerIds:o.tr, status:o.status||'confirmed', notes:o.notes||'', seriesId:o.series||null,
+      paid:!!o.paid, paidBy:o.paidBy||null, paidAt:o.paidAt||null
+    };
+  }
+
+  function defaultSessions(){ return []; }
+
+  var trainers, sessions, blocks, changeLog = [];
+  function loadState(){
+    try{
+      var raw = localStorage.getItem('beta_board_v4');
+      if(raw){
+        var d = JSON.parse(raw);
+        if(d && d.trainers && d.sessions){
+          trainers=d.trainers; sessions=d.sessions; blocks=d.blocks||[]; changeLog=d.changeLog||[];
+          // Migrate: people saved before roles existed default to 'trainer' (least privilege).
+          trainers.forEach(function(t){
+            if(!t.role) t.role = 'trainer';
+            if(t.roleChangedBy===undefined) t.roleChangedBy = null;
+            if(t.roleChangedAt===undefined) t.roleChangedAt = null;
+          });
+          return true;
+        }
+      }
+    }catch(e){}
+    return false;
+  }
+  // Read-only phase: any attempted change is discarded by re-reading the truth from the server.
+  function saveState(){ if(READ_ONLY && me){ toast('Len na čítanie: zmena sa neuložila.'); loadFromBackend(); } }
+  trainers=[]; sessions=[]; blocks=[]; changeLog=[];   // filled after sign-in; never cached in the browser
+
+  // Auto: a Confirmed training whose end time has passed becomes Completed.
+  // Tentative and Cancelled are never touched automatically — those always need a human call.
+  // Always correctable afterward: Status is a normal field in the edit form.
+  function runAutoComplete(){
+    var now = new Date();
+    var changed = false;
+    sessions.forEach(function(s){
+      if(s.status==='confirmed' && new Date(s.date+'T'+s.end+':00') < now){
+        s.status = 'completed';
+        changed = true;
+      }
+    });
+    if(changed && !READ_ONLY) saveState();
+  }
+  runAutoComplete();
+
+  // ---------- roles & permissions ----------
+  // Owner/Admin: unrestricted, same as the plain (no-roles) version. Trainer: can edit only
+  // trainings they're assigned to, can self-assign into an understaffed one, and
+  // can't create trainings/blocks or see other people's reports.
+  // Every role is tied to a specific named person (trainers[].role) — "viewing as"
+  // just picks who you are; the role comes along with them.
+  var currentTrainerId = '';   // set from the signed-in account
+  var currentRole = 'trainer';
+  (function(){
+    try{
+      var saved = JSON.parse('null');
+      if(saved && saved.trainerId) currentTrainerId = saved.trainerId;
+    }catch(e){}
+  })();
+  function syncCurrentRoleFromPerson(){
+    var p = trainerById(currentTrainerId);
+    // Fail closed: anyone missing, inactive or deleted gets no elevated role.
+    currentRole = (p && p.status==='active' && !p.hidden && !p.noAccess) ? p.role : 'trainer';
+  }
+  syncCurrentRoleFromPerson();
+  function saveRoleChoice(){}
+  function isTrainerRole(){ return currentRole==='trainer'; }
+  function isOwnerRole(){ return currentRole==='owner'; }
+  function isAdminOrOwnerRole(){ return currentRole==='admin' || currentRole==='owner'; }
+  // ---- what a Trainer may do to a training (Admin/Owner: everything) ----
+  // Money depends on these records (wages owed to trainers, cuts owed to the
+  // gym), so a trainer's reach is deliberately narrow: only future, unpaid
+  // trainings they're on; only their own name in the trainer list; no changing
+  // gym-vs-private; no completed status; at most 1 day of back-dating.
+  var BACKDATE_DAYS = 1;
+  function earliestTrainerDate(){ return addDays(isoOf(new Date()), -BACKDATE_DAYS); }
+  function hasEnded(s){ return new Date(s.date+'T'+s.end+':00') <= new Date(); }
+  function isAssigned(s){ return s.trainerIds.indexOf(currentTrainerId)!==-1; }
+  // Closed = completed, paid or already over — records money may depend on.
+  function isClosedForTrainer(s){ return !!s.paid || s.status==='completed' || hasEnded(s); }
+  // Cancel/reinstate: only the sole trainer, only while still upcoming and unpaid.
+  function canTrainerToggleCancel(s){ return isAssigned(s) && s.trainerIds.length===1 && !hasEnded(s) && !s.paid; }
+
+  // ---- people who only do private work ("externý") and people managed by an admin ("bez prístupu") ----
+  function currentPerson(){ return trainerById(currentTrainerId); }
+  function isPrivateOnlyViewer(){ var p = currentPerson(); return isTrainerRole() && !!p && !!p.privateOnly; }
+  // An external trainer must see the gym is busy (so their bookings don't collide), not who the gym's clients are.
+  function isMaskedForViewer(s){ return isPrivateOnlyViewer() && !(isPrivateSession(s) && isAssigned(s)); }
+  function displayClient(s){ return isMaskedForViewer(s) ? 'Tréning' : (s.clientName||s.type); }
+  // What an external sees instead of details: just that a training runs, and roughly how many people are in it.
+  function osobLabel(n){ return n===1 ? 'osoba' : (n>=2 && n<=4 ? 'osoby' : 'osôb'); }
+  function maskedLabel(s){ return 'Tréning' + (s.people!=null ? ' &middot; '+s.people+' '+osobLabel(s.people) : ''); }
+  // Trainers on this training who have no login, i.e. whose work an admin entered for them.
+  function onBehalfNames(s){
+    return s.trainerIds.filter(function(id){ var t = trainerById(id); return id!==currentTrainerId && t && t.noAccess; }).map(trainerName);
+  }
+  // "Iba súkromné" people may never be newly put on a Vertigo (gym) training.
+  function keepPrivateOnlyOffGym(f, existing){
+    if(f.type===TYPE_PRIVATE) return;
+    var prev = existing ? existing.trainerIds : [];
+    f.trainerIds = f.trainerIds.filter(function(id){ var t = trainerById(id); return prev.indexOf(id)!==-1 || !(t && t.privateOnly); });
+  }
+
+  function trainingEditMode(s){
+    if(READ_ONLY) return 'locked';
+    if(!isTrainerRole()) return 'full';
+    if(!s) return 'full'; // new training: allowed, must include themselves (checklist) and not be back-dated past the limit
+    if(isAssigned(s)){
+      if(isClosedForTrainer(s)) return 'locked';
+      if(s.status==='cancelled') return 'locked'; // only "reinstate" is offered
+      return 'full';
+    }
+    if(isMissing(s) && !hasEnded(s) && !isPrivateOnlyViewer()) return 'selfOnly'; // joining a gap only makes sense before it happens
+    return 'locked';
+  }
+
+  // The rule itself, applied on save. The form already greys these controls
+  // out, but a form is only a convenience — this is what actually holds if
+  // someone tampers with the page. Returns false when the save must be refused.
+  function enforceTrainerLimits(f, existing){
+    if(isPrivateOnlyViewer() && (existing ? isGymSession(existing) : f.type!==TYPE_PRIVATE)) return false; // externals: private trainings only
+    f.paid = existing ? !!existing.paid : false;
+    f.paidBy = existing ? existing.paidBy : null;
+    f.paidAt = existing ? existing.paidAt : null;
+    if(f.status!=='confirmed' && f.status!=='tentative') f.status = (existing && existing.status==='tentative') ? 'tentative' : 'confirmed';
+    if(existing){
+      if(isClosedForTrainer(existing)) return false;
+      f.type = existing.type;
+      var others = existing.trainerIds.filter(function(id){ return id!==currentTrainerId; });
+      f.trainerIds = others.concat(f.trainerIds.indexOf(currentTrainerId)!==-1 ? [currentTrainerId] : []);
+    } else if(f.trainerIds.indexOf(currentTrainerId)===-1){
+      f.trainerIds.push(currentTrainerId);
+    }
+    if(f.date < earliestTrainerDate()) return false;
+    return true;
+  }
+
+  // ---------- who/when tracking ----------
+  function currentActorLabel(){ return trainerName(currentTrainerId); }
+  function stampCreated(o){
+    o.createdBy = currentActorLabel();
+    o.createdById = currentTrainerId;
+    o.createdAt = new Date().toISOString();
+    o.lastEditedBy = o.createdBy;
+    o.lastEditedById = currentTrainerId;
+    o.lastEditedAt = o.createdAt;
+  }
+  function stampEdited(o){
+    o.lastEditedBy = currentActorLabel();
+    o.lastEditedById = currentTrainerId;
+    o.lastEditedAt = new Date().toISOString();
+  }
+  // ---- change log: one line per action, so "what happened lately" can actually be answered ----
+  // (a training only remembers its LAST edit; this remembers every one).
+  var LOG_MAX = 1000;
+  var TRACKED = {type:'Typ', date:'Dátum', start:'Začiatok', durationMin:'Trvanie', clientName:'Klient', tag:'Značka', status:'Stav',
+                 requiredTrainers:'Potrebných trénerov', trainerIds:'Tréneri', paid:'Zaplatené', notes:'Poznámky', phone:'Telefón', people:'Počet osôb'};
+  function fieldText(k, v){
+    if(k==='trainerIds') return (v||[]).map(trainerName).join(', ') || '—';
+    if(k==='paid') return v ? 'áno' : 'nie';
+    if(k==='status') return STATUS_LABEL[v] || v;
+    return (v==null || v==='') ? '—' : String(v);
+  }
+  function diffSession(before, after){
+    var out = [];
+    Object.keys(TRACKED).forEach(function(k){
+      var a = before[k], b = after[k];
+      if(k==='trainerIds'){ a = (a||[]).slice().sort().join(','); b = (b||[]).slice().sort().join(','); }
+      if(String(a==null?'':a) !== String(b==null?'':b)) out.push({f:TRACKED[k], k:k, from:fieldText(k, before[k]), to:fieldText(k, after[k])});
+    });
+    return out;
+  }
+  function logChange(action, s, extra){
+    var e = {t:new Date().toISOString(), by:currentTrainerId, byName:currentActorLabel(), action:action,
+             sid:s.id, label:s.clientName||s.type, when:s.date+' '+s.start, isPrivate:isPrivateSession(s), forNames:onBehalfNames(s)};
+    Object.keys(extra||{}).forEach(function(k){ e[k] = extra[k]; });
+    changeLog.push(e);
+    if(changeLog.length > LOG_MAX) changeLog = changeLog.slice(-LOG_MAX);
+  }
+  function fmtWhen(iso){
+    if(!iso) return '';
+    var d = new Date(iso);
+    return d.getDate()+'. '+MONTH_ABBR[d.getMonth()] + ', ' + d.toLocaleTimeString('en-GB',{hour:'2-digit', minute:'2-digit'});
+  }
+
+  // ---------- helpers ----------
+  function toMin(hhmm){ var p=hhmm.split(':'); return (+p[0])*60 + (+p[1]); }
+  function toHHMM(min){ min=((min%1440)+1440)%1440; var h=Math.floor(min/60), m=min%60; return (h<10?'0':'')+h+':'+(m<10?'0':'')+m; }
+  function overlaps(aS,aE,bS,bE){ return aS<bE && bS<aE; }
+  function trainerById(id){ return trainers.filter(function(t){return t.id===id;})[0]; }
+  function trainerName(id){ var t=trainerById(id); return t?t.name:'(odstránený)'; }
+  // Everything users type (names, clients, tags, labels) is untrusted and gets
+  // written into the page as HTML in a lot of places — always go through esc().
+  function esc(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+  function trainerNameH(id){ return esc(trainerName(id)); }
+  function ym(dateStr){ return dateStr.slice(0,7); }
+  function weekdayShort(d){ return ['Po','Ut','St','Št','Pi','So','Ne'][(d.getDay()+6)%7]; }
+  var WEEKDAY_FULL = ['Pondelok','Utorok','Streda','Štvrtok','Piatok','Sobota','Nedeľa'];
+  var MONTH_ABBR = ['jan','feb','mar','apr','máj','jún','júl','aug','sep','okt','nov','dec'];
+  var MONTH_FULL = ['január','február','marec','apríl','máj','jún','júl','august','september','október','november','december'];
+  function fmtReportDate(iso){
+    var d = new Date(iso+'T00:00:00');
+    return WEEKDAY_FULL[(d.getDay()+6)%7]+', '+d.getDate()+'. '+MONTH_ABBR[d.getMonth()];
+  }
+  function monthLabel(dateObjOrStr){
+    var d = typeof dateObjOrStr==='string' ? new Date(dateObjOrStr+'-01T00:00:00') : dateObjOrStr;
+    return MONTH_FULL[d.getMonth()]+' '+d.getFullYear();
+  }
+  function fmtDateLabel(iso){
+    var d = new Date(iso+'T00:00:00');
+    return WEEKDAY_FULL[(d.getDay()+6)%7]+', '+d.getDate()+'. '+MONTH_FULL[d.getMonth()];
+  }
+  function startOfWeek(iso){
+    var d = new Date(iso+'T00:00:00');
+    var dow = (d.getDay()+6)%7;
+    d.setDate(d.getDate()-dow);
+    return d;
+  }
+  function isoOf(d){ var y=d.getFullYear(), m=('0'+(d.getMonth()+1)).slice(-2), day=('0'+d.getDate()).slice(-2); return y+'-'+m+'-'+day; }
+  function addDays(iso,n){ var d=new Date(iso+'T00:00:00'); d.setDate(d.getDate()+n); return isoOf(d); }
+  function sessionsOnDate(iso){ return sessions.filter(function(s){return s.date===iso;}); }
+  function blocksOnDate(iso){ return blocks.filter(function(b){return b.date===iso;}); }
+
+  // Calendar-only Gym/Private/Both filter. Deliberately a separate function
+  // from sessionsOnDate() rather than baked into it: conflict/clash checks
+  // (getConflicts, the block-time clash check) must always see every
+  // session regardless of what's currently shown, or switching this toggle
+  // could hide a real double-booking.
+  var clientScope = 'both';
+  function matchesClientScope(s){
+    if(clientScope==='both') return true;
+    return clientScope==='private' ? isPrivateSession(s) : !isPrivateSession(s);
+  }
+  function visibleSessionsOnDate(iso){ return sessionsOnDate(iso).filter(matchesClientScope); }
+  function isMissing(s){ return s.status!=='cancelled' && s.trainerIds.length < s.requiredTrainers; }
+  function colorVar(id){ return 'var(--swatch-'+(id||'blue')+')'; }
+  function allTags(){
+    var set={};
+    sessions.forEach(function(s){ if(s.tag) set[s.tag]=true; });
+    return Object.keys(set).sort();
+  }
+
+  function getBlockConflicts(candidate){
+    var out = [];
+    blocksOnDate(candidate.date).forEach(function(b){
+      if(!overlaps(toMin(candidate.start),toMin(candidate.end),blockStartMin(b),blockEndMin(b))) return;
+      out.push('Tento čas je blokovaný: '+esc(b.label)+' ('+(b.allDay?'celý deň':(b.start+'–'+blockEnd(b)))+').');
+    });
+    return out;
+  }
+
+  function buildClusters(list){
+    var sorted = list.slice().sort(function(a,b){ return toMin(a.start)-toMin(b.start); });
+    var clusters = [];
+    sorted.forEach(function(s){
+      var placed=false;
+      for(var i=0;i<clusters.length;i++){
+        var c=clusters[i];
+        if(c.some(function(o){ return overlaps(toMin(o.start),toMin(o.end),toMin(s.start),toMin(s.end)); })){
+          c.push(s); placed=true; break;
+        }
+      }
+      if(!placed) clusters.push([s]);
+    });
+    return clusters;
+  }
+
+  function getConflicts(candidate, excludeId){
+    var out = [];
+    sessions.forEach(function(s){
+      if(s.id===excludeId) return;
+      if(s.date!==candidate.date) return;
+      if(s.status==='cancelled') return;
+      if(!overlaps(toMin(candidate.start),toMin(candidate.end),toMin(s.start),toMin(s.end))) return;
+      s.trainerIds.forEach(function(id){
+        if(candidate.trainerIds.indexOf(id)!==-1){
+          out.push(trainerNameH(id)+' už má rezervovaný termín '+s.start+'–'+s.end+' ('+esc(displayClient(s))+').');
+        }
+      });
+    });
+    return out;
+  }
+
+  // ---------- tabs ----------
+  var views = {calendar:document.getElementById('view-calendar'), reports:document.getElementById('view-reports'), team:document.getElementById('view-team')};
+  document.getElementById('tabs').addEventListener('click', function(e){
+    var btn = e.target.closest('.tab'); if(!btn || !btn.dataset.view) return;
+    if(btn.dataset.view==='team' && isTrainerRole()) return;
+    document.querySelectorAll('#tabs .tab').forEach(function(t){ t.classList.toggle('active', t===btn); });
+    Object.keys(views).forEach(function(k){ views[k].hidden = (k!==btn.dataset.view); });
+    if(btn.dataset.view==='reports') renderReports();
+    if(btn.dataset.view==='team') renderTeam();
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', armButtonFactory(function(){
+    if(isTrainerRole()) return; // belt-and-suspenders: don't rely on button visibility alone for a destructive action
+    trainers=defaultTrainers(); sessions=defaultSessions(); blocks=defaultBlocks(); changeLog=[]; saveState();
+    populateViewingAsSelect(); renderRoleBanner(); applyRoleUI(); // the roster changed, so the "Zobrazujem ako" list must be rebuilt too
+    renderCalendar(); renderTeam(); renderReports();
+  }, 'Obnoviť vzorové dáta'));
+
+  function armButtonFactory(action, idleLabel){
+    return function(e){
+      var btn = e.currentTarget;
+      if(btn.dataset.armed==='1'){
+        btn.dataset.armed='0'; btn.textContent = idleLabel; btn.classList.remove('btn-warning');
+        clearTimeout(btn._armTimer);
+        action();
+      } else {
+        btn.dataset.armed='1'; btn.textContent='Kliknutím znova potvrďte'; btn.classList.add('btn-warning');
+        btn._armTimer = setTimeout(function(){ btn.dataset.armed='0'; btn.textContent=idleLabel; btn.classList.remove('btn-warning'); }, 3000);
+      }
+    };
+  }
+
+  // ---------- role switcher UI ----------
+  var viewingAsSelect = document.getElementById('viewingAsSelect');
+  var ROLE_ORDER = {owner:0, admin:1, trainer:2};
+  var ROLE_LABEL = {owner:'Majiteľ', admin:'Administrátor', trainer:'Tréner'};
+
+  function populateViewingAsSelect(){
+    var people = trainers.filter(function(t){return t.status==='active' && !t.hidden && !t.noAccess;})
+      .sort(function(a,b){ if(ROLE_ORDER[a.role]!==ROLE_ORDER[b.role]) return ROLE_ORDER[a.role]-ROLE_ORDER[b.role]; return a.name.localeCompare(b.name); });
+    viewingAsSelect.innerHTML = people.map(function(t){ return '<option value="'+t.id+'">'+esc(t.name)+' ('+ROLE_LABEL[t.role]+')</option>'; }).join('');
+    // Unknown/inactive/removed identity falls back to the LOWEST privilege (people is sorted owner→trainer), never the highest.
+    if(!people.some(function(t){return t.id===currentTrainerId;}) && people.length){ currentTrainerId = people[people.length-1].id; }
+    viewingAsSelect.value = currentTrainerId;
+    syncCurrentRoleFromPerson();
+  }
+  function renderRoleBanner(){
+    var el = document.getElementById('roleBanner');
+    var name = trainerNameH(currentTrainerId);
+    if(isOwnerRole()){
+      el.innerHTML = '&#128275; <span>Zobrazené ako <b>Majiteľ &mdash; '+name+'</b>. Plný prístup, plus záložka <b>Tím</b> na zmenu roly komukoľvek.</span>';
+    } else if(isAdminOrOwnerRole()){
+      el.innerHTML = '&#128275; <span>Zobrazené ako <b>Administrátor &mdash; '+name+'</b>. Plný prístup, rovnako ako v bežnej verzii bez rolí &mdash; zatiaľ vrátane záložky <b>Tím</b>.</span>';
+    } else {
+      el.innerHTML = '&#128274; <span>Zobrazené ako <b>Tréner &mdash; '+name+'</b>. Môže upravovať len budúce nezaplatené tréningy, na ktoré je '+name+' priradený(á) (dokončené, zaplatené a minulé zamyká administrátor), pridávať nové tréningy (vždy vrátane seba, najviac 1 deň spätne), zrušiť svoj budúci tréning ak je v ňom sám, a pripojiť sa k budúcim tréningom, ktorým chýba tréner. Nemôže vytvárať bloky ani spravovať tím.'+(isPrivateOnlyViewer()?' Externý tréner: pracuje len so súkromnými tréningami, cudzie tréningy vidí len ako „Tréning“ s počtom osôb.':'')+'</span>';
+    }
+  }
+  function applyRoleUI(){
+    var t = isTrainerRole();
+    document.getElementById('addBlockBtn').hidden = t;
+    document.getElementById('resetBtn').hidden = t;
+
+    // Trainers see everything except the gym-wide Summary (hours/CSV export).
+    // Needs a trainer & Conflicts stay visible — that's how a trainer spots a gap to fill.
+    var restrictedSubs = {summary:1, vertigo:1, private:1, activity:1};
+    if(isPrivateOnlyViewer()){ restrictedSubs.missing = 1; restrictedSubs.conflicts = 1; } // both list Vertigo clients
+    var subtabButtons = document.querySelectorAll('#reportSubtabs .subtab');
+    subtabButtons.forEach(function(btn){ btn.hidden = t && restrictedSubs[btn.dataset.sub]; });
+
+    var activeBtn = document.querySelector('#reportSubtabs .subtab.active');
+    if(!activeBtn || activeBtn.hidden){
+      var fallback = Array.prototype.filter.call(subtabButtons, function(b){ return !b.hidden; })[0];
+      if(fallback){
+        subtabButtons.forEach(function(b){ b.classList.toggle('active', b===fallback); });
+        ['missing','conflicts','activity','summary','vertigo','private','bytrainer','load'].forEach(function(k){ document.getElementById('sub-'+k).hidden = (k!==fallback.dataset.sub); });
+      }
+    }
+
+    var byTrainerSel = document.getElementById('byTrainerSelect');
+    if(t){
+      if(trainers.some(function(x){return x.id===currentTrainerId;})) byTrainerSel.value = currentTrainerId;
+      byTrainerSel.disabled = true;
+    } else {
+      byTrainerSel.disabled = false;
+    }
+
+    // Team screen (roster + role management) is Admin & Owner — not Trainer.
+    document.getElementById('teamTabBtn').hidden = t;
+    if(t && !views.team.hidden){
+      views.team.hidden = true;
+      views.calendar.hidden = false;
+      document.querySelectorAll('#tabs .tab').forEach(function(b){ b.classList.toggle('active', b.dataset.view==='calendar'); });
+    }
+  }
+  populateViewingAsSelect();
+  renderRoleBanner();
+  viewingAsSelect.addEventListener('change', function(){
+    currentTrainerId = this.value;
+    syncCurrentRoleFromPerson();
+    saveRoleChoice();
+    renderRoleBanner();
+    applyRoleUI();
+    renderAll();
+  });
+
+  // ---------- calendar ----------
+  var selectedDate = TODAY;
+  var viewMode = 'week';
+
+  document.getElementById('modeDay').addEventListener('click', function(){ viewMode='day'; syncModeButtons(); renderCalendar(); });
+  document.getElementById('modeWeek').addEventListener('click', function(){ viewMode='week'; syncModeButtons(); renderCalendar(); });
+  function syncModeButtons(){
+    document.getElementById('modeDay').classList.toggle('active', viewMode==='day');
+    document.getElementById('modeWeek').classList.toggle('active', viewMode==='week');
+  }
+
+  document.getElementById('clientScopeToggle').addEventListener('click', function(e){
+    var btn = e.target.closest('.subtab'); if(!btn) return;
+    clientScope = btn.dataset.scope;
+    document.querySelectorAll('#clientScopeToggle .subtab').forEach(function(b){ b.classList.toggle('active', b===btn); });
+    renderCalendar();
+  });
+
+  var gutter = document.getElementById('timeGutter');
+  for(var m=START_MIN; m<=END_MIN; m+=60){
+    var lbl = document.createElement('div');
+    lbl.className = 'time-label';
+    lbl.style.top = ((m-START_MIN)/SLOT_MIN*ROW_PX)+'px';
+    lbl.textContent = toHHMM(m);
+    gutter.appendChild(lbl);
+  }
+
+  function renderWeekStrip(){
+    var wrap = document.getElementById('weekStrip');
+    wrap.innerHTML='';
+    var start = startOfWeek(selectedDate);
+    for(var i=0;i<7;i++){
+      var d = new Date(start); d.setDate(start.getDate()+i);
+      var iso = isoOf(d);
+      var count = visibleSessionsOnDate(iso).filter(function(s){return s.status!=='cancelled';}).length;
+      var btn = document.createElement('button');
+      btn.className = 'day-btn'+(iso===selectedDate?' active':'')+(iso===TODAY?' today':'');
+      btn.innerHTML = '<span class="dow">'+weekdayShort(d)+'</span><span class="dom">'+d.getDate()+'</span>'+(count?'<span class="dot"></span>':'');
+      (function(iso){ btn.addEventListener('click', function(){ selectedDate=iso; renderCalendar(); }); })(iso);
+      wrap.appendChild(btn);
+    }
+  }
+
+  function renderLegend(){
+    document.getElementById('legend').innerHTML = TYPES.map(function(ty){
+      return '<span><i style="background:'+colorVar(TYPE_DEFAULT_COLOR[ty])+'"></i>'+ty+' (predvolená)</span>';
+    }).join('') + '<span><i style="background:repeating-linear-gradient(45deg, var(--surface-2), var(--surface-2) 2px, var(--ink-faint) 2px, var(--ink-faint) 4px);"></i>Blokované</span>';
+  }
+
+  function buildColumns(dates){
+    var wrap = document.getElementById('calGridWrap');
+    Array.from(wrap.querySelectorAll('.cal-daycol')).forEach(function(el){ el.remove(); });
+    dates.forEach(function(date){
+      var col = document.createElement('div');
+      col.className = 'cal-col cal-daycol';
+      var d = new Date(date+'T00:00:00');
+      var head = dates.length>1 ? weekdayShort(d)+' '+d.getDate()+'/'+(d.getMonth()+1) : 'Tréningy';
+      col.innerHTML = '<div class="col-head">'+head+'</div><div class="cal-body" data-day-body="'+date+'"></div>';
+      wrap.appendChild(col);
+    });
+  }
+
+  function renderCalendar(){
+    runAutoComplete();
+    applyRoleUI();
+    document.getElementById('calDateLabel').textContent = viewMode==='day' ? fmtDateLabel(selectedDate) : monthLabel(startOfWeek(selectedDate));
+    renderWeekStrip();
+    renderLegend();
+
+    var dates = viewMode==='day' ? [selectedDate] : (function(){
+      var start = startOfWeek(selectedDate), arr=[];
+      for(var i=0;i<7;i++) arr.push(isoOf(new Date(start.getFullYear(),start.getMonth(),start.getDate()+i)));
+      return arr;
+    })();
+    buildColumns(dates);
+
+    dates.forEach(function(date){
+      var body = document.querySelector('[data-day-body="'+date+'"]');
+      body.onclick = function(){
+        var rect = body.getBoundingClientRect();
+        return function(e){
+          var y = e.clientY - rect.top;
+          var raw = START_MIN + Math.round(y/ROW_PX)*SLOT_MIN;
+          raw = Math.max(START_MIN, Math.min(raw, END_MIN-30));
+          openModal(null, {date:date, start:toHHMM(raw), durationMin:60});
+        };
+      }();
+
+      blocksOnDate(date).forEach(function(b){
+        var el = document.createElement('div');
+        el.className = 'block-band';
+        var top = (blockStartMin(b)-START_MIN)/SLOT_MIN*ROW_PX;
+        var height = (blockEndMin(b)-blockStartMin(b))/SLOT_MIN*ROW_PX;
+        el.style.top = top+'px';
+        el.style.height = Math.max(height, ROW_PX-2)+'px';
+        el.innerHTML = '<b>🚫 '+esc(b.label)+'</b>'+(b.allDay?'Celý deň':(b.start+'–'+blockEnd(b)));
+        el.addEventListener('click', function(e){ e.stopPropagation(); openBlockModal(b.id); });
+        body.appendChild(el);
+      });
+
+      var daySessions = visibleSessionsOnDate(date);
+      var clusters = buildClusters(daySessions);
+      clusters.forEach(function(cluster){
+        cluster.forEach(function(s, idx){
+          var color = colorVar(s.color);
+          var el = document.createElement('div');
+          el.className = 'session-block status-'+s.status;
+          var top = (toMin(s.start)-START_MIN)/SLOT_MIN*ROW_PX;
+          var height = Math.max((toMin(s.end)-toMin(s.start))/SLOT_MIN*ROW_PX, ROW_PX-2);
+          var width = 100/cluster.length;
+          el.style.top = top+'px';
+          el.style.height = height+'px';
+          el.style.left = (idx*width)+'%';
+          el.style.width = (width - (cluster.length>1?2:0))+'%';
+          if(isMaskedForViewer(s)){
+            if(s.status==='cancelled') return; // a freed slot needs no placeholder
+            el.className = 'session-block busy';
+            el.innerHTML = '<div class="sb-type"><span class="sb-time">'+s.start+'–'+s.end+'</span> &middot; '+maskedLabel(s)+'</div>';
+            body.appendChild(el);
+            return;
+          }
+          if(s.status!=='cancelled'){
+            el.style.background = 'color-mix(in srgb, '+color+' 18%, var(--surface))';
+            el.style.borderColor = 'color-mix(in srgb, '+color+' 45%, var(--surface))';
+            // Private always gets the same purple accent regardless of the
+            // training's own color, so it reads as "private" at a glance
+            // even mixed in with gym trainings in the "Oboje" view.
+            el.style.borderLeft = isPrivateSession(s) ? '5px solid var(--swatch-purple)' : ('3px solid '+color);
+          }
+          var trNames = s.trainerIds.map(trainerNameH).join(', ') || 'Netreba trénera';
+          var missing = isMissing(s);
+          // Time stays inline with the name rather than its own line — the block's
+          // vertical position already gives an approximate time, but the gutter
+          // only labels whole hours, so the exact start/end still needs to be text
+          // somewhere; putting it on the name's line (instead of a line of its own)
+          // is what actually buys back the room a short slot needs for badges.
+          // All badges share one line (rather than one line each) — this is what
+          // keeps a 30-60 min block's true, duration-accurate height enough to
+          // avoid clipping, instead of inflating the block past its real end time.
+          var badges = [];
+          if(missing) badges.push('<span class="sb-missing">&#9888; chýba '+(s.requiredTrainers - s.trainerIds.length)+'</span>');
+          if(s.status==='completed') badges.push('<span class="sb-done">&#10003; Dokončené</span>');
+          if(s.paid) badges.push('<span class="sb-done">&#128176; Zaplatené</span>');
+          el.innerHTML = '<div class="sb-type"><span class="sb-time">'+s.start+'–'+s.end+'</span> &middot; '+esc(s.clientName||s.type)+'</div>'+
+            (badges.length ? '<div class="sb-badges">'+badges.join(' &middot; ')+'</div>' : '')+
+            '<div class="sb-trainers">'+(s.tag?esc(s.tag)+' &middot; ':'')+trNames+'</div>';
+          el.addEventListener('click', function(s){ return function(e){ e.stopPropagation(); openModal(s.id); }; }(s));
+          body.appendChild(el);
+        });
+      });
+    });
+
+    renderAgenda(dates);
+  }
+
+  function renderAgenda(dates){
+    var wrap = document.getElementById('agendaList');
+    var items = [];
+    dates.forEach(function(d){
+      visibleSessionsOnDate(d).forEach(function(s){ items.push({kind:'session', date:d, sortMin:toMin(s.start), data:s}); });
+      blocksOnDate(d).forEach(function(b){ items.push({kind:'block', date:d, sortMin:blockStartMin(b), data:b}); });
+    });
+    items.sort(function(a,b){ return a.date===b.date ? a.sortMin-b.sortMin : a.date.localeCompare(b.date); });
+    if(items.length===0){ wrap.innerHTML = '<div class="agenda-empty">Nič naplánované. Klepnutím na „+ Pridať tréning“ vytvorte nový.</div>'; return; }
+    wrap.innerHTML = items.map(function(it){
+      if(it.kind==='block'){
+        var b = it.data;
+        return '<div class="agenda-item blocked" data-block-id="'+b.id+'">'+
+          '<span class="a-time">'+(dates.length>1?b.date.slice(5)+' ':'')+(b.allDay?'All day':(b.start+'–'+blockEnd(b)))+'</span>'+
+          '<span class="a-main"><div class="a-type">🚫 '+esc(b.label)+'</div><div class="a-sub">Blokované — žiadne rezervácie</div></span></div>';
+      }
+      var s = it.data;
+      if(isMaskedForViewer(s)){
+        if(s.status==='cancelled') return '';
+        return '<div class="agenda-item" style="cursor:default; opacity:0.85;"><span class="dot" style="background:var(--ink-faint)"></span>'+
+          '<span class="a-time">'+(dates.length>1?s.date.slice(5)+' ':'')+s.start+'–'+s.end+'</span><span class="a-main"><div class="a-type">'+maskedLabel(s)+'</div></span></div>';
+      }
+      var color = isPrivateSession(s) ? colorVar('purple') : colorVar(s.color);
+      var trNames = s.trainerIds.map(trainerNameH).join(', ') || 'Netreba trénera';
+      var missing = isMissing(s);
+      var subParts = [esc(s.type)];
+      if(s.tag) subParts.push(esc(s.tag));
+      subParts.push(trNames);
+      if(missing) subParts.push('chýba ešte '+(s.requiredTrainers-s.trainerIds.length));
+      return '<div class="agenda-item'+(s.status==='cancelled'?' cancelled':'')+'" data-id="'+s.id+'">'+
+        '<span class="dot" style="background:'+color+'"></span>'+
+        '<span class="a-time">'+(dates.length>1?s.date.slice(5)+' ':'')+s.start+'–'+s.end+'</span>'+
+        '<span class="a-main"><div class="a-type">'+esc(s.clientName||s.type)+(s.status==='cancelled'?' &middot; Zrušené':(s.status==='tentative'?' &middot; Predbežné':(s.status==='completed'?' &middot; <span style="color:var(--success);">Dokončené</span>':'')))+(missing?' &middot; <span style="color:var(--warning);">nedostatočne obsadené</span>':'')+(s.paid?' &middot; <span style="color:var(--success);">&#128176; Zaplatené</span>':'')+'</div>'+
+        '<div class="a-sub">'+subParts.join(' &middot; ')+'</div></span>'+
+      '</div>';
+    }).join('');
+    wrap.querySelectorAll('.agenda-item[data-id]').forEach(function(it){
+      it.addEventListener('click', function(){ openModal(it.dataset.id); });
+    });
+    wrap.querySelectorAll('.agenda-item[data-block-id]').forEach(function(it){
+      it.addEventListener('click', function(){ openBlockModal(it.dataset.blockId); });
+    });
+  }
+
+  document.getElementById('prevDay').addEventListener('click', function(){ selectedDate = addDays(selectedDate, viewMode==='week'?-7:-1); renderCalendar(); });
+  document.getElementById('nextDay').addEventListener('click', function(){ selectedDate = addDays(selectedDate, viewMode==='week'?7:1); renderCalendar(); });
+  document.getElementById('todayBtn').addEventListener('click', function(){ selectedDate=TODAY; renderCalendar(); });
+  document.getElementById('addSessionBtn').addEventListener('click', function(){ openModal(null, {date:selectedDate, start:'16:00', durationMin:60}); });
+
+  // ---------- modal ----------
+  var overlay = document.getElementById('sessionOverlay');
+  var editingId = null, editingOriginalDate = null;
+  var selectedColor = 'blue';
+  var currentModalMode = 'full';
+
+  function setTrainingFormDisabled(disabled){
+    ['f-client','f-tag','f-type','f-date','f-status','f-start','f-duration','f-phone','f-people','f-required','f-notes','f-repeat','f-until'].forEach(function(id){
+      document.getElementById(id).disabled = disabled;
+    });
+    // Re-enabling the whole form must not undo "a one-time training can't repeat"
+    // (this used to run after the rule was applied on open, so a fresh form left the box tickable).
+    if(!disabled && document.getElementById('f-type').value === 'Jednorazový') document.getElementById('f-repeat').disabled = true;
+    colorSwatchWrap.querySelectorAll('.swatch').forEach(function(sw){ sw.classList.toggle('locked', disabled); });
+  }
+
+  var typeSel = document.getElementById('f-type');
+  typeSel.innerHTML = TYPES.map(function(t){ return '<option value="'+esc(t)+'">'+esc(t)+'</option>'; }).join('');
+  typeSel.addEventListener('change', function(){
+    selectedColor = TYPE_DEFAULT_COLOR[this.value] || 'blue';
+    syncSwatchSelection();
+    syncRecurringFromType(this.value);
+    applyPrivateOnlyToChecklist();
+    var pe = document.getElementById('f-people'); if(this.value===TYPE_PRIVATE && !pe.value) pe.value = 1;
+    updateConflicts();
+  });
+
+  var colorSwatchWrap = document.getElementById('colorSwatches');
+  colorSwatchWrap.innerHTML = COLOR_PALETTE.map(function(c){ return '<div class="swatch" data-color="'+c.id+'" style="background:'+colorVar(c.id)+'" title="'+c.label+'"></div>'; }).join('');
+  colorSwatchWrap.querySelectorAll('.swatch').forEach(function(sw){
+    sw.addEventListener('click', function(){ selectedColor = sw.dataset.color; syncSwatchSelection(); });
+  });
+  function syncSwatchSelection(){
+    colorSwatchWrap.querySelectorAll('.swatch').forEach(function(sw){ sw.classList.toggle('selected', sw.dataset.color===selectedColor); });
+  }
+
+  function updateOccurrenceCount(){
+    var el = document.getElementById('occurrenceCount');
+    var base = document.getElementById('f-date').value || selectedDate;
+    var until = document.getElementById('f-until').value;
+    if(!base || !until || until < base){ el.textContent = ''; return; }
+    var days = (new Date(until+'T00:00:00') - new Date(base+'T00:00:00')) / 86400000;
+    el.textContent = '('+(Math.floor(days/7)+1)+'×)';
+  }
+  function applyRepeatCheckedUI(){
+    var checked = document.getElementById('f-repeat').checked;
+    document.getElementById('recurUntilRow').hidden = !checked;
+    if(checked){
+      var untilField = document.getElementById('f-until');
+      if(!untilField.value){
+        var base = document.getElementById('f-date').value || selectedDate;
+        untilField.value = addDays(base, 7*12);
+      }
+      updateOccurrenceCount();
+    }
+  }
+  function syncRecurringFromType(typeValue){
+    var repeatBox = document.getElementById('f-repeat');
+    repeatBox.disabled = (typeValue === 'Jednorazový'); // a one-time training can't also repeat
+    repeatBox.checked = (typeValue === 'Opakovaný');
+    applyRepeatCheckedUI();
+  }
+  document.getElementById('f-repeat').addEventListener('change', applyRepeatCheckedUI);
+  ['f-until','f-date'].forEach(function(id){
+    document.getElementById(id).addEventListener('input', updateOccurrenceCount);
+    document.getElementById(id).addEventListener('change', updateOccurrenceCount);
+  });
+
+  var checklistOriginalIds = [];
+  function renderTrainerChecklist(selectedIds, editMode, lockSelfChecked, onlySelfEditable){
+    editMode = editMode || 'full';
+    checklistOriginalIds = selectedIds.slice();
+    var wrap = document.getElementById('trainerCheckList');
+    var list = trainers.filter(function(t){ return (t.status==='active' && !t.hidden) || selectedIds.indexOf(t.id)!==-1; })
+      .sort(function(a,b){ return a.name.localeCompare(b.name); });
+    wrap.innerHTML = list.map(function(t){
+      var checked = selectedIds.indexOf(t.id)!==-1;
+      var isSelf = isTrainerRole() && t.id===currentTrainerId;
+      // lockSelfChecked: a trainer creating a new training — their own box is
+      // always ticked and can't be unticked, so it's never possible to save a
+      // training that doesn't include them.
+      // onlySelfEditable: a trainer editing an existing training may add/remove only themselves.
+      var locked = editMode==='locked' || (editMode==='selfOnly' && !isSelf) || (lockSelfChecked && isSelf) || (onlySelfEditable && !isSelf);
+      return '<label class="trainer-opt'+(t.status==='inactive'?' inactive':'')+'"><input type="checkbox" value="'+t.id+'" id="trainer-'+t.id+'" '+(checked?'checked':'')+(locked?' disabled':'')+'> '+esc(t.name)+(t.privateOnly?' (iba súkromné)':'')+(t.status==='inactive'?' (neaktívny)':'')+(isSelf?' (vy)':'')+'</label>';
+    }).join('');
+    wrap.querySelectorAll('input').forEach(function(cb){ cb.addEventListener('change', updateConflicts); });
+    applyPrivateOnlyToChecklist();
+  }
+  // Externals appear only when the training is private (or they're already on it): otherwise their box is greyed out and cleared.
+  function applyPrivateOnlyToChecklist(){
+    var isPriv = document.getElementById('f-type').value === TYPE_PRIVATE;
+    document.querySelectorAll('#trainerCheckList input').forEach(function(cb){
+      var t = trainerById(cb.value); if(!t || !t.privateOnly) return;
+      var keep = checklistOriginalIds.indexOf(cb.value)!==-1;
+      if(!isPriv && !keep){ if(!cb.disabled){ cb.dataset.poLocked = '1'; cb.checked = false; cb.disabled = true; } }
+      else if(cb.dataset.poLocked==='1'){ cb.disabled = false; delete cb.dataset.poLocked; }
+    });
+  }
+
+  function updateEndDisplay(){
+    var start = document.getElementById('f-start').value;
+    var dur = parseInt(document.getElementById('f-duration').value,10);
+    var out = document.getElementById('endDisplay');
+    out.textContent = (start && dur) ? ('Koniec o '+toHHMM(toMin(start)+dur)) : '';
+  }
+
+  function updateRequiredCounter(){
+    var reqRaw = document.getElementById('f-required').value;
+    var required = reqRaw===''? 0 : parseInt(reqRaw,10);
+    var have = document.querySelectorAll('#trainerCheckList input:checked').length;
+    var el = document.getElementById('requiredCounter');
+    el.textContent = have+' z '+required+' trénerov priradených';
+    el.style.color = have<required ? 'var(--warning)' : 'var(--success)';
+  }
+
+  function currentFormSession(){
+    var trainerIds = Array.from(document.querySelectorAll('#trainerCheckList input:checked')).map(function(i){return i.value;});
+    var peopleRaw = document.getElementById('f-people').value;
+    var reqRaw = document.getElementById('f-required').value;
+    var start = document.getElementById('f-start').value;
+    var dur = parseInt(document.getElementById('f-duration').value,10) || 0;
+    return {
+      clientName: document.getElementById('f-client').value,
+      tag: document.getElementById('f-tag').value.trim(),
+      color: selectedColor,
+      date: document.getElementById('f-date').value,
+      start: start,
+      durationMin: dur,
+      end: start ? toHHMM(toMin(start)+dur) : '',
+      type: document.getElementById('f-type').value,
+      status: document.getElementById('f-status').value,
+      paid: document.getElementById('f-paid').checked,
+      phone: document.getElementById('f-phone').value,
+      people: peopleRaw===''? null : parseInt(peopleRaw,10),
+      requiredTrainers: reqRaw===''? 0 : parseInt(reqRaw,10),
+      notes: document.getElementById('f-notes').value,
+      trainerIds: trainerIds
+    };
+  }
+
+  function updateConflicts(){
+    var f = currentFormSession();
+    var dateErr = document.getElementById('dateErr');
+    var box = document.getElementById('conflictBox');
+    var saveBtn = document.getElementById('saveBtn');
+    var bad = !f.date || !f.start || !f.durationMin;
+    dateErr.hidden = !bad;
+    var backdated = !bad && isTrainerRole() && currentModalMode!=='selfOnly' && f.date < earliestTrainerDate();
+    document.getElementById('backdateErr').hidden = !backdated;
+    updateEndDisplay(); updateRequiredCounter();
+
+    if(bad || backdated){ box.hidden = true; saveBtn.disabled = true; saveBtn.hidden = (currentModalMode==='locked'); return; }
+    saveBtn.disabled = false;
+
+    var conflicts = getConflicts(f, editingId).concat(getBlockConflicts(f));
+    if(conflicts.length){
+      box.hidden = false;
+      box.innerHTML = '<b>&#9888; Zistené konflikty</b>' + conflicts.map(function(c){ return '<div>'+c+'</div>'; }).join('');
+      saveBtn.textContent = 'Napriek tomu uložiť'; saveBtn.className = 'btn btn-warning';
+    } else {
+      box.hidden = true;
+      saveBtn.textContent = editingId ? 'Uložiť zmeny' : 'Uložiť tréning'; saveBtn.className = 'btn btn-primary';
+    }
+    if(currentModalMode==='selfOnly' && box.hidden){ saveBtn.textContent = 'Pripojiť sa k tréningu'; }
+    saveBtn.hidden = (currentModalMode==='locked');
+  }
+
+  ['f-date','f-start','f-duration','f-type','f-required'].forEach(function(id){
+    document.getElementById(id).addEventListener('input', updateConflicts);
+    document.getElementById(id).addEventListener('change', updateConflicts);
+  });
+
+  function openModal(sessionId, prefill){
+    var s = sessionId ? sessions.filter(function(x){return x.id===sessionId;})[0] : null;
+    if(READ_ONLY && !s) return;
+    if(s && isMaskedForViewer(s)) return; // externals never open a Vertigo client's training
+    editingId = sessionId;
+    editingOriginalDate = s ? s.date : null;
+    var mode = trainingEditMode(s);
+    currentModalMode = mode;
+    document.getElementById('modalTitle').textContent = s ? 'Upraviť tréning' : 'Pridať tréning';
+    // New training, created by a trainer: pre-fill (and, in renderTrainerChecklist
+    // below, lock) their own name so it's never possible to create one without
+    // themselves on it.
+    var newDefaultTrainerIds = (!s && isTrainerRole()) ? [currentTrainerId] : [];
+    var data = s || Object.assign({date:selectedDate, start:'16:00', durationMin:60, type:(isPrivateOnlyViewer() ? TYPE_PRIVATE : TYPES[0]), status:'confirmed', notes:'', clientName:'', tag:'', phone:'', people:(isPrivateOnlyViewer() ? 1 : null), requiredTrainers:'', trainerIds:newDefaultTrainerIds}, prefill||{});
+    document.getElementById('f-client').value = data.clientName || '';
+    document.getElementById('tagDatalist').innerHTML = allTags().map(function(t){ return '<option value="'+esc(t)+'">'; }).join('');
+    document.getElementById('f-tag').value = data.tag || '';
+    document.getElementById('f-date').value = data.date;
+    document.getElementById('f-date').min = isTrainerRole() ? earliestTrainerDate() : '';
+    document.getElementById('f-start').value = data.start;
+    document.getElementById('f-duration').value = data.durationMin || 60;
+    document.getElementById('f-type').value = data.type || TYPES[0];
+    // Only the clock (or an admin) marks a training completed — a trainer never picks it.
+    document.getElementById('f-status').innerHTML = '<option value="confirmed">Potvrdené</option><option value="tentative">Predbežné</option>'+(isTrainerRole()?'':'<option value="completed">Dokončené</option>');
+    document.getElementById('f-status').value = (data.status==='cancelled' ? 'confirmed' : data.status) || 'confirmed';
+    // Paid is an Admin/Owner-only call, independent of whether a trainer can edit
+    // this training at all — trainers always see it, never toggle it themselves.
+    var paidBox = document.getElementById('f-paid');
+    paidBox.checked = !!data.paid;
+    paidBox.disabled = isTrainerRole();
+    var paidMetaEl = document.getElementById('paidMeta');
+    if(data.paid && data.paidBy){
+      paidMetaEl.hidden = false;
+      paidMetaEl.textContent = 'Označil(a) '+data.paidBy+', '+fmtWhen(data.paidAt);
+    } else {
+      paidMetaEl.hidden = true;
+    }
+    document.getElementById('f-phone').value = data.phone || '';
+    document.getElementById('f-people').value = (data.people===null || data.people===undefined) ? '' : data.people;
+    document.getElementById('f-required').value = (data.requiredTrainers===undefined || data.requiredTrainers==='') ? '' : data.requiredTrainers;
+    document.getElementById('f-notes').value = data.notes || '';
+    selectedColor = data.color || TYPE_DEFAULT_COLOR[data.type || TYPES[0]] || 'blue';
+    syncSwatchSelection();
+    renderTrainerChecklist(data.trainerIds || [], mode, !s && isTrainerRole(), !!s && isTrainerRole() && mode==='full');
+
+    var recurRow = document.getElementById('recurRow');
+    var seriesNote = document.getElementById('seriesNote');
+    document.getElementById('f-repeat').checked = false;
+    document.getElementById('recurUntilRow').hidden = true;
+    document.getElementById('f-until').value = '';
+    if(s){
+      recurRow.hidden = true;
+      if(s.seriesId){
+        seriesNote.hidden = false;
+        seriesNote.textContent = 'Súčasť týždenne opakovaného radu. Uložením si vyberiete, či zmeniť len tento tréning, alebo aj všetky budúce.';
+      } else { seriesNote.hidden = true; }
+    } else {
+      recurRow.hidden = false;
+      seriesNote.hidden = true;
+      syncRecurringFromType(data.type || TYPES[0]);
+    }
+
+    var lockNote = document.getElementById('modalLockNote');
+    if(mode==='full'){
+      setTrainingFormDisabled(false);
+      lockNote.hidden = true;
+      if(isTrainerRole() && (s || isPrivateOnlyViewer())) document.getElementById('f-type').disabled = true; // gym vs private decides who owes whom; externals only ever do private
+    } else if(mode==='selfOnly'){
+      setTrainingFormDisabled(true);
+      lockNote.hidden = false;
+      lockNote.textContent = 'Nie ste priradený(á) k tomuto tréningu. Chýba mu tréner — pripojte sa zaškrtnutím svojho mena nižšie. Nič iné tu nie je možné upraviť.';
+    } else {
+      setTrainingFormDisabled(true);
+      lockNote.hidden = false;
+      if(isTrainerRole() && isAssigned(s)){
+        lockNote.textContent = (s.status==='cancelled' && !isClosedForTrainer(s))
+          ? 'Tréning je zrušený — môžete ho obnoviť tlačidlom nižšie.'
+          : 'Tréning je uzavretý (dokončený, zaplatený alebo už skončil) — zmeny môže robiť len administrátor alebo majiteľ.';
+      } else {
+        lockNote.textContent = (isMissing(s) && hasEnded(s))
+          ? 'Tréning už skončil — pripojiť sa k nemu už nie je možné.'
+          : 'Nie ste priradený(á) k tomuto tréningu, takže je len na čítanie.';
+      }
+    }
+
+    var metaEl = document.getElementById('modalMeta');
+    if(s && s.lastEditedBy){
+      metaEl.hidden = false;
+      var obn = s.trainerIds.filter(function(id){ var t = trainerById(id); return id!==s.lastEditedById && t && t.noAccess; }).map(trainerName);
+      metaEl.textContent = 'Naposledy upravil(a) '+s.lastEditedBy+', '+fmtWhen(s.lastEditedAt)+(obn.length ? ' (za: '+obn.join(', ')+')' : '');
+    } else {
+      metaEl.hidden = true;
+    }
+
+    var editArea = document.getElementById('editOnlyActions');
+    editArea.innerHTML = '';
+    document.getElementById('scopeChooser').hidden = true;
+    document.getElementById('saveBtn').hidden = false;
+    if(s && !READ_ONLY && (!isTrainerRole() || canTrainerToggleCancel(s))){
+      var cancelBtn = document.createElement('button');
+      cancelBtn.className = 'btn btn-sm'; cancelBtn.textContent = s.status==='cancelled' ? 'Obnoviť tréning' : 'Zrušiť tréning';
+      cancelBtn.addEventListener('click', function(){
+        if(isTrainerRole() && !canTrainerToggleCancel(s)) return;
+        if(s.status==='cancelled'){ s.status='confirmed'; logChange('reinstated', s); }
+        else { var was = s.status; s.status='cancelled'; logChange('cancelled', s, {wasCompleted: was==='completed'}); }
+        stampEdited(s);
+        saveState(); closeModal(); renderAll();
+      });
+      editArea.appendChild(cancelBtn);
+      if(!isTrainerRole()){
+        var delBtn = document.createElement('button');
+        delBtn.className = 'btn btn-ghost btn-sm'; delBtn.textContent = 'Natrvalo vymazať';
+        delBtn.addEventListener('click', armButtonFactory(function(){
+          if(isTrainerRole()) return;
+          logChange('deleted', s);
+          sessions = sessions.filter(function(x){return x.id!==s.id;});
+          saveState(); closeModal(); renderAll();
+        }, 'Natrvalo vymazať'));
+        editArea.appendChild(delBtn);
+        if(s.seriesId){
+          var endSeriesBtn = document.createElement('button');
+          endSeriesBtn.className = 'btn btn-ghost btn-sm'; endSeriesBtn.textContent = 'Zrušiť tento a všetky budúce';
+          endSeriesBtn.addEventListener('click', armButtonFactory(function(){
+            if(isTrainerRole()) return;
+            var nCancelled = 0;
+            sessions.forEach(function(x){ if(x.seriesId===s.seriesId && x.date>=s.date && x.status!=='cancelled'){ x.status='cancelled'; stampEdited(x); nCancelled++; } });
+            logChange('cancelled', s, {count:nCancelled});
+            saveState(); closeModal(); renderAll();
+          }, 'Zrušiť tento a všetky budúce'));
+          editArea.appendChild(endSeriesBtn);
+        }
+      }
+    }
+
+    if(s && isTrainerRole() && mode==='full' && !canTrainerToggleCancel(s)){
+      var hint = document.createElement('span');
+      hint.style.cssText = 'font-size:11.5px; color:var(--ink-dim);';
+      hint.textContent = 'Zrušiť tréning môže administrátor (sú priradení aj iní tréneri) — alebo sa z neho odhláste.';
+      editArea.appendChild(hint);
+    }
+
+    overlay.hidden = false;
+    updateConflicts();
+  }
+  function closeModal(){ overlay.hidden = true; editingId=null; editingOriginalDate=null; }
+  document.getElementById('closeModal').addEventListener('click', closeModal);
+  overlay.addEventListener('click', function(e){ if(e.target===overlay) closeModal(); });
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape' && !overlay.hidden) closeModal(); });
+
+  function defaultUntil(dateStr){ return addDays(dateStr, 7*12); }
+
+  // Records who confirmed payment and when — separate from the general
+  // lastEditedBy trail, since "paid" is a specific Admin/Owner confirmation,
+  // not just an edit. Clears the stamp when un-checked, since there's no
+  // confirmation to show once it's marked unpaid again.
+  function stampPaid(f, wasPaid){
+    if(f.paid && !wasPaid){ f.paidBy = currentActorLabel(); f.paidAt = new Date().toISOString(); }
+    else if(!f.paid){ f.paidBy = null; f.paidAt = null; }
+  }
+  function saveRecurringNew(f){
+    if(isTrainerRole() && !enforceTrainerLimits(f, null)) return;
+    keepPrivateOnlyOffGym(f, null);
+    var until = document.getElementById('f-until').value || defaultUntil(f.date);
+    var sid = uid('series');
+    stampPaid(f, false);
+    stampCreated(f);
+    var d = f.date, first = null, n = 0;
+    while(d<=until){
+      var inst = Object.assign({}, f, {id:uid('s'), date:d, seriesId:sid});
+      sessions.push(inst);
+      if(!first) first = inst;
+      n++;
+      d = addDays(d,7);
+    }
+    if(first) logChange('created', first, {count:n});
+    saveState(); closeModal(); renderAll();
+  }
+  function saveSingleNew(f){
+    if(isTrainerRole() && !enforceTrainerLimits(f, null)) return;
+    keepPrivateOnlyOffGym(f, null);
+    f.id = uid('s'); f.seriesId = null;
+    stampPaid(f, false);
+    stampCreated(f);
+    sessions.push(f);
+    logChange('created', f);
+    saveState(); closeModal(); renderAll();
+  }
+  function applyEditSingle(existing, f){
+    var before = Object.assign({}, existing);
+    if(isTrainerRole()){
+      if(!enforceTrainerLimits(f, existing)) return;
+      if(currentModalMode==='selfOnly'){ // joining a gap touches the trainer list and nothing else
+        existing.trainerIds = f.trainerIds; stampEdited(existing);
+        var jc = diffSession(before, existing); if(jc.length) logChange('edited', existing, {changes:jc});
+        saveState(); closeModal(); renderAll(); return;
+      }
+    }
+    keepPrivateOnlyOffGym(f, existing);
+    stampPaid(f, existing.paid); Object.assign(existing, f); stampEdited(existing);
+    var ch = diffSession(before, existing);
+    if(ch.length) logChange('edited', existing, {changes:ch, wasCompleted: before.status==='completed'});
+    saveState(); closeModal(); renderAll();
+  }
+  function applyEditFuture(existing, f){
+    keepPrivateOnlyOffGym(f, existing);
+    var before = Object.assign({}, existing), applied = 0;
+    var threshold = editingOriginalDate, sid = existing.seriesId;
+    sessions.forEach(function(s){
+      if(s.seriesId===sid && s.date>=threshold && s.status!=='cancelled'){
+        s.tag=f.tag; s.color=f.color; s.type=f.type; s.clientName=f.clientName; s.phone=f.phone; s.people=f.people;
+        s.requiredTrainers=f.requiredTrainers; s.start=f.start; s.durationMin=f.durationMin; s.end=f.end;
+        s.notes=f.notes; s.trainerIds=f.trainerIds.slice();
+        stampEdited(s);
+        applied++;
+      }
+    });
+    var after = Object.assign({}, before, {tag:f.tag, type:f.type, clientName:f.clientName, phone:f.phone, people:f.people,
+      requiredTrainers:f.requiredTrainers, start:f.start, durationMin:f.durationMin, notes:f.notes, trainerIds:f.trainerIds});
+    var fc = diffSession(before, after);
+    if(fc.length) logChange('edited', existing, {changes:fc, count:applied});
+    saveState(); closeModal(); renderAll();
+  }
+
+  document.getElementById('saveBtn').addEventListener('click', function(){
+    if(currentModalMode==='locked') return;
+    var f = currentFormSession();
+    if(!f.date || !f.start || !f.durationMin) return;
+    if(!editingId){
+      if(document.getElementById('f-repeat').checked) saveRecurringNew(f); else saveSingleNew(f);
+      return;
+    }
+    var existing = sessions.filter(function(x){return x.id===editingId;})[0];
+    // Self-assigning into a gap only ever touches the trainer list (everything
+    // else is locked), so it's always safe to apply as a single-instance edit.
+    if(currentModalMode==='selfOnly' || isTrainerRole()){
+      applyEditSingle(existing, f);
+      return;
+    }
+    if(existing.seriesId){
+      document.getElementById('saveBtn').hidden = true;
+      document.getElementById('scopeChooser').hidden = false;
+      document.getElementById('scopeJust').onclick = function(){ applyEditSingle(existing, f); };
+      document.getElementById('scopeFuture').onclick = function(){ applyEditFuture(existing, f); };
+      document.getElementById('scopeBack').onclick = function(){ document.getElementById('scopeChooser').hidden=true; document.getElementById('saveBtn').hidden=false; };
+    } else {
+      applyEditSingle(existing, f);
+    }
+  });
+
+  // ---------- block time ----------
+  var blockOverlay = document.getElementById('blockOverlay');
+  var editingBlockId = null;
+
+  document.getElementById('addBlockBtn').addEventListener('click', function(){ openBlockModal(null, {date:selectedDate}); });
+
+  document.getElementById('b-allday').addEventListener('change', function(){
+    document.getElementById('blockTimeRow').hidden = this.checked;
+    updateBlockConflicts();
+  });
+  ['b-date','b-start','b-duration'].forEach(function(id){
+    document.getElementById(id).addEventListener('input', updateBlockConflicts);
+    document.getElementById(id).addEventListener('change', updateBlockConflicts);
+  });
+
+  function currentBlockForm(){
+    var allDay = document.getElementById('b-allday').checked;
+    var start = allDay ? toHHMM(START_MIN) : document.getElementById('b-start').value;
+    var dur = allDay ? (END_MIN-START_MIN) : (parseInt(document.getElementById('b-duration').value,10) || 0);
+    return {
+      label: document.getElementById('b-label').value || 'Blokované',
+      date: document.getElementById('b-date').value,
+      allDay: allDay,
+      start: start,
+      durationMin: dur
+    };
+  }
+
+  function updateBlockConflicts(){
+    var f = currentBlockForm();
+    var out = document.getElementById('blockEndDisplay');
+    out.textContent = f.allDay ? '' : (f.start && f.durationMin ? ('Koniec o '+toHHMM(toMin(f.start)+f.durationMin)) : '');
+    var box = document.getElementById('blockConflictBox');
+    var saveBtn = document.getElementById('blockSaveBtn');
+    if(!f.date || (!f.allDay && (!f.start || !f.durationMin))){ box.hidden=true; saveBtn.disabled=true; return; }
+    saveBtn.disabled = false;
+    var sMin = f.allDay ? START_MIN : toMin(f.start);
+    var eMin = f.allDay ? END_MIN : toMin(f.start)+f.durationMin;
+    var clashing = sessionsOnDate(f.date).filter(function(s){
+      return s.status!=='cancelled' && s.id!==editingBlockId && overlaps(sMin,eMin,toMin(s.start),toMin(s.end));
+    });
+    if(clashing.length){
+      box.hidden = false;
+      box.innerHTML = '<b>&#9888; V tomto čase je už niečo naplánované</b>' + clashing.map(function(s){ return '<div>'+s.start+'–'+s.end+' — '+esc(displayClient(s))+'</div>'; }).join('');
+      saveBtn.textContent = 'Napriek tomu blokovať'; saveBtn.className = 'btn btn-warning';
+    } else {
+      box.hidden = true;
+      saveBtn.textContent = editingBlockId ? 'Uložiť zmeny' : 'Uložiť blok'; saveBtn.className = 'btn btn-primary';
+    }
+  }
+
+  function openBlockModal(blockId, prefill){
+    if(READ_ONLY || (isTrainerRole() && !blockId)) return;
+    editingBlockId = blockId;
+    var b = blockId ? blocks.filter(function(x){return x.id===blockId;})[0] : null;
+    document.getElementById('blockTitle').textContent = b ? 'Upraviť blok' : 'Blokovať čas';
+    var data = b || Object.assign({date:selectedDate, allDay:false, start:'08:00', durationMin:60, label:''}, prefill||{});
+    document.getElementById('b-label').value = data.label || '';
+    document.getElementById('b-date').value = data.date;
+    document.getElementById('b-allday').checked = !!data.allDay;
+    document.getElementById('blockTimeRow').hidden = !!data.allDay;
+    document.getElementById('b-start').value = data.allDay ? '08:00' : data.start;
+    document.getElementById('b-duration').value = data.durationMin || 60;
+
+    var blockLocked = isTrainerRole();
+    ['b-label','b-date','b-allday','b-start','b-duration'].forEach(function(id){ document.getElementById(id).disabled = blockLocked; });
+    document.getElementById('blockLockNote').hidden = !blockLocked;
+    document.getElementById('blockLockNote').textContent = 'Tréneri môžu blokovaný čas vidieť, ale nemôžu ho vytvárať ani meniť.';
+    document.getElementById('blockSaveBtn').hidden = blockLocked;
+
+    var blockMetaEl = document.getElementById('blockModalMeta');
+    if(b && b.lastEditedBy){
+      blockMetaEl.hidden = false;
+      blockMetaEl.textContent = 'Naposledy upravil(a) '+b.lastEditedBy+', '+fmtWhen(b.lastEditedAt);
+    } else {
+      blockMetaEl.hidden = true;
+    }
+
+    var editArea = document.getElementById('blockEditOnlyActions');
+    editArea.innerHTML = '';
+    if(b && !blockLocked){
+      var delBtn = document.createElement('button');
+      delBtn.className = 'btn btn-ghost btn-sm'; delBtn.textContent = 'Odstrániť blok';
+      delBtn.addEventListener('click', armButtonFactory(function(){
+        blocks = blocks.filter(function(x){return x.id!==b.id;});
+        saveState(); closeBlockModal(); renderAll();
+      }, 'Odstrániť blok'));
+      editArea.appendChild(delBtn);
+    }
+
+    blockOverlay.hidden = false;
+    updateBlockConflicts();
+  }
+  function closeBlockModal(){ blockOverlay.hidden = true; editingBlockId = null; }
+  document.getElementById('closeBlock').addEventListener('click', closeBlockModal);
+  blockOverlay.addEventListener('click', function(e){ if(e.target===blockOverlay) closeBlockModal(); });
+
+  document.getElementById('blockSaveBtn').addEventListener('click', function(){
+    if(isTrainerRole()) return;
+    var f = currentBlockForm();
+    if(!f.date || (!f.allDay && (!f.start || !f.durationMin))) return;
+    if(editingBlockId){
+      var existing = blocks.filter(function(x){return x.id===editingBlockId;})[0];
+      Object.assign(existing, f);
+      stampEdited(existing);
+    } else {
+      f.id = uid('blk');
+      stampCreated(f);
+      blocks.push(f);
+    }
+    saveState(); closeBlockModal(); renderAll();
+  });
+
+  // ---------- team (roster, roles, and activation — Admin & Owner) ----------
+  function trainerStats(trainerId, monthKey){
+    var hours=0, count=0;
+    sessions.forEach(function(s){
+      if(s.status==='cancelled') return;
+      if(ym(s.date)!==monthKey) return;
+      if(s.trainerIds.indexOf(trainerId)!==-1){ count++; hours += (toMin(s.end)-toMin(s.start))/60; }
+    });
+    return {count:count, hours:hours};
+  }
+
+  var showHiddenTrainers = false;
+  document.getElementById('toggleHiddenBtn').addEventListener('click', function(){ showHiddenTrainers = !showHiddenTrainers; renderTeam(); });
+
+  function renderTeam(){
+    var mo = ym(TODAY);
+    var body = document.getElementById('teamTableBody');
+    var hiddenCount = trainers.filter(function(t){return t.hidden;}).length;
+    var toggleBtn = document.getElementById('toggleHiddenBtn');
+    toggleBtn.textContent = showHiddenTrainers ? 'Skryť vymazaných' : (hiddenCount ? 'Zobraziť vymazané (' + hiddenCount + ')' : '');
+    toggleBtn.hidden = (!showHiddenTrainers && hiddenCount===0);
+
+    var visible = trainers.filter(function(t){ return showHiddenTrainers || !t.hidden; });
+    var order = {owner:0, admin:1, trainer:2};
+    var sorted = visible.slice().sort(function(a,b){
+      if(a.hidden!==b.hidden) return a.hidden?1:-1;
+      if(order[a.role]!==order[b.role]) return order[a.role]-order[b.role];
+      if(a.status!==b.status) return a.status==='active'?-1:1;
+      return a.name.localeCompare(b.name);
+    });
+    var countable = trainers.filter(function(t){return !t.hidden;});
+    document.getElementById('rosterCount').textContent = countable.filter(function(t){return t.status==='active';}).length + ' aktívnych · ' + countable.filter(function(t){return t.status==='inactive';}).length + ' neaktívnych'+(hiddenCount?' · '+hiddenCount+' vymazaných':'');
+
+    body.innerHTML = sorted.map(function(t){
+      var st = trainerStats(t.id, mo);
+      var statusCell = t.hidden
+        ? '<span class="status-pill inactive">Vymazaný</span>'
+        : '<span class="status-pill '+t.status+'">'+(t.status==='active'?'Aktívny':'Neaktívny')+'</span>';
+      var changedNote = t.roleChangedBy ? '<div style="font-size:10.5px; color:var(--ink-faint); margin-top:3px;">Zmenil(a) '+esc(t.roleChangedBy)+', '+fmtWhen(t.roleChangedAt)+'</div>' : '';
+      var roleOptions = ['trainer','admin','owner'].map(function(r){
+        return '<option value="'+r+'"'+(t.role===r?' selected':'')+'>'+ROLE_LABEL[r]+'</option>';
+      }).join('');
+      var flagsCell = (t.role==='trainer' && !t.hidden)
+        ? '<div style="display:flex; flex-direction:column; gap:2px; margin-top:6px;">'+
+            '<label class="check-field" style="font-size:11.5px; font-weight:500;"><input type="checkbox" class="team-flag" data-flag="privateOnly" data-id="'+t.id+'"'+(t.privateOnly?' checked':'')+'> Iba súkromné (externý)</label>'+
+            '<label class="check-field" style="font-size:11.5px; font-weight:500;"><input type="checkbox" class="team-flag" data-flag="noAccess" data-id="'+t.id+'"'+(t.noAccess?' checked':'')+'> Bez prístupu (spravuje admin)</label>'+
+          '</div>' : '';
+      var roleCell = '<select class="team-role-select" data-id="'+t.id+'" style="border:1px solid var(--border); background:var(--surface); color:var(--ink); border-radius:8px; padding:6px 9px; font-size:13px;">'+roleOptions+'</select>'+changedNote+flagsCell;
+      var actionCell = t.hidden
+        ? '<button class="btn btn-sm restore-trainer" data-id="'+t.id+'">Obnoviť</button>'
+        : '<button class="btn btn-sm toggle-status" data-id="'+t.id+'">'+(t.status==='active'?'Deaktivovať':'Reaktivovať')+'</button>';
+      var deleteCell = (!t.hidden && t.status==='inactive')
+        ? '<button class="btn btn-ghost btn-sm delete-trainer" data-id="'+t.id+'">Vymazať</button>'
+        : '';
+      return '<tr'+(t.hidden?' style="opacity:0.55;"':'')+'>'+
+        '<td>'+esc(t.name)+(t.privateOnly?' <span class="tag-inactive" style="color:var(--accent);">externý</span>':'')+(t.noAccess?' <span class="tag-inactive">bez prístupu</span>':'')+'</td>'+
+        '<td>'+roleCell+'</td>'+
+        '<td>'+statusCell+'</td>'+
+        '<td class="num">'+st.count+'</td>'+
+        '<td class="num">'+st.hours.toFixed(1)+'</td>'+
+        '<td>'+actionCell+'</td>'+
+        '<td>'+deleteCell+'</td>'+
+      '</tr>';
+    }).join('');
+
+    body.querySelectorAll('.team-role-select').forEach(function(sel){
+      sel.addEventListener('change', function(){
+        if(!isAdminOrOwnerRole()) return;
+        var t = trainerById(sel.dataset.id);
+        t.role = sel.value;
+        if(t.role!=='trainer'){ t.privateOnly = false; t.noAccess = false; }
+        t.roleChangedBy = currentActorLabel();
+        t.roleChangedAt = new Date().toISOString();
+        saveState();
+        renderTeam();
+        populateViewingAsSelect();
+        renderRoleBanner();
+        applyRoleUI();
+      });
+    });
+    body.querySelectorAll('.team-flag').forEach(function(cb){
+      cb.addEventListener('change', function(){
+        if(!isAdminOrOwnerRole()) return;
+        var t = trainerById(cb.dataset.id);
+        if(cb.dataset.flag==='noAccess' && t.id===currentTrainerId){ cb.checked = false; return; } // don't lock yourself out
+        t[cb.dataset.flag] = cb.checked;
+        saveState(); renderTeam(); populateViewingAsSelect(); renderRoleBanner(); applyRoleUI(); renderCalendar();
+      });
+    });
+    body.querySelectorAll('.toggle-status').forEach(function(btn){
+      btn.addEventListener('click', armButtonFactory(function(){
+        if(!isAdminOrOwnerRole()) return;
+        var t = trainerById(btn.dataset.id);
+        if(t.status==='active'){ t.status='inactive'; t.until=TODAY; } else { t.status='active'; t.until=null; }
+        saveState(); renderTeam();
+      }, btn.textContent));
+    });
+    body.querySelectorAll('.delete-trainer').forEach(function(btn){
+      btn.addEventListener('click', armButtonFactory(function(){
+        if(!isAdminOrOwnerRole()) return;
+        var t = trainerById(btn.dataset.id);
+        t.hidden = true;
+        saveState(); renderTeam(); populateViewingAsSelect();
+      }, 'Vymazať'));
+    });
+    body.querySelectorAll('.restore-trainer').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        if(!isAdminOrOwnerRole()) return;
+        var t = trainerById(btn.dataset.id);
+        t.hidden = false;
+        saveState(); renderTeam(); populateViewingAsSelect();
+      });
+    });
+  }
+
+  document.getElementById('addTrainerBtn').addEventListener('click', function(){
+    if(!isAdminOrOwnerRole()) return;
+    var nameInput = document.getElementById('newTrainerName');
+    var name = nameInput.value.trim();
+    if(!name) { nameInput.focus(); return; }
+    trainers.push({id:uid('t'), name:name, status:'active', since:TODAY, until:null, hidden:false, role:'trainer', roleChangedBy:null, roleChangedAt:null});
+    nameInput.value='';
+    saveState(); renderTeam(); populateViewingAsSelect();
+  });
+
+  // ---------- reports ----------
+  function allMonths(){
+    var set = {};
+    sessions.forEach(function(s){ set[ym(s.date)] = true; });
+    return Object.keys(set).sort();
+  }
+
+  document.getElementById('reportSubtabs').addEventListener('click', function(e){
+    var btn = e.target.closest('.subtab'); if(!btn) return;
+    document.querySelectorAll('#reportSubtabs .subtab').forEach(function(b){ b.classList.toggle('active', b===btn); });
+    ['missing','conflicts','activity','summary','vertigo','private','bytrainer','load'].forEach(function(k){ document.getElementById('sub-'+k).hidden = (k!==btn.dataset.sub); });
+  });
+
+  var reportTagFilters = [];
+  function addTagFilter(){
+    var input = document.getElementById('reportTagInput');
+    var v = input.value.trim().toLowerCase();
+    input.value='';
+    if(!v || reportTagFilters.indexOf(v)!==-1) return;
+    reportTagFilters.push(v);
+    renderTagChips();
+    drawAll();
+  }
+  document.getElementById('reportTagAddBtn').addEventListener('click', addTagFilter);
+  document.getElementById('reportTagInput').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); addTagFilter(); } });
+  function renderTagChips(){
+    document.getElementById('reportTagChips').innerHTML = reportTagFilters.map(function(f,i){
+      return '<span class="tag-chip">'+esc(f)+'<button data-i="'+i+'">✕</button></span>';
+    }).join('');
+    document.querySelectorAll('#reportTagChips button').forEach(function(btn){
+      btn.addEventListener('click', function(){ reportTagFilters.splice(+btn.dataset.i,1); renderTagChips(); drawAll(); });
+    });
+  }
+
+  function renderReports(){
+    var monthSel = document.getElementById('reportMonth');
+    var months = allMonths();
+    var prevSelected = Array.from(monthSel.selectedOptions).map(function(o){return o.value;});
+    monthSel.innerHTML = months.map(function(m){ return '<option value="'+m+'">'+monthLabel(m)+'</option>'; }).join('');
+    var toSelect = prevSelected.length ? prevSelected : [ym(TODAY)];
+    Array.from(monthSel.options).forEach(function(o){ o.selected = toSelect.indexOf(o.value)!==-1; });
+
+    document.getElementById('reportTagDatalist').innerHTML = allTags().map(function(t){ return '<option value="'+esc(t)+'">'; }).join('');
+    renderTagChips();
+
+    var byTrainerSel = document.getElementById('byTrainerSelect');
+    var curT = byTrainerSel.value;
+    byTrainerSel.innerHTML = '<option value="">— Zrušiť výber —</option>' + trainers.slice().sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(t){ return '<option value="'+t.id+'">'+esc(t.name)+(t.hidden?' (vymazaný)':(t.status==='inactive'?' (neaktívny)':''))+'</option>'; }).join('');
+    if(curT) byTrainerSel.value = curT;
+
+    applyRoleUI();
+    drawAll();
+  }
+  document.getElementById('reportMonth').addEventListener('change', drawAll);
+  document.getElementById('reportStatus').addEventListener('change', drawAll);
+  document.getElementById('summaryOrderBy').addEventListener('change', drawSummary);
+  document.getElementById('statusSelectAll').addEventListener('click', function(e){
+    e.preventDefault();
+    Array.from(document.getElementById('reportStatus').options).forEach(function(o){ o.selected = true; });
+    drawAll();
+  });
+  document.getElementById('statusSelectNone').addEventListener('click', function(e){
+    e.preventDefault();
+    Array.from(document.getElementById('reportStatus').options).forEach(function(o){ o.selected = false; });
+    drawAll();
+  });
+  document.getElementById('byTrainerSelect').addEventListener('change', drawByTrainer);
+
+  function filteredMonthSessions(){
+    var selectedMonths = Array.from(document.getElementById('reportMonth').selectedOptions).map(function(o){return o.value;});
+    var selectedStatuses = Array.from(document.getElementById('reportStatus').selectedOptions).map(function(o){return o.value;});
+    return sessions.filter(function(s){
+      if(selectedMonths.indexOf(ym(s.date))===-1) return false;
+      if(selectedStatuses.length && selectedStatuses.indexOf(s.status)===-1) return false;
+      if(reportTagFilters.length){
+        var tag = (s.tag||'').toLowerCase();
+        if(!reportTagFilters.some(function(f){ return tag.indexOf(f)!==-1; })) return false;
+      }
+      return true;
+    });
+  }
+
+  function drawAll(){ drawSummary(); drawMissing(); drawByTrainer(); drawConflicts(); drawPrivate(); drawVertigo(); drawActivity(); drawLoad(); }
+
+  // A cell starting with = + - @ is executed as a formula when the CSV is opened in Excel/Sheets — prefix it so it stays plain text.
+  function csvEscape(v){ v=String(v==null?'':v); if(/^[=+\-@\t\r]/.test(v)) v = "'"+v; return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }
+
+  function drawSummary(){
+    var monthSessions = filteredMonthSessions();
+    var live = monthSessions.filter(function(s){ return s.status!=='cancelled'; });
+    var cancelled = monthSessions.filter(function(s){ return s.status==='cancelled'; });
+    var totalHours = live.reduce(function(acc,s){ return acc + (toMin(s.end)-toMin(s.start))/60; }, 0);
+
+    document.getElementById('reportStats').innerHTML =
+      '<div class="stat-tile"><div class="v num">'+totalHours.toFixed(1)+'</div><div class="l">Celkové hodiny</div></div>'+
+      '<div class="stat-tile"><div class="v num">'+live.length+'</div><div class="l">Uskutočnené tréningy</div></div>'+
+      '<div class="stat-tile"><div class="v num">'+cancelled.length+'</div><div class="l">Zrušené</div></div>';
+
+    // Completed / Planned (confirmed + tentative) / Cancelled hours, per trainer.
+    // Gym and Private are kept in separate buckets here too — different pay
+    // arrangements, so summed together they'd be a meaningless number.
+    var perTrainer = {};
+    monthSessions.forEach(function(s){
+      var dur = (toMin(s.end)-toMin(s.start))/60;
+      var bucket = s.status==='completed' ? 'completed' : (s.status==='cancelled' ? 'cancelled' : 'planned');
+      s.trainerIds.forEach(function(id){
+        perTrainer[id] = perTrainer[id] || {completedHours:0, plannedHours:0, cancelledHours:0, privateHours:0};
+        if(isPrivateSession(s)){
+          if(bucket!=='cancelled') perTrainer[id].privateHours += dur;
+        } else {
+          perTrainer[id][bucket+'Hours'] += dur;
+        }
+      });
+    });
+    var summaryRows = Object.keys(perTrainer).map(function(id){
+      var r = perTrainer[id];
+      r.id = id; r.name = trainerName(id); r.inactive = trainerById(id) && trainerById(id).status==='inactive';
+      return r;
+    });
+    var orderBy = document.getElementById('summaryOrderBy').value || 'name';
+    summaryRows.sort(function(a,b){
+      if(orderBy==='name') return a.name.localeCompare(b.name);
+      return (b[orderBy]||0) - (a[orderBy]||0);
+    });
+    document.getElementById('reportByTrainerBody').innerHTML = summaryRows.length ? summaryRows.map(function(r){
+      return '<tr><td>'+esc(r.name)+(r.inactive?'<span class="tag-inactive">neaktívny</span>':'')+'</td>'+
+        '<td class="num">'+r.completedHours.toFixed(1)+'</td>'+
+        '<td class="num">'+r.plannedHours.toFixed(1)+'</td>'+
+        '<td class="num">'+r.cancelledHours.toFixed(1)+'</td>'+
+        '<td class="num">'+r.privateHours.toFixed(1)+'</td></tr>';
+    }).join('') : '<tr><td colspan="5"><div class="agenda-empty">V tomto výbere nie sú žiadne tréningy.</div></td></tr>';
+
+    document.getElementById('exportBtn').onclick = function(){
+      var rows = filteredMonthSessions().slice().sort(function(a,b){ return a.date===b.date? toMin(a.start)-toMin(b.start) : a.date.localeCompare(b.date); });
+      var lines = ['Dátum,Začiatok,Koniec,Hodiny,Typ,Značka,Tréneri,Klient,Počet osôb,Stav,Zaplatené'];
+      rows.forEach(function(s){
+        var hours = ((toMin(s.end)-toMin(s.start))/60).toFixed(2);
+        var trainerNames = s.trainerIds.map(trainerName).join('; ');
+        lines.push([s.date, s.start, s.end, hours, s.type, s.tag||'', trainerNames, s.clientName||'', (s.people==null?'':s.people), s.status, (s.paid?'áno':'nie')].map(csvEscape).join(','));
+      });
+      document.getElementById('csvOut').value = lines.join('\n');
+      document.getElementById('exportOverlay').hidden = false;
+    };
+  }
+
+  // Itemized list behind the Summary tab's "Súkromné hod." column — the
+  // total alone isn't enough to reconcile who owes the gym what.
+  // ---------- gym load: people per hour, per day of a week (anonymous, so every role may see it) ----------
+  var loadWeek = isoOf(startOfWeek(TODAY));
+  var LOAD_FULL = 20; // this many people or more in one hour = darkest cell
+  function drawLoad(){
+    var days = [0,1,2,3,4,5,6].map(function(i){ return addDays(loadWeek, i); });
+    var DOW = ['Po','Ut','St','Št','Pi','So','Ne'];
+    document.getElementById('loadWeekLabel').textContent = fmtReportDate(days[0]).replace(/^[^,]*,\s*/,'') + ' – ' + fmtReportDate(days[6]).replace(/^[^,]*,\s*/,'');
+    var live = sessions.filter(function(s){ return s.status!=='cancelled'; });
+    var html = '<table class="team-table" style="table-layout:fixed; min-width:560px;"><thead><tr><th style="width:52px;"></th>'+
+      days.map(function(d,i){ return '<th style="text-align:center;">'+DOW[i]+' '+d.slice(8)+'.'+d.slice(5,7)+'.</th>'; }).join('')+'</tr></thead><tbody>';
+    for(var m=START_MIN; m<END_MIN; m+=60){
+      html += '<tr><td style="font-family:\'IBM Plex Mono\'; font-size:11px; color:var(--ink-dim);">'+toHHMM(m)+'</td>';
+      days.forEach(function(d){
+        var here = live.filter(function(s){ return s.date===d && overlaps(toMin(s.start), toMin(s.end), m, m+60); });
+        var ppl = here.reduce(function(a,s){ return a + (s.people!=null ? s.people : 1); }, 0);
+        var pct = Math.round(Math.min(ppl/LOAD_FULL,1)*75);
+        html += '<td style="text-align:center; padding:4px 2px; '+(ppl ? 'background:color-mix(in srgb, var(--accent) '+pct+'%, var(--surface));' : '')+'">'+
+          (ppl ? '<b>'+ppl+'</b><div style="font-size:10px; color:var(--ink-dim);">'+here.length+' tr.</div>' : '')+'</td>';
+      });
+      html += '</tr>';
+    }
+    document.getElementById('loadGrid').innerHTML = html + '</tbody></table>';
+  }
+  document.getElementById('loadPrev').addEventListener('click', function(){ loadWeek = addDays(loadWeek,-7); drawLoad(); });
+  document.getElementById('loadNext').addEventListener('click', function(){ loadWeek = addDays(loadWeek,7); drawLoad(); });
+  document.getElementById('loadToday').addEventListener('click', function(){ loadWeek = isoOf(startOfWeek(TODAY)); drawLoad(); });
+
+  // ---------- recent activity (Admin/Owner): what was added or changed lately ----------
+  var activityHours = 168;
+  function activityRow(e){
+    var exists = sessions.some(function(s){ return s.id===e.sid; });
+    var danger = e.action==='cancelled' || e.action==='deleted';
+    var typeChanged = (e.changes||[]).some(function(ch){ return ch.k==='type'; });
+    var text;
+    if(e.action==='created') text = 'Nový tréning' + (e.count>1 ? ' ('+e.count+'× týždenne)' : '');
+    else if(e.action==='cancelled') text = 'ZRUŠENÉ' + (e.count>1 ? ' (tento a ďalšie: '+e.count+')' : '') + (e.wasCompleted ? ' — bol dokončený' : '');
+    else if(e.action==='deleted') text = 'VYMAZANÉ';
+    else if(e.action==='reinstated') text = 'Obnovené';
+    else if(e.action==='paid') text = 'Označené ako zaplatené: '+e.count+(e.count===1?' tréning':' tréningov')+'';
+    else text = 'Upravené' + (e.count>1 ? ' (rad: '+e.count+' tréningov)' : '') + (e.wasCompleted ? ' — po dokončení' : '');
+    var changes = (e.changes||[]).slice(0,4).map(function(ch){ return esc(ch.f)+': '+esc(ch.from)+' → '+esc(ch.to); }).join(' &middot; ') + ((e.changes||[]).length>4 ? ' &middot; …' : '');
+    var who = esc(e.byName) + ((e.forNames && e.forNames.length) ? ' (za: '+e.forNames.map(esc).join(', ')+')' : '');
+    var st = (exists ? '' : 'cursor:default;') + (danger ? 'background:var(--danger-soft); border-color:var(--danger);' : (typeChanged ? 'background:var(--warning-soft); border-color:var(--warning);' : ''));
+    return '<div class="agenda-item"'+(exists?' data-sid="'+esc(e.sid)+'"':'')+(st?' style="'+st+'"':'')+'>'+
+      '<span class="dot" style="background:'+(danger?'var(--danger)':(e.isPrivate?'var(--swatch-purple)':'var(--accent)'))+'"></span>'+
+      '<span class="a-time" style="width:130px;">'+esc(fmtWhen(e.t))+'</span>'+
+      '<span class="a-main"><div class="a-type">'+esc(e.action==='paid' ? 'Platba trénerovi '+e.bulkFor : e.label)+' &middot; <span style="'+(danger?'color:var(--danger); font-weight:700;':'')+'">'+text+'</span></div>'+
+      '<div class="a-sub" style="white-space:normal;">'+(e.action==='paid' ? '' : esc(e.when)+' &middot; ')+who+(changes?' &middot; '+changes:'')+'</div></span></div>';
+  }
+  function activitySection(title, list){
+    return '<div><h3 style="font-size:13px; margin-bottom:8px;">'+title+' <span style="font-weight:400; color:var(--ink-dim);">('+list.length+')</span></h3>'+
+      '<div style="display:flex; flex-direction:column; gap:6px;">'+(list.length ? list.map(activityRow).join('') : '<div class="agenda-empty" style="padding:10px;">Nič nové.</div>')+'</div></div>';
+  }
+  function drawActivity(){
+    var cutoff = Date.now() - activityHours*3600*1000;
+    var items = changeLog.filter(function(e){ return new Date(e.t).getTime() >= cutoff; }).sort(function(a,b){ return b.t.localeCompare(a.t); });
+    var wrap = document.getElementById('activityBody');
+    wrap.innerHTML =
+      activitySection('Nové tréningy Vertigo', items.filter(function(e){ return e.action==='created' && !e.isPrivate; })) +
+      activitySection('Nové súkromné tréningy', items.filter(function(e){ return e.action==='created' && e.isPrivate; })) +
+      activitySection('Ostatné zmeny', items.filter(function(e){ return e.action!=='created'; }));
+    wrap.querySelectorAll('.agenda-item[data-sid]').forEach(function(it){ it.addEventListener('click', function(){ openModal(it.dataset.sid); }); });
+  }
+  document.getElementById('activityRange').addEventListener('click', function(e){
+    var btn = e.target.closest('.subtab'); if(!btn) return;
+    activityHours = parseInt(btn.dataset.h, 10);
+    document.querySelectorAll('#activityRange .subtab').forEach(function(b){ b.classList.toggle('active', b===btn); });
+    drawActivity();
+  });
+
+  // "Paid" here means the trainer has settled their cut with the gym — a
+  // flat per-training thing, not per-hour, and only meaningful once the
+  // training has actually happened. Confirmed/tentative trainings aren't
+  // "unpaid" yet, they're just not due.
+  // For the owner's monthly payout check: which trainings did the trainer put in (or last touch) themselves?
+  function enteredByTrainer(s, trainerId){
+    var t = trainerById(trainerId);
+    return !!t && t.role==='trainer' && (s.createdById===trainerId || s.lastEditedById===trainerId);
+  }
+  var STATUS_LABEL = {confirmed:'Potvrdené', tentative:'Predbežné', completed:'Dokončené', cancelled:'Zrušené'};
+  function paidTagFor(s){
+    var out = ' &middot; '+(STATUS_LABEL[s.status] || s.status);
+    if(s.status==='completed'){
+      out += s.paid
+        ? ' &middot; <span style="color:var(--success);">&#128176; Zaplatené</span>'
+        : ' &middot; <span style="color:var(--warning);">Nezaplatené</span>';
+    }
+    return out;
+  }
+  function drawPrivate(){
+    var unpaidOnly = document.getElementById('privateUnpaidOnly').checked;
+    var monthSessions = filteredMonthSessions().filter(isPrivateSession)
+      .sort(function(a,b){ return a.date===b.date ? toMin(a.start)-toMin(b.start) : a.date.localeCompare(b.date); });
+    var live = monthSessions.filter(function(s){ return s.status!=='cancelled'; });
+    var unpaidCompleted = live.filter(function(s){ return s.status==='completed' && !s.paid; });
+
+    document.getElementById('privateStats').innerHTML =
+      '<div class="stat-tile"><div class="v num">'+live.length+'</div><div class="l">Súkromné tréningy</div></div>'+
+      '<div class="stat-tile"><div class="v num" style="color:'+(unpaidCompleted.length>0?'var(--warning)':'inherit')+';">'+unpaidCompleted.length+'</div><div class="l">Nezaplatené tréningy</div></div>';
+
+    var shown = unpaidOnly ? unpaidCompleted : monthSessions;
+    var wrap = document.getElementById('privateList');
+    wrap.innerHTML = shown.length ? shown.map(function(s){
+      var trNames = s.trainerIds.map(trainerNameH).join(', ') || 'Netreba trénera';
+      return '<div class="agenda-item'+(s.status==='cancelled'?' cancelled':'')+'" data-id="'+s.id+'">'+
+        '<span class="dot" style="background:var(--swatch-purple)"></span>'+
+        '<span class="a-time" style="width:220px;">'+fmtReportDate(s.date)+' '+s.start+'–'+s.end+'</span>'+
+        '<span class="a-main"><div class="a-type">'+esc(s.clientName||s.type)+paidTagFor(s)+'</div>'+
+        '<div class="a-sub">'+trNames+'</div></span></div>';
+    }).join('') : '<div class="agenda-empty">V tomto výbere nie sú žiadne súkromné tréningy.</div>';
+    wrap.querySelectorAll('.agenda-item').forEach(function(it){ it.addEventListener('click', function(){ openModal(it.dataset.id); }); });
+  }
+  document.getElementById('privateUnpaidOnly').addEventListener('change', drawPrivate);
+
+  // Opposite direction from Súkromné: the gym owes the trainer a wage for
+  // these, paid out monthly in a batch — so unlike Súkromné, this is grouped
+  // by trainer with a one-click bulk action, not a flat per-training log.
+  function drawVertigo(){
+    var unpaidOnly = document.getElementById('vertigoUnpaidOnly').checked;
+    var monthSessions = filteredMonthSessions().filter(isGymSession)
+      .sort(function(a,b){ return a.date===b.date ? toMin(a.start)-toMin(b.start) : a.date.localeCompare(b.date); });
+    var live = monthSessions.filter(function(s){ return s.status!=='cancelled'; });
+    var unpaidCompleted = live.filter(function(s){ return s.status==='completed' && !s.paid; });
+
+    document.getElementById('vertigoStats').innerHTML =
+      '<div class="stat-tile"><div class="v num">'+live.length+'</div><div class="l">Tréningy Vertigo</div></div>'+
+      '<div class="stat-tile"><div class="v num" style="color:'+(unpaidCompleted.length>0?'var(--warning)':'inherit')+';">'+unpaidCompleted.length+'</div><div class="l">Nezaplatené tréningy</div></div>';
+
+    var byTrainer = {};
+    live.forEach(function(s){
+      s.trainerIds.forEach(function(id){
+        byTrainer[id] = byTrainer[id] || [];
+        byTrainer[id].push(s);
+      });
+    });
+    var trainerIds = Object.keys(byTrainer).sort(function(a,b){ return trainerName(a).localeCompare(trainerName(b)); });
+
+    var wrap = document.getElementById('vertigoList');
+    var groupsHtml = trainerIds.map(function(id){
+      var list = byTrainer[id];
+      // unpaid drives the badge count and the bulk button regardless of the
+      // toggle; shownItems is just what's currently listed underneath — this
+      // is what makes the toggle visibly do something even for a trainer who
+      // still owes money, not just hide trainers who are fully settled.
+      var completed = list.filter(function(s){ return s.status==='completed'; });
+      var unpaid = completed.filter(function(s){ return !s.paid; });
+      var flagged = unpaid.filter(function(s){ return enteredByTrainer(s, id); }).length;
+      var shownItems = unpaidOnly ? unpaid : list;
+      if(shownItems.length===0) return '';
+      var itemsHtml = shownItems.map(function(s){
+        return '<div class="agenda-item'+(s.status==='cancelled'?' cancelled':'')+'" data-id="'+s.id+'">'+
+          '<span class="dot" style="background:'+colorVar(s.color)+'"></span>'+
+          '<span class="a-time" style="width:220px;">'+fmtReportDate(s.date)+' '+s.start+'–'+s.end+'</span>'+
+          '<span class="a-main"><div class="a-type">'+esc(s.clientName||s.type)+paidTagFor(s)+(enteredByTrainer(s,id)?' &middot; <span style="color:var(--warning);">&#9998; zadané trénerom</span>':'')+'</div>'+
+          '<div class="a-sub">'+esc(s.type)+(s.tag?' &middot; '+esc(s.tag):'')+'</div></span></div>';
+      }).join('');
+      return '<div style="border:1px solid var(--border-soft); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px;">'+
+        '<div class="flexbar">'+
+          '<div style="font-weight:700; font-size:13px;">'+trainerNameH(id)+
+            ' <span style="font-weight:400; color:var(--ink-dim); font-size:12px;">&middot; '+list.length+' tréningov'+
+            (unpaid.length ? ', '+unpaid.length+' nezaplatené'+(flagged?' ('+flagged+' zadané trénerom)':'') : (completed.length ? ', všetko zaplatené' : ''))+'</span></div>'+
+          (unpaid.length ? '<button class="btn btn-sm mark-paid-btn" data-trainer="'+id+'">Označiť nezaplatené ako zaplatené</button>' : '')+
+        '</div>'+itemsHtml+'</div>';
+    }).join('');
+
+    wrap.innerHTML = groupsHtml || '<div class="agenda-empty">V tomto výbere nie sú žiadne tréningy Vertigo.</div>';
+    wrap.querySelectorAll('.agenda-item[data-id]').forEach(function(it){ it.addEventListener('click', function(){ openModal(it.dataset.id); }); });
+    wrap.querySelectorAll('.mark-paid-btn').forEach(function(btn){
+      btn.addEventListener('click', armButtonFactory(function(){
+        if(!isAdminOrOwnerRole()) return;
+        var id = btn.dataset.trainer;
+        var marked = [];
+        byTrainer[id].filter(function(s){ return s.status==='completed' && !s.paid; }).forEach(function(s){
+          var wasPaid = s.paid;
+          s.paid = true;
+          stampPaid(s, wasPaid);
+          stampEdited(s);
+          marked.push(s);
+        });
+        if(marked.length) logChange('paid', marked[0], {count:marked.length, bulkFor:trainerName(id), forNames:[]});
+        saveState();
+        drawVertigo(); drawActivity();
+      }, 'Označiť nezaplatené ako zaplatené'));
+    });
+  }
+  document.getElementById('vertigoUnpaidOnly').addEventListener('change', drawVertigo);
+
+  function drawMissing(){
+    var monthSessions = filteredMonthSessions().filter(isMissing).sort(function(a,b){ return a.date===b.date ? toMin(a.start)-toMin(b.start) : a.date.localeCompare(b.date); });
+    var wrap = document.getElementById('missingList');
+    wrap.innerHTML = monthSessions.length ? monthSessions.map(function(s){
+      var have = s.trainerIds.map(trainerNameH).join(', ') || 'zatiaľ nikto';
+      return '<div class="flag-row" data-id="'+s.id+'"><div class="fr-main">'+esc(s.clientName||s.type)+' &middot; '+s.date+' '+s.start+'–'+s.end+
+        '<div class="fr-sub">Potrebuje '+s.requiredTrainers+', má '+s.trainerIds.length+' ('+have+') &middot; '+esc(s.tag||'bez značky')+'</div></div></div>';
+    }).join('') : '<div class="agenda-empty">V tomto výbere nič nechýba.</div>';
+    wrap.querySelectorAll('.flag-row').forEach(function(row){ row.addEventListener('click', function(){ openModal(row.dataset.id); }); });
+  }
+
+  function drawByTrainer(){
+    var tId = document.getElementById('byTrainerSelect').value;
+    if(!tId){ document.getElementById('byTrainerList').innerHTML = '<div class="agenda-empty">Vyberte trénera vyššie a zobrazia sa jeho tréningy.</div>'; return; }
+    var monthSessions = filteredMonthSessions().filter(function(s){ return s.trainerIds.indexOf(tId)!==-1; })
+      .sort(function(a,b){ return a.date===b.date ? toMin(a.start)-toMin(b.start) : a.date.localeCompare(b.date); });
+    var wrap = document.getElementById('byTrainerList');
+    monthSessions = monthSessions.filter(function(s){ return !(isMaskedForViewer(s) && s.status==='cancelled'); });
+    wrap.innerHTML = monthSessions.length ? monthSessions.map(function(s){
+      if(isMaskedForViewer(s)){ // externals see that the trainer is busy, not who the client is
+        return '<div class="agenda-item" style="cursor:default; opacity:0.85;"><span class="dot" style="background:var(--ink-faint)"></span>'+
+          '<span class="a-time" style="width:220px;">'+fmtReportDate(s.date)+' '+s.start+'–'+s.end+'</span><span class="a-main"><div class="a-type">'+maskedLabel(s)+'</div></span></div>';
+      }
+      var withOthers = s.trainerIds.filter(function(id){return id!==tId;}).map(trainerNameH).join(', ');
+      return '<div class="agenda-item'+(s.status==='cancelled'?' cancelled':'')+'" data-id="'+s.id+'">'+
+        '<span class="dot" style="background:'+colorVar(s.color)+'"></span>'+
+        '<span class="a-time" style="width:220px;">'+fmtReportDate(s.date)+' '+s.start+'–'+s.end+'</span>'+
+        '<span class="a-main"><div class="a-type">'+esc(s.clientName||s.type)+'</div>'+
+        '<div class="a-sub">'+esc(s.type)+(s.tag?' &middot; '+esc(s.tag):'')+(withOthers?' &middot; s: '+withOthers:' &middot; sólo')+'</div></span></div>';
+    }).join('') : '<div class="agenda-empty">Pre tohto trénera nie sú v tomto výbere žiadne tréningy.</div>';
+    wrap.querySelectorAll('.agenda-item[data-id]').forEach(function(it){ it.addEventListener('click', function(){ openModal(it.dataset.id); }); });
+  }
+
+  function drawConflicts(){
+    var monthSessions = filteredMonthSessions().filter(function(s){ return s.status!=='cancelled'; });
+    var pairs = [];
+    for(var i=0;i<monthSessions.length;i++){
+      for(var j=i+1;j<monthSessions.length;j++){
+        var a=monthSessions[i], b=monthSessions[j];
+        if(a.date!==b.date) continue;
+        if(!overlaps(toMin(a.start),toMin(a.end),toMin(b.start),toMin(b.end))) continue;
+        var shared = a.trainerIds.filter(function(id){ return b.trainerIds.indexOf(id)!==-1; });
+        shared.forEach(function(id){ pairs.push({trainer:trainerNameH(id), a:a, b:b}); });
+      }
+    }
+    var wrap = document.getElementById('conflictsList');
+    wrap.innerHTML = pairs.length ? pairs.map(function(p){
+      return '<div class="conflict-pair"><b>'+p.trainer+'</b> má súbežnú rezerváciu '+p.a.date+': '+p.a.start+'–'+p.a.end+' ('+esc(p.a.clientName||p.a.type)+') a '+p.b.start+'–'+p.b.end+' ('+esc(p.b.clientName||p.b.type)+')</div>';
+    }).join('') : '<div class="agenda-empty">V tomto výbere nie sú žiadne súbežné rezervácie trénerov.</div>';
+  }
+
+  document.getElementById('closeExport').addEventListener('click', function(){ document.getElementById('exportOverlay').hidden = true; });
+  document.getElementById('exportOverlay').addEventListener('click', function(e){ if(e.target===this) this.hidden=true; });
+  document.getElementById('copyCsvBtn').addEventListener('click', function(){
+    var ta = document.getElementById('csvOut');
+    ta.focus(); ta.select();
+    try{ navigator.clipboard && navigator.clipboard.writeText(ta.value); }catch(e){}
+  });
+
+  // ---------- live mode: Google sign-in, data from the backend ----------
+  function toast(msg){
+    var t = document.createElement('div'); t.textContent = msg;
+    t.style.cssText = 'position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:9px 14px; border-radius:8px; font-size:13px; z-index:2000;';
+    document.body.appendChild(t); setTimeout(function(){ t.remove(); }, 3500);
+  }
+  var gate = document.getElementById('authGate'), gateMsg = document.getElementById('gateMsg');
+  function showGate(msg){ gate.hidden = false; gateMsg.textContent = msg || ''; }
+  function jwtExpired(t){
+    try{ var p = JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); return !p.exp || p.exp*1000 < Date.now()+30000; }catch(e){ return true; }
+  }
+  // Ends the session and reloads, so no data of the previous person stays in the page.
+  function leave(msg){
+    try{ sessionStorage.removeItem('rozpis_token'); if(msg) sessionStorage.setItem('rozpis_msg', msg); }catch(e){}
+    try{ google.accounts.id.disableAutoSelect(); }catch(e){}
+    location.replace(location.pathname);   // reload without any query string (a test token in the URL must not loop)
+  }
+  function applyLoad(d){
+    me = d.me; trainers = d.trainers; blocks = d.blocks; changeLog = d.changeLog || [];
+    sessions = d.sessions.map(function(s){ s.color = s.color || TYPE_DEFAULT_COLOR[s.type] || 'blue'; return s; });
+    currentTrainerId = me.id;
+    populateViewingAsSelect();
+    viewingAsSelect.innerHTML = '<option value="'+esc(me.id)+'">'+esc(me.name)+' ('+ROLE_LABEL[me.role]+')</option>';
+    viewingAsSelect.disabled = true;
+    syncCurrentRoleFromPerson();
+    renderRoleBanner();
+    document.getElementById('roleBanner').insertAdjacentHTML('beforeend', ' <b>Len na čítanie (testovacia fáza).</b>');
+    applyRoleUI(); runAutoComplete();
+    renderCalendar(); if(!views.team.hidden) renderTeam(); if(!views.reports.hidden) renderReports();
+    gate.hidden = true;
+  }
+  function loadFromBackend(){
+    if(!idToken) return Promise.resolve();
+    // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
+    return fetch(BACKEND_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({idToken:idToken, op:'load'})})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(d.ok) return applyLoad(d);
+        leave(d.error==='denied' ? 'Tento účet nie je v zozname tímu alebo je neaktívny. Požiadajte administrátora o pridanie.'
+            : d.error==='bad_token' ? 'Prihlásenie vypršalo alebo je neplatné. Prihláste sa znova.' : 'Server hlási chybu. Skúste to o chvíľu.');
+      })
+      .catch(function(){ showGate('Nepodarilo sa spojiť so serverom. Skontrolujte pripojenie a obnovte stránku.'); });
+  }
+  document.getElementById('refreshBtn').addEventListener('click', function(){ loadFromBackend().then(function(){ toast('Dáta obnovené.'); }); });
+  document.getElementById('signOutBtn').addEventListener('click', function(){ leave(''); });
+  function initGoogle(){
+    if(!(window.google && google.accounts && google.accounts.id)){ setTimeout(initGoogle, 250); return; }
+    google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID, auto_select:false, callback:function(r){
+      idToken = r.credential; try{ sessionStorage.setItem('rozpis_token', idToken); }catch(e){}
+      showGate('Načítavam…'); loadFromBackend();
+    }});
+    google.accounts.id.renderButton(document.getElementById('gsiBtn'), {theme:'outline', size:'large', locale:'sk'});
+  }
+  (function boot(){
+    var msg = '', saved = null, params = new URLSearchParams(location.search);
+    try{ msg = sessionStorage.getItem('rozpis_msg') || ''; sessionStorage.removeItem('rozpis_msg'); saved = sessionStorage.getItem('rozpis_token'); }catch(e){}
+    var dev = params.get('devtoken');   // for local testing only: the real backend rejects anything that is not a genuine Google token
+    if(BACKEND_URL.indexOf('PASTE')===0 || (GOOGLE_CLIENT_ID.indexOf('PASTE')===0 && !dev)){ showGate(msg || 'Aplikácia ešte nie je nastavená (adresa servera alebo Google client ID).'); return; }
+    if(dev || (saved && !jwtExpired(saved))){ idToken = dev || saved; showGate('Načítavam…'); loadFromBackend(); } else { showGate(msg); }
+    if(!dev) initGoogle();
+  })();
+
+  // ---------- init ----------
+  function renderAll(){ renderCalendar(); if(!views.reports.hidden) renderReports(); if(!views.team.hidden) renderTeam(); }
+  renderCalendar();
+})();
+</script>
+</body>
+</html>
