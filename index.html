@@ -112,8 +112,10 @@
   .session-block{ position:absolute; border-radius:7px; padding:2px 6px; overflow:hidden; cursor:pointer; border:1px solid transparent; box-shadow:0 1px 2px rgba(0,0,0,0.08); line-height:1.1; }
   .session-block:hover{ filter:brightness(0.97); }
   #authGate{ position:fixed; inset:0; z-index:1000; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:16px; }
-  #resetBtn, #addSessionBtn, #addBlockBtn, .trainer-add{ display:none !important; }
-  .team-role-select, .team-flag, .toggle-status, .delete-trainer, .restore-trainer, .mark-paid-btn{ pointer-events:none; opacity:0.55; }
+  #resetBtn{ display:none !important; }
+  body.ro #addSessionBtn, body.ro #addBlockBtn, body.ro .trainer-add{ display:none !important; }
+  body.ro .team-role-select, body.ro .team-flag, body.ro .toggle-status, body.ro .delete-trainer, body.ro .restore-trainer, body.ro .mark-paid-btn{ pointer-events:none; opacity:0.55; }
+  #busyOverlay{ position:fixed; inset:0; z-index:1500; background:rgba(255,255,255,0.55); display:flex; align-items:center; justify-content:center; font-weight:600; }
   .session-block.busy{ background:var(--surface-2); border:1px solid var(--border); color:var(--ink-dim); cursor:default; }
   .session-block.busy:hover{ filter:none; }
   .session-block .sb-time{ font-family:'IBM Plex Mono'; font-size:9.5px; font-weight:600; opacity:0.85; }
@@ -252,6 +254,7 @@
 
   <div class="notice" id="roleBanner"></div>
 
+  <div id="busyOverlay" hidden><div class="card">Ukladám…</div></div>
   <div id="authGate" hidden>
     <div class="card" style="max-width:380px; width:100%; text-align:center; display:flex; flex-direction:column; gap:14px;">
       <h2 style="margin:0;">Rozpis Inštruktori</h2>
@@ -433,6 +436,10 @@
           <label for="newTrainerName">Meno</label>
           <input id="newTrainerName" type="text" placeholder="napr. Radka Horná">
         </div>
+        <div class="field" style="flex:2; min-width:200px;">
+          <label for="newTrainerEmail">E-mail (Google účet)</label>
+          <input id="newTrainerEmail" type="email" placeholder="meno@gmail.com">
+        </div>
         <button class="btn btn-primary" id="addTrainerBtn">+ Pridať osobu</button>
       </div>
       <div class="table-wrap">
@@ -561,7 +568,7 @@
   // ---- LIVE MODE settings (public values, not secrets) ----
   var BACKEND_URL = 'https://script.google.com/macros/s/AKfycbzedlCzQgBV4Z641BR84uhiXJ17b-20FPMhNgoNGkxSIQjtkSnmuOsPBkaTEsPFLJA/exec';       // Apps Script web app URL, ends with /exec
   var GOOGLE_CLIENT_ID = '610436969794-7dtpr3a713g24kgrlk6t05ode3fjssgd.apps.googleusercontent.com'; // OAuth web client ID from Google Cloud Console
-  var READ_ONLY = true;       // first phase: the board only shows data, it changes nothing
+  var READ_ONLY = false;      // true = the board only shows data and changes nothing
   var idToken = null, me = null;
 
   var TODAY = isoOf(new Date());
@@ -621,8 +628,9 @@
     }catch(e){}
     return false;
   }
-  // Read-only phase: any attempted change is discarded by re-reading the truth from the server.
-  function saveState(){ if(READ_ONLY && me){ toast('Len na čítanie: zmena sa neuložila.'); loadFromBackend(); } }
+  // Every handler calls saveState() after changing the in-memory state. Live mode turns that into one 'sync' request with just the
+  // differences; the server validates it and answers with the sheet's truth. Read-only: the change is discarded by re-reading.
+  function saveState(){ if(!me) return; if(READ_ONLY){ toast('Len na čítanie: zmena sa neuložila.'); loadFromBackend(); } else { syncChanges(); } }
   trainers=[]; sessions=[]; blocks=[]; changeLog=[];   // filled after sign-in; never cached in the browser
 
   // Auto: a Confirmed training whose end time has passed becomes Completed.
@@ -924,6 +932,7 @@
     if(!people.some(function(t){return t.id===currentTrainerId;}) && people.length){ currentTrainerId = people[people.length-1].id; }
     viewingAsSelect.value = currentTrainerId;
     syncCurrentRoleFromPerson();
+    if(me){ viewingAsSelect.innerHTML = '<option value="'+esc(me.id)+'">'+esc(me.name)+' ('+ROLE_LABEL[me.role]+')</option>'; viewingAsSelect.disabled = true; }   // live mode: you are who you signed in as
   }
   function renderRoleBanner(){
     var el = document.getElementById('roleBanner');
@@ -1777,7 +1786,7 @@
         ? '<button class="btn btn-ghost btn-sm delete-trainer" data-id="'+t.id+'">Vymazať</button>'
         : '';
       return '<tr'+(t.hidden?' style="opacity:0.55;"':'')+'>'+
-        '<td>'+esc(t.name)+(t.privateOnly?' <span class="tag-inactive" style="color:var(--accent);">externý</span>':'')+(t.noAccess?' <span class="tag-inactive">bez prístupu</span>':'')+'</td>'+
+        '<td>'+esc(t.name)+(t.email?'<div style="font-size:11px; color:var(--ink-dim);">'+esc(t.email)+'</div>':'')+(t.privateOnly?' <span class="tag-inactive" style="color:var(--accent);">externý</span>':'')+(t.noAccess?' <span class="tag-inactive">bez prístupu</span>':'')+'</td>'+
         '<td>'+roleCell+'</td>'+
         '<td>'+statusCell+'</td>'+
         '<td class="num">'+st.count+'</td>'+
@@ -1841,9 +1850,13 @@
     if(!isAdminOrOwnerRole()) return;
     var nameInput = document.getElementById('newTrainerName');
     var name = nameInput.value.trim();
+    var emailInput = document.getElementById('newTrainerEmail'), email = emailInput.value.trim().toLowerCase();
     if(!name) { nameInput.focus(); return; }
-    trainers.push({id:uid('t'), name:name, status:'active', since:TODAY, until:null, hidden:false, role:'trainer', roleChangedBy:null, roleChangedAt:null});
-    nameInput.value='';
+    if(!/^[^@\s]+@[^@\s]+$/.test(email)){ toast('Zadajte platný e-mail.'); emailInput.focus(); return; }
+    var dupe = trainers.filter(function(t){ return (t.email||'').toLowerCase()===email; })[0];
+    if(dupe){ toast('Tento e-mail už má '+dupe.name+'.'); return; }
+    trainers.push({id:uid('t'), name:name, email:email, status:'active', since:TODAY, until:null, hidden:false, role:'trainer', roleChangedBy:null, roleChangedAt:null});
+    nameInput.value=''; emailInput.value='';
     saveState(); renderTeam(); populateViewingAsSelect();
   });
 
@@ -2266,16 +2279,68 @@
     viewingAsSelect.disabled = true;
     syncCurrentRoleFromPerson();
     renderRoleBanner();
-    document.getElementById('roleBanner').insertAdjacentHTML('beforeend', ' <b>Len na čítanie (testovacia fáza).</b>');
-    applyRoleUI(); runAutoComplete();
+    document.getElementById('roleBanner').insertAdjacentHTML('beforeend', READ_ONLY ? ' <b>Len na čítanie (testovacia fáza).</b>' : ' <b>Testovací režim: zmeny sa ukladajú do testovacieho zošita.</b>');
+    applyRoleUI(); runAutoComplete(); takeSnapshot();
     renderCalendar(); if(!views.team.hidden) renderTeam(); if(!views.reports.hidden) renderReports();
     gate.hidden = true;
   }
+  // ---- what changed since the server last confirmed the state ----
+  var snap = {sessions:{}, blocks:{}, trainers:{}, logLen:0};
+  function derived(s){ return (s.status==='confirmed' && hasEnded(s)) ? 'completed' : s.status; }   // the server derives "completed" the same way
+  function sKey(s){ return JSON.stringify([s.date, s.start, s.durationMin, s.type, s.tag||'', s.color||'', s.clientName||'', s.phone||'', s.people==null?null:s.people, s.requiredTrainers, s.trainerIds, derived(s), s.notes||'', !!s.paid]); }
+  function bKey(b){ return JSON.stringify([b.date, b.label, !!b.allDay, b.start, b.durationMin||0]); }
+  function tKey(t){ return JSON.stringify([t.role, t.status, !!t.hidden, !!t.privateOnly, !!t.noAccess]); }
+  function takeSnapshot(){
+    snap = {sessions:{}, blocks:{}, trainers:{}, logLen:changeLog.length};
+    sessions.forEach(function(s){ snap.sessions[s.id] = {key:sKey(s), version:s.version}; });
+    blocks.forEach(function(b){ snap.blocks[b.id] = bKey(b); });
+    trainers.forEach(function(t){ snap.trainers[t.id] = tKey(t); });
+  }
+  function buildChanges(){
+    var ch = {sessions:[], delSessions:[], blocks:[], delBlocks:[], trainers:[], log:[]}, seen = {};
+    sessions.forEach(function(s){
+      seen[s.id] = 1; var old = snap.sessions[s.id];
+      if(old && old.key===sKey(s)) return;
+      ch.sessions.push({_new:!old, _base:old?old.version:0, id:s.id, seriesId:s.seriesId||'', date:s.date, start:s.start, durationMin:s.durationMin, type:s.type, tag:s.tag||'', color:s.color||'',
+        clientName:s.clientName||'', phone:s.phone||'', people:s.people==null?null:s.people, requiredTrainers:s.requiredTrainers, trainerIds:s.trainerIds, status:derived(s), notes:s.notes||'', paid:!!s.paid});
+    });
+    Object.keys(snap.sessions).forEach(function(id){ if(!seen[id]) ch.delSessions.push(id); });
+    seen = {};
+    blocks.forEach(function(b){
+      seen[b.id] = 1; if(snap.blocks[b.id]===bKey(b)) return;
+      ch.blocks.push({_new:snap.blocks[b.id]===undefined, id:b.id, date:b.date, label:b.label, allDay:!!b.allDay, start:b.start, durationMin:b.durationMin||0});
+    });
+    Object.keys(snap.blocks).forEach(function(id){ if(!seen[id]) ch.delBlocks.push(id); });
+    trainers.forEach(function(t){
+      var old = snap.trainers[t.id]; if(old===tKey(t)) return;
+      ch.trainers.push({_new:old===undefined, id:t.id, name:t.name, email:t.email||'', role:t.role, status:t.status, hidden:!!t.hidden, privateOnly:!!t.privateOnly, noAccess:!!t.noAccess});
+    });
+    changeLog.slice(snap.logLen).forEach(function(e){
+      ch.log.push({action:e.action, sid:e.sid, label:e.label, when:e.when, isPrivate:!!e.isPrivate, changes:e.changes||[], forNames:e.forNames||[], count:e.count||1, bulkFor:e.bulkFor||''});
+    });
+    var any = ch.sessions.length || ch.delSessions.length || ch.blocks.length || ch.delBlocks.length || ch.trainers.length || ch.log.length;
+    return any ? ch : null;
+  }
+  function post(body){
+    // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
+    body.idToken = idToken;
+    return fetch(BACKEND_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(body)}).then(function(r){ return r.json(); });
+  }
+  var overlay2 = document.getElementById('busyOverlay');
+  function syncChanges(){
+    var ch = buildChanges(); if(!ch) return;
+    overlay2.hidden = false;
+    post({op:'sync', changes:ch}).then(function(d){
+      if(d.ok){ applyLoad(d); toast('Uložené.'); return; }
+      if(d.error==='denied' || d.error==='bad_token') return leave('Prihlásenie už neplatí. Prihláste sa znova.');
+      toast(d.message || 'Zmenu sa nepodarilo uložiť.');
+      return loadFromBackend();                       // show what the sheet really contains
+    }).catch(function(){ toast('Nepodarilo sa spojiť so serverom. Zmena sa neuložila.'); return loadFromBackend(); })
+      .then(function(){ overlay2.hidden = true; });
+  }
   function loadFromBackend(){
     if(!idToken) return Promise.resolve();
-    // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
-    return fetch(BACKEND_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({idToken:idToken, op:'load'})})
-      .then(function(r){ return r.json(); })
+    return post({op:'load'})
       .then(function(d){
         if(d.ok) return applyLoad(d);
         leave(d.error==='denied' ? 'Tento účet nie je v zozname tímu alebo je neaktívny. Požiadajte administrátora o pridanie.'
@@ -2297,6 +2362,7 @@
     var msg = '', saved = null, params = new URLSearchParams(location.search);
     try{ msg = sessionStorage.getItem('rozpis_msg') || ''; sessionStorage.removeItem('rozpis_msg'); saved = sessionStorage.getItem('rozpis_token'); }catch(e){}
     var dev = params.get('devtoken');   // for local testing only: the real backend rejects anything that is not a genuine Google token
+    if(READ_ONLY) document.body.classList.add('ro');
     if(BACKEND_URL.indexOf('PASTE')===0 || (GOOGLE_CLIENT_ID.indexOf('PASTE')===0 && !dev)){ showGate(msg || 'Aplikácia ešte nie je nastavená (adresa servera alebo Google client ID).'); return; }
     if(dev || (saved && !jwtExpired(saved))){ idToken = dev || saved; showGate('Načítavam…'); loadFromBackend(); } else { showGate(msg); }
     if(!dev) initGoogle();
