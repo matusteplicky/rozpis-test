@@ -168,6 +168,11 @@
   .field select[multiple]{ min-height:96px; }
   .row2{ display:flex; gap:10px; }
   .row2 > *{ flex:1; }
+  .row3{ display:flex; gap:10px; } .row3 > *{ flex:1; }
+  .row-client{ display:flex; gap:10px; } .row-client > :first-child{ flex:2; } .row-client > :last-child{ flex:1; }
+  .form-sec{ font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent); border-top:1px solid var(--border-soft); padding-top:12px; margin-top:4px; }
+  .form-sec.first{ border-top:none; padding-top:0; margin-top:0; }
+  .field input.invalid, .field select.invalid{ border-color:var(--danger); box-shadow:0 0 0 2px var(--danger-soft); }
   .check-field{ display:flex; align-items:center; gap:7px; font-size:13px; font-weight:600; }
   .check-field input{ width:15px; height:15px; }
   .trainer-list{ display:flex; flex-direction:column; gap:6px; max-height:170px; overflow-y:auto; border:1px solid var(--border-soft); border-radius:8px; padding:8px; }
@@ -474,43 +479,51 @@
     </div>
     <div class="modal-body">
       <div class="series-note" id="modalLockNote" hidden></div>
-      <div class="field"><label for="f-client">Klient / skupina <span>(povinné)</span></label><input id="f-client" type="text" placeholder="napr. rodina Nováková, alebo skupina 7-9 rokov"><div id="clientErr" class="err" hidden>Zadajte klienta.</div></div>
-      <div class="row2">
-        <div class="field"><label for="f-tag">Značka <span>(na filtrovanie v reportoch)</span></label><input id="f-tag" type="text" list="tagDatalist" placeholder="napr. Medvedica"><datalist id="tagDatalist"></datalist></div>
-        <div class="field"><label for="f-type">Typ tréningu</label><select id="f-type"></select></div>
+
+      <div class="form-sec first">Kto</div>
+      <div class="row-client">
+        <div class="field"><label for="f-client">Klient / skupina <span>(povinné)</span></label><input id="f-client" type="text" list="clientDatalist" autocomplete="off" placeholder="napr. rodina Nováková, alebo skupina 7-9 rokov"><datalist id="clientDatalist"></datalist></div>
+        <div class="field"><label for="f-phone">Telefón <span>(nepovinné)</span></label><input id="f-phone" type="text" placeholder="napr. 0905 123 456"></div>
       </div>
+      <div class="field"><label for="f-people">Počet osôb <span>(nepovinné, slúži len na výpočet vyťaženosti)</span></label><input id="f-people" type="number" min="0" placeholder="napr. 8"></div>
+
+      <div class="form-sec">Kedy</div>
+      <div class="row3">
+        <div class="field"><label for="f-date">Dátum <span>(povinné)</span></label><input id="f-date" type="date"></div>
+        <div class="field"><label for="f-start">Začiatok <span>(povinné)</span></label><input id="f-start" type="time" step="900"></div>
+        <div class="field"><label for="f-duration">Trvanie <span>(min, povinné)</span></label><input id="f-duration" type="number" min="15" step="15" value="60"></div>
+      </div>
+      <div class="end-display" id="endDisplay"></div>
       <div class="field" id="recurRow"><label class="check-field"><input type="checkbox" id="f-repeat"> Opakuje sa týždenne</label></div>
       <div class="row2" id="recurUntilRow" hidden>
         <div class="field"><label for="f-until">Opakovať do <span id="occurrenceCount" style="font-weight:400; text-transform:none;"></span></label><input id="f-until" type="date"></div>
         <div class="field"><span style="font-size:11.5px; color:var(--ink-dim); align-self:flex-end;">Vytvorí jeden tréning týždenne, v rovnaký deň a čas.</span></div>
       </div>
       <div class="series-note" id="seriesNote" hidden></div>
-      <div class="field"><label>Farba</label><div class="swatch-row" id="colorSwatches"></div></div>
-      <div class="row2">
-        <div class="field"><label for="f-date">Dátum</label><input id="f-date" type="date"></div>
-        <div class="field"><label for="f-status">Stav</label>
-          <select id="f-status"><option value="confirmed">Potvrdené</option><option value="tentative">Predbežné</option><option value="completed">Dokončené</option></select>
-        </div>
-      </div>
-      <div class="field">
-        <label class="check-field"><input type="checkbox" id="f-paid"> Zaplatené</label>
-        <div id="paidMeta" style="font-size:10.5px; color:var(--ink-faint); margin-top:2px;" hidden></div>
-      </div>
-      <div class="row2">
-        <div class="field"><label for="f-start">Začiatok</label><input id="f-start" type="time" step="900"></div>
-        <div class="field"><label for="f-duration">Trvanie <span>(minúty)</span></label><input id="f-duration" type="number" min="15" step="15" value="60"></div>
-      </div>
-      <div class="end-display" id="endDisplay"></div>
-      <div class="row2">
-        <div class="field"><label for="f-phone">Telefón <span>(nepovinné)</span></label><input id="f-phone" type="text" placeholder="napr. 0905 123 456"></div>
-        <div class="field"><label for="f-people">Počet osôb <span>(nepovinné, slúži len na výpočet vyťaženosti)</span></label><input id="f-people" type="number" min="0" placeholder="napr. 8"></div>
-      </div>
+
+      <div class="form-sec">Tréneri</div>
       <div class="field"><label for="f-required">Potrebných trénerov</label><input id="f-required" type="number" min="0" step="1" placeholder="napr. 2"></div>
       <div class="field">
         <label>Priradení tréneri</label>
         <div class="trainer-list" id="trainerCheckList"></div>
         <div class="required-counter" id="requiredCounter"></div>
       </div>
+
+      <div class="form-sec">Ďalšie</div>
+      <div class="row2">
+        <div class="field"><label for="f-type">Typ tréningu</label><select id="f-type"></select></div>
+        <div class="field"><label for="f-tag">Značka <span>(na filtrovanie v reportoch)</span></label><input id="f-tag" type="text" list="tagDatalist" placeholder="napr. Medvedica"><datalist id="tagDatalist"></datalist></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="f-status">Stav</label>
+          <select id="f-status"><option value="confirmed">Potvrdené</option><option value="tentative">Predbežné</option><option value="completed">Dokončené</option></select>
+        </div>
+        <div class="field">
+          <label class="check-field" style="margin-top:22px;"><input type="checkbox" id="f-paid"> Zaplatené</label>
+          <div id="paidMeta" style="font-size:10.5px; color:var(--ink-faint); margin-top:2px;" hidden></div>
+        </div>
+      </div>
+      <div class="field"><label>Farba</label><div class="swatch-row" id="colorSwatches"></div></div>
       <div class="field"><label for="f-notes">Poznámky</label><textarea id="f-notes" placeholder="napr. 1x bezlepkové, len voda"></textarea></div>
       <div id="dateErr" class="err" hidden>Zadajte dátum a čas začiatku.</div>
       <div id="backdateErr" class="err" hidden>Tréner môže zadať tréning najviac 1 deň spätne.</div>
@@ -556,6 +569,14 @@
       <div style="display:flex; gap:6px;" id="blockEditOnlyActions"></div>
       <button class="btn btn-primary" id="blockSaveBtn">Uložiť blok</button>
     </div>
+  </div>
+</div>
+
+<!-- Confirm -->
+<div class="modal-overlay" id="confirmOverlay" hidden style="z-index:60;">
+  <div class="modal" style="width:400px;">
+    <div class="modal-body"><div id="confirmText" style="font-size:14px; line-height:1.5;"></div></div>
+    <div class="modal-foot"><button class="btn" id="confirmCancel"></button><button class="btn btn-primary" id="confirmOk"></button></div>
   </div>
 </div>
 
@@ -1388,24 +1409,70 @@
     };
   }
 
-  var clientTouched = false;
-  document.getElementById('f-client').addEventListener('blur', function(){ clientTouched = true; updateConflicts(); });
+  // Required: Klient, Dátum, Začiatok, Trvanie (and "Opakovať do" for a weekly series). Old rows that never had a client may stay that way.
+  var formAttempted = false, FIELD_IDS = ['f-client','f-date','f-start','f-duration','f-until'];
+  function formProblems(f){
+    var p = [], ex = existingBeingEdited();
+    if(!String(f.clientName||'').trim() && !(ex && !String(ex.clientName||'').trim())) p.push({id:'f-client', msg:'Zadajte klienta.'});
+    if(!f.date) p.push({id:'f-date', msg:'Zadajte dátum.'});
+    if(!f.start) p.push({id:'f-start', msg:'Zadajte začiatok.'});
+    if(!f.durationMin) p.push({id:'f-duration', msg:'Zadajte trvanie.'});
+    var rp = document.getElementById('f-repeat');
+    if(rp.checked && !rp.disabled && !document.getElementById('recurUntilRow').hidden){
+      var u = document.getElementById('f-until').value;
+      if(!u) p.push({id:'f-until', msg:'Zadajte, dokedy sa opakuje.'});
+      else if(f.date && u < f.date) p.push({id:'f-until', msg:'Dátum „do“ nesmie byť pred začiatkom.'});
+    }
+    return p;
+  }
+  function markInvalid(id, msg){
+    var el = document.getElementById(id); el.classList.add('invalid');
+    var box = el.closest('.field'), e = box.querySelector('.field-err');
+    if(!e){ e = document.createElement('div'); e.className = 'err field-err'; box.appendChild(e); }
+    e.textContent = msg; e.hidden = false;
+  }
+  function clearInvalid(id){
+    var el = document.getElementById(id); el.classList.remove('invalid');
+    var e = el.closest('.field').querySelector('.field-err'); if(e) e.hidden = true;
+  }
+  function showProblems(p){ FIELD_IDS.forEach(clearInvalid); p.forEach(function(x){ markInvalid(x.id, x.msg); }); }
+  function focusField(id){ var el = document.getElementById(id); el.scrollIntoView({block:'center'}); el.focus(); }
+  // Earlier clients are offered while typing; picking one (new training only) fills in what they had last time.
+  var clientHistory = {};
+  function fillClientDatalist(){
+    clientHistory = {}; var names = [];
+    sessions.slice().sort(function(a,b){ return b.date.localeCompare(a.date); }).forEach(function(s){
+      var n = String(s.clientName||'').trim(); if(!n || isMaskedForViewer(s)) return;
+      var k = n.toLowerCase();
+      if(!clientHistory[k]){ clientHistory[k] = {name:n, phone:s.phone||'', type:s.type, tag:s.tag||'', people:s.people, required:s.requiredTrainers}; names.push(n); }
+      else if(!clientHistory[k].phone && s.phone) clientHistory[k].phone = s.phone;
+    });
+    document.getElementById('clientDatalist').innerHTML = names.slice(0, 300).map(function(n){ return '<option value="'+esc(n)+'">'; }).join('');
+  }
+  document.getElementById('f-client').addEventListener('change', function(){
+    if(editingId) return;
+    var h = clientHistory[this.value.trim().toLowerCase()]; if(!h) return;
+    var ph = document.getElementById('f-phone'), tg = document.getElementById('f-tag'), pe = document.getElementById('f-people'), rq = document.getElementById('f-required'), ty = document.getElementById('f-type');
+    if(!ph.value) ph.value = h.phone;
+    if(!tg.value) tg.value = h.tag;
+    if(!pe.value && h.people!=null && h.people!=='') pe.value = h.people;
+    if(rq.value==='' && h.required!=null) rq.value = h.required;
+    if(!ty.disabled && ty.value!==h.type && [].some.call(ty.options, function(o){ return o.value===h.type; })){ ty.value = h.type; ty.dispatchEvent(new Event('change')); }
+    updateConflicts();
+  });
   function updateConflicts(){
     var f = currentFormSession();
     var dateErr = document.getElementById('dateErr');
     var box = document.getElementById('conflictBox');
     var saveBtn = document.getElementById('saveBtn');
-    var badTime = !f.date || !f.start || !f.durationMin;
-    var ex0 = existingBeingEdited();   // old rows that never had a client stay editable; a new one, or clearing one, needs a name
-    var noClient = !String(f.clientName||'').trim() && !(ex0 && !String(ex0.clientName||'').trim());
-    document.getElementById('clientErr').hidden = !(noClient && clientTouched);
-    var bad = badTime || noClient;
-    dateErr.hidden = !badTime;
+    var problems = formProblems(f);
+    var bad = problems.length > 0;
+    if(formAttempted) showProblems(problems);
     var backdated = !bad && isTrainerRole() && currentModalMode!=='selfOnly' && f.date < earliestTrainerDate();
     document.getElementById('backdateErr').hidden = !backdated;
     updateEndDisplay(); updateRequiredCounter();
 
-    if(bad || backdated){ box.hidden = true; saveBtn.disabled = true; saveBtn.hidden = (currentModalMode==='locked'); return; }
+    if(bad || backdated){ box.hidden = true; saveBtn.disabled = false; saveBtn.hidden = (currentModalMode==='locked'); return; }
     saveBtn.disabled = false;
 
     var conflicts = getConflicts(f, editingId).concat(getBlockConflicts(f));
@@ -1421,7 +1488,7 @@
     saveBtn.hidden = (currentModalMode==='locked');
   }
 
-  ['f-client','f-date','f-start','f-duration','f-type','f-required'].forEach(function(id){
+  ['f-client','f-date','f-start','f-duration','f-type','f-required','f-until','f-repeat'].forEach(function(id){
     document.getElementById(id).addEventListener('input', updateConflicts);
     document.getElementById(id).addEventListener('change', updateConflicts);
   });
@@ -1430,7 +1497,7 @@
     var s = sessionId ? sessions.filter(function(x){return x.id===sessionId;})[0] : null;
     if(READ_ONLY && !s) return;
     if(s && isMaskedForViewer(s)) return; // externals never open a Vertigo client's training
-    editingId = sessionId; clientTouched = false;
+    editingId = sessionId; formAttempted = false; FIELD_IDS.forEach(clearInvalid);
     editingOriginalDate = s ? s.date : null;
     var mode = trainingEditMode(s);
     currentModalMode = mode;
@@ -1441,6 +1508,7 @@
     var newDefaultTrainerIds = (!s && isTrainerRole()) ? [currentTrainerId] : [];
     var data = s || Object.assign({date:selectedDate, start:'16:00', durationMin:60, type:(isPrivateOnlyViewer() ? TYPE_PRIVATE : TYPES[0]), status:'confirmed', notes:'', clientName:'', tag:'', phone:'', people:(isPrivateOnlyViewer() ? 1 : null), requiredTrainers:'', trainerIds:newDefaultTrainerIds}, prefill||{});
     document.getElementById('f-client').value = data.clientName || '';
+    fillClientDatalist();
     document.getElementById('tagDatalist').innerHTML = allTags().map(function(t){ return '<option value="'+esc(t)+'">'; }).join('');
     document.getElementById('f-tag').value = data.tag || '';
     document.getElementById('f-date').value = data.date;
@@ -1566,13 +1634,25 @@
       editArea.appendChild(hint);
     }
 
+    formSnap = formState();
     overlay.hidden = false;
     updateConflicts();
   }
   function closeModal(){ overlay.hidden = true; editingId=null; editingOriginalDate=null; }
-  document.getElementById('closeModal').addEventListener('click', closeModal);
-  overlay.addEventListener('click', function(e){ if(e.target===overlay) closeModal(); });
-  document.addEventListener('keydown', function(e){ if(e.key==='Escape' && !overlay.hidden) closeModal(); });
+  // Closing (✕, Esc, click outside) with unsaved changes asks first; saving closes without asking.
+  var formSnap = '';
+  function formState(){ return JSON.stringify([currentFormSession(), document.getElementById('f-repeat').checked, document.getElementById('f-until').value, selectedColor]); }
+  function requestClose(){
+    if(currentModalMode!=='locked' && !overlay.hidden && formState()!==formSnap) askConfirm('Zahodiť zmeny?', 'Zahodiť', 'Pokračovať v úprave', closeModal);
+    else closeModal();
+  }
+  document.getElementById('closeModal').addEventListener('click', requestClose);
+  overlay.addEventListener('click', function(e){ if(e.target===overlay) requestClose(); });
+  document.addEventListener('keydown', function(e){
+    if(e.key!=='Escape') return;
+    if(!confirmOverlay.hidden){ closeConfirm(false); return; }
+    if(!overlay.hidden) requestClose();
+  });
 
   function defaultUntil(dateStr){ return addDays(dateStr, 7*12); }
 
@@ -1648,10 +1728,34 @@
     saveState(); closeModal(); renderAll();
   }
 
+  var DOW_SK = ['nedeľa','pondelok','utorok','streda','štvrtok','piatok','sobota'];
+  function longDate(iso){ var d = new Date(iso+'T00:00:00'); return DOW_SK[d.getDay()]+' '+d.getDate()+'. '+(d.getMonth()+1)+'. '+d.getFullYear(); }
+  // A small yes/no dialog on top of the form.
+  var confirmOverlay = document.getElementById('confirmOverlay'), confirmYes = null, confirmNo = null;
+  function askConfirm(text, okLabel, cancelLabel, onOk, onCancel){
+    document.getElementById('confirmText').textContent = text;
+    document.getElementById('confirmOk').textContent = okLabel; document.getElementById('confirmCancel').textContent = cancelLabel;
+    confirmYes = onOk; confirmNo = onCancel || null; confirmOverlay.hidden = false; document.getElementById('confirmCancel').focus();
+  }
+  function closeConfirm(ok){ var cb = ok ? confirmYes : confirmNo; confirmOverlay.hidden = true; confirmYes = confirmNo = null; if(cb) cb(); }
+  document.getElementById('confirmOk').addEventListener('click', function(){ closeConfirm(true); });
+  document.getElementById('confirmCancel').addEventListener('click', function(){ closeConfirm(false); });
+
   document.getElementById('saveBtn').addEventListener('click', function(){
     if(currentModalMode==='locked') return;
     var f = currentFormSession();
-    if(!f.date || !f.start || !f.durationMin) return;
+    formAttempted = true;
+    var probs = formProblems(f); showProblems(probs);
+    if(probs.length){ focusField(probs[0].id); return; }
+    if(isTrainerRole() && currentModalMode!=='selfOnly' && f.date < earliestTrainerDate()){ markInvalid('f-date', 'Tréner môže zadať tréning najviac 1 deň spätne.'); focusField('f-date'); return; }
+    // one question to catch typos, only for earlier DAYS (today's earlier hours are normal to enter)
+    if(f.date < isoOf(new Date()) && (!editingId || f.date !== editingOriginalDate)){
+      askConfirm('Tento tréning je v minulosti ('+longDate(f.date)+'). Naozaj ho uložiť?', 'Áno, uložiť', 'Zrušiť', function(){ continueSave(f); });
+      return;
+    }
+    continueSave(f);
+  });
+  function continueSave(f){
     if(!editingId){
       if(document.getElementById('f-repeat').checked) saveRecurringNew(f); else saveSingleNew(f);
       return;
@@ -1672,7 +1776,7 @@
     } else {
       applyEditSingle(existing, f);
     }
-  });
+  }
 
   // ---------- block time ----------
   var blockOverlay = document.getElementById('blockOverlay');
@@ -2463,7 +2567,7 @@
       seen[s.id] = 1; var old = snap.sessions[s.id];
       if(old && old.key===sKey(s)) return;
       ch.sessions.push({_new:!old, _base:old?old.version:0, id:s.id, seriesId:s.seriesId||'', date:s.date, start:s.start, durationMin:s.durationMin, type:s.type, tag:s.tag||'', color:s.color||'',
-        clientName:s.clientName||'', phone:s.phone||'', people:s.people==null?null:s.people, requiredTrainers:s.requiredTrainers, trainerIds:s.trainerIds, status:derived(s), notes:s.notes||'', paid:!!s.paid});
+        clientName:s.clientName||'', phone:s.phone||'', people:s.people==null?null:s.people, requiredTrainers:s.requiredTrainers, trainerIds:s.trainerIds, status:(old ? derived(s) : s.status), notes:s.notes||'', paid:!!s.paid});
     });
     Object.keys(snap.sessions).forEach(function(id){ if(!seen[id]) ch.delSessions.push(id); });
     seen = {};
