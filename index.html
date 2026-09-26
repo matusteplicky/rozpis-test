@@ -2271,7 +2271,8 @@
     location.replace(location.pathname);   // reload without any query string (a test token in the URL must not loop)
   }
   function applyLoad(d){
-    me = d.me; trainers = d.trainers; blocks = d.blocks; changeLog = d.changeLog || [];
+    me = d.me; trainers = d.trainers; blocks = d.blocks;
+    if(d.changeLog) changeLog = d.changeLog;   // a save's reply omits the log (faster); the page keeps its own copy until the next full load
     sessions = d.sessions.map(function(s){ s.color = s.color || TYPE_DEFAULT_COLOR[s.type] || 'blue'; return s; });
     currentTrainerId = me.id;
     populateViewingAsSelect();
