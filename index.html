@@ -115,7 +115,11 @@
   #resetBtn{ display:none !important; }
   body.ro #addSessionBtn, body.ro #addBlockBtn, body.ro .trainer-add{ display:none !important; }
   body.ro .team-role-select, body.ro .team-flag, body.ro .toggle-status, body.ro .delete-trainer, body.ro .restore-trainer, body.ro .mark-paid-btn{ pointer-events:none; opacity:0.55; }
-  #busyOverlay{ position:fixed; inset:0; z-index:1500; background:rgba(255,255,255,0.55); display:flex; align-items:center; justify-content:center; font-weight:600; }
+  .save-status{ font-size:12px; color:var(--ink-dim); min-width:110px; }
+  .save-status.saving{ color:var(--warning); }
+  .save-status.saved{ color:var(--success); }
+  body.ro .edit-trainer{ pointer-events:none; opacity:0.55; }
+  .team-contact{ font-size:11px; color:var(--ink-dim); }
   .session-block.busy{ background:var(--surface-2); border:1px solid var(--border); color:var(--ink-dim); cursor:default; }
   .session-block.busy:hover{ filter:none; }
   .session-block .sb-time{ font-family:'IBM Plex Mono'; font-size:9.5px; font-weight:600; opacity:0.85; }
@@ -249,12 +253,12 @@
     </div>
     <button class="btn btn-ghost btn-sm" id="resetBtn">Obnoviť vzorové dáta</button>
     <button class="btn btn-sm" id="refreshBtn">Obnoviť dáta</button>
+    <span class="save-status" id="saveStatus" aria-live="polite"></span>
     <button class="btn btn-ghost btn-sm" id="signOutBtn">Odhlásiť</button>
   </div>
 
   <div class="notice" id="roleBanner"></div>
 
-  <div id="busyOverlay" hidden><div class="card">Ukladám…</div></div>
   <div id="authGate" hidden>
     <div class="card" style="max-width:380px; width:100%; text-align:center; display:flex; flex-direction:column; gap:14px;">
       <h2 style="margin:0;">Rozpis Inštruktori</h2>
@@ -440,6 +444,10 @@
           <label for="newTrainerEmail">E-mail (Google účet)</label>
           <input id="newTrainerEmail" type="email" placeholder="meno@gmail.com">
         </div>
+        <div class="field" style="flex:1; min-width:140px;">
+          <label for="newTrainerPhone">Telefón <span>(nepovinné)</span></label>
+          <input id="newTrainerPhone" type="tel" placeholder="0900 000 000">
+        </div>
         <button class="btn btn-primary" id="addTrainerBtn">+ Pridať osobu</button>
       </div>
       <div class="table-wrap">
@@ -549,6 +557,22 @@
   </div>
 </div>
 
+<!-- Team edit modal -->
+<div class="modal-overlay" id="teamEditOverlay" hidden>
+  <div class="modal" style="width:420px;">
+    <div class="modal-head"><h3 style="font-size:15px;">Upraviť osobu</h3><button class="btn btn-ghost btn-sm" id="teamEditClose">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><label for="te-name">Meno</label><input id="te-name" type="text" maxlength="60"></div>
+      <div class="field"><label for="te-email">E-mail (Google účet)</label><input id="te-email" type="email"></div>
+      <div class="field"><label for="te-phone">Telefón <span>(vidí len administrátor)</span></label><input id="te-phone" type="tel" placeholder="0900 000 000"></div>
+      <div id="te-status" style="font-size:12px; color:var(--ink-dim);"></div>
+      <label class="check-field" style="align-items:flex-start;"><input type="checkbox" id="te-reset"> <span>Zmeniť Google účet: súčasný účet sa odpojí a nový sa prepojí pri ďalšom prihlásení. Použite, ak osoba prechádza na iný účet (nový e-mail zadajte vyššie).</span></label>
+      <div id="te-err" class="err" style="color:var(--danger); font-size:12.5px;"></div>
+    </div>
+    <div class="modal-foot"><span></span><button class="btn btn-primary" id="teamEditSave">Uložiť</button></div>
+  </div>
+</div>
+
 <!-- Export modal -->
 <div class="modal-overlay" id="exportOverlay" hidden>
   <div class="modal" style="width:420px;">
@@ -630,7 +654,7 @@
   }
   // Every handler calls saveState() after changing the in-memory state. Live mode turns that into one 'sync' request with just the
   // differences; the server validates it and answers with the sheet's truth. Read-only: the change is discarded by re-reading.
-  function saveState(){ if(!me) return; if(READ_ONLY){ toast('Len na čítanie: zmena sa neuložila.'); loadFromBackend(); } else { syncChanges(); } }
+  function saveState(){ if(!me) return; if(READ_ONLY){ toast('Len na čítanie: zmena sa neuložila.'); loadFromBackend(); } else if(!inflight){ syncChanges(); } }
   trainers=[]; sessions=[]; blocks=[]; changeLog=[];   // filled after sign-in; never cached in the browser
 
   // Auto: a Confirmed training whose end time has passed becomes Completed.
@@ -1782,16 +1806,18 @@
       var actionCell = t.hidden
         ? '<button class="btn btn-sm restore-trainer" data-id="'+t.id+'">Obnoviť</button>'
         : '<button class="btn btn-sm toggle-status" data-id="'+t.id+'">'+(t.status==='active'?'Deaktivovať':'Reaktivovať')+'</button>';
+      var canEditP = isOwnerRole() || t.role==='trainer' || t.id===currentTrainerId;
+      var editBtn = canEditP ? '<button class="btn btn-sm edit-trainer" data-id="'+t.id+'">Upraviť</button>' : '';
       var deleteCell = (!t.hidden && t.status==='inactive')
         ? '<button class="btn btn-ghost btn-sm delete-trainer" data-id="'+t.id+'">Vymazať</button>'
         : '';
       return '<tr'+(t.hidden?' style="opacity:0.55;"':'')+'>'+
-        '<td>'+esc(t.name)+(t.email?'<div style="font-size:11px; color:var(--ink-dim);">'+esc(t.email)+'</div>':'')+(t.privateOnly?' <span class="tag-inactive" style="color:var(--accent);">externý</span>':'')+(t.noAccess?' <span class="tag-inactive">bez prístupu</span>':'')+'</td>'+
+        '<td>'+esc(t.name)+((t.email||t.phone)?'<div class="team-contact">'+esc(t.email||'')+(t.phone?' · '+esc(t.phone):'')+'</div>':'')+((t.signedIn===false && t.status==='active' && !t.hidden && !t.noAccess)?'<div class="team-contact" style="color:var(--warning);">ešte sa neprihlásil</div>':'')+(t.privateOnly?' <span class="tag-inactive" style="color:var(--accent);">externý</span>':'')+(t.noAccess?' <span class="tag-inactive">bez prístupu</span>':'')+'</td>'+
         '<td>'+roleCell+'</td>'+
         '<td>'+statusCell+'</td>'+
         '<td class="num">'+st.count+'</td>'+
         '<td class="num">'+st.hours.toFixed(1)+'</td>'+
-        '<td>'+actionCell+'</td>'+
+        '<td><div style="display:flex; gap:6px; flex-wrap:wrap;">'+editBtn+actionCell+'</div></td>'+
         '<td>'+deleteCell+'</td>'+
       '</tr>';
     }).join('');
@@ -1850,13 +1876,14 @@
     if(!isAdminOrOwnerRole()) return;
     var nameInput = document.getElementById('newTrainerName');
     var name = nameInput.value.trim();
-    var emailInput = document.getElementById('newTrainerEmail'), email = emailInput.value.trim().toLowerCase();
+    var emailInput = document.getElementById('newTrainerEmail'), email = emailInput.value.trim().toLowerCase(), phoneInput = document.getElementById('newTrainerPhone'), phone = phoneInput.value.trim();
     if(!name) { nameInput.focus(); return; }
     if(!/^[^@\s]+@[^@\s]+$/.test(email)){ toast('Zadajte platný e-mail.'); emailInput.focus(); return; }
-    var dupe = trainers.filter(function(t){ return (t.email||'').toLowerCase()===email; })[0];
-    if(dupe){ toast('Tento e-mail už má '+dupe.name+'.'); return; }
-    trainers.push({id:uid('t'), name:name, email:email, status:'active', since:TODAY, until:null, hidden:false, role:'trainer', roleChangedBy:null, roleChangedAt:null});
-    nameInput.value=''; emailInput.value='';
+    if(phone && !/^[0-9+()\/\-\s]{3,30}$/.test(phone)){ toast('Neplatný telefón.'); phoneInput.focus(); return; }
+    var dupe = trainers.filter(function(t){ return normMail(t.email)===normMail(email); })[0];
+    if(dupe){ toast('Tento e-mail už používa: '+dupe.name); return; }
+    trainers.push({id:uid('t'), name:name, email:email, phone:phone, status:'active', since:TODAY, until:null, hidden:false, role:'trainer', roleChangedBy:null, roleChangedAt:null});
+    nameInput.value=''; emailInput.value=''; phoneInput.value='';
     saveState(); renderTeam(); populateViewingAsSelect();
   });
 
@@ -2253,6 +2280,41 @@
     try{ navigator.clipboard && navigator.clipboard.writeText(ta.value); }catch(e){}
   });
 
+  // ---- Team: edit a person (name, e-mail, phone, change Google account) ----
+  function normMail(e){
+    e = String(e||'').trim().toLowerCase(); var m = /^([^@\s]+)@([^@\s]+)$/.exec(e); if(!m) return '';
+    var l = m[1], dom = m[2]; if(dom==='gmail.com' || dom==='googlemail.com'){ l = l.split('+')[0].replace(/\./g, ''); dom = 'gmail.com'; }   // Google treats these as one mailbox
+    return l + '@' + dom;
+  }
+  var teOverlay = document.getElementById('teamEditOverlay'), teId = null;
+  function openTeamEdit(id){
+    var t = trainerById(id); if(!t || !isAdminOrOwnerRole()) return;
+    teId = id;
+    document.getElementById('te-name').value = t.name; document.getElementById('te-email').value = t.email || ''; document.getElementById('te-phone').value = t.phone || '';
+    var reset = document.getElementById('te-reset'); reset.checked = false; reset.disabled = (id === currentTrainerId);
+    document.getElementById('te-status').textContent = t.signedIn ? 'Google účet je prepojený (osoba sa už prihlásila).' : 'Osoba sa ešte neprihlásila.';
+    document.getElementById('te-err').textContent = '';
+    teOverlay.hidden = false;
+  }
+  function closeTeamEdit(){ teOverlay.hidden = true; teId = null; }
+  document.getElementById('teamEditClose').addEventListener('click', closeTeamEdit);
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !teOverlay.hidden) closeTeamEdit(); });
+  document.getElementById('teamTableBody').addEventListener('click', function(e){ var b = e.target.closest('.edit-trainer'); if(b) openTeamEdit(b.dataset.id); });
+  document.getElementById('teamEditSave').addEventListener('click', function(){
+    var t = trainerById(teId), err = document.getElementById('te-err'); if(!t) return;
+    var name = document.getElementById('te-name').value.trim(), email = document.getElementById('te-email').value.trim().toLowerCase(), phone = document.getElementById('te-phone').value.trim();
+    function bad(m){ err.textContent = m; }
+    if(!name) return bad('Zadajte meno.');
+    if(!normMail(email)) return bad('Zadajte platný e-mail.');
+    if(phone && !/^[0-9+()\/\-\s]{3,30}$/.test(phone)) return bad('Neplatný telefón.');
+    var others = trainers.filter(function(x){ return x.id !== t.id; });
+    if(others.some(function(x){ return x.name.trim().toLowerCase() === name.toLowerCase(); })) return bad('Meno „' + name + '“ už existuje.');
+    var dupe = others.filter(function(x){ return normMail(x.email) === normMail(email); })[0];
+    if(dupe) return bad('Tento e-mail už používa: ' + dupe.name);
+    t.name = name; t.email = email; t.phone = phone;
+    if(document.getElementById('te-reset').checked) t._reset = true;
+    saveState(); closeTeamEdit(); renderTeam();
+  });
   // ---------- live mode: Google sign-in, data from the backend ----------
   function toast(msg){
     var t = document.createElement('div'); t.textContent = msg;
@@ -2270,10 +2332,11 @@
     try{ google.accounts.id.disableAutoSelect(); }catch(e){}
     location.replace(location.pathname);   // reload without any query string (a test token in the URL must not loop)
   }
-  function applyLoad(d){
+  function fixColor(s){ s.color = s.color || TYPE_DEFAULT_COLOR[s.type] || 'blue'; return s; }
+  function applyLoad(d, deferRender){
     me = d.me; trainers = d.trainers; blocks = d.blocks;
     if(d.changeLog) changeLog = d.changeLog;   // a save's reply omits the log (faster); the page keeps its own copy until the next full load
-    sessions = d.sessions.map(function(s){ s.color = s.color || TYPE_DEFAULT_COLOR[s.type] || 'blue'; return s; });
+    sessions = d.sessions.map(fixColor);
     currentTrainerId = me.id;
     populateViewingAsSelect();
     viewingAsSelect.innerHTML = '<option value="'+esc(me.id)+'">'+esc(me.name)+' ('+ROLE_LABEL[me.role]+')</option>';
@@ -2282,7 +2345,7 @@
     renderRoleBanner();
     document.getElementById('roleBanner').insertAdjacentHTML('beforeend', READ_ONLY ? ' <b>Len na čítanie (testovacia fáza).</b>' : ' <b>Testovací režim: zmeny sa ukladajú do testovacieho zošita.</b>');
     applyRoleUI(); runAutoComplete(); takeSnapshot();
-    renderCalendar(); if(!views.team.hidden) renderTeam(); if(!views.reports.hidden) renderReports();
+    if(!deferRender){ renderCalendar(); if(!views.team.hidden) renderTeam(); if(!views.reports.hidden) renderReports(); }
     gate.hidden = true;
   }
   // ---- what changed since the server last confirmed the state ----
@@ -2290,13 +2353,15 @@
   function derived(s){ return (s.status==='confirmed' && hasEnded(s)) ? 'completed' : s.status; }   // the server derives "completed" the same way
   function sKey(s){ return JSON.stringify([s.date, s.start, s.durationMin, s.type, s.tag||'', s.color||'', s.clientName||'', s.phone||'', s.people==null?null:s.people, s.requiredTrainers, s.trainerIds, derived(s), s.notes||'', !!s.paid]); }
   function bKey(b){ return JSON.stringify([b.date, b.label, !!b.allDay, b.start, b.durationMin||0]); }
-  function tKey(t){ return JSON.stringify([t.role, t.status, !!t.hidden, !!t.privateOnly, !!t.noAccess]); }
-  function takeSnapshot(){
-    snap = {sessions:{}, blocks:{}, trainers:{}, logLen:changeLog.length};
-    sessions.forEach(function(s){ snap.sessions[s.id] = {key:sKey(s), version:s.version}; });
-    blocks.forEach(function(b){ snap.blocks[b.id] = bKey(b); });
-    trainers.forEach(function(t){ snap.trainers[t.id] = tKey(t); });
+  function tKey(t){ return JSON.stringify([t.role, t.status, !!t.hidden, !!t.privateOnly, !!t.noAccess, t.name, t.email||'', t.phone||'', !!t._reset]); }
+  function makeSnap(){
+    var o = {sessions:{}, blocks:{}, trainers:{}, logLen:changeLog.length};
+    sessions.forEach(function(s){ o.sessions[s.id] = {key:sKey(s), version:s.version}; });
+    blocks.forEach(function(b){ o.blocks[b.id] = bKey(b); });
+    trainers.forEach(function(t){ o.trainers[t.id] = tKey(t); });
+    return o;
   }
+  function takeSnapshot(){ snap = makeSnap(); }
   function buildChanges(){
     var ch = {sessions:[], delSessions:[], blocks:[], delBlocks:[], trainers:[], log:[]}, seen = {};
     sessions.forEach(function(s){
@@ -2314,7 +2379,7 @@
     Object.keys(snap.blocks).forEach(function(id){ if(!seen[id]) ch.delBlocks.push(id); });
     trainers.forEach(function(t){
       var old = snap.trainers[t.id]; if(old===tKey(t)) return;
-      ch.trainers.push({_new:old===undefined, id:t.id, name:t.name, email:t.email||'', role:t.role, status:t.status, hidden:!!t.hidden, privateOnly:!!t.privateOnly, noAccess:!!t.noAccess});
+      ch.trainers.push({_new:old===undefined, id:t.id, name:t.name, email:t.email||'', phone:t.phone||'', role:t.role, status:t.status, hidden:!!t.hidden, privateOnly:!!t.privateOnly, noAccess:!!t.noAccess, resetAccount:!!t._reset});
     });
     changeLog.slice(snap.logLen).forEach(function(e){
       ch.log.push({action:e.action, sid:e.sid, label:e.label, when:e.when, isPrivate:!!e.isPrivate, changes:e.changes||[], forNames:e.forNames||[], count:e.count||1, bulkFor:e.bulkFor||''});
@@ -2327,17 +2392,60 @@
     body.idToken = idToken;
     return fetch(BACKEND_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(body)}).then(function(r){ return r.json(); });
   }
-  var overlay2 = document.getElementById('busyOverlay');
+
+  // ---- saving: the page updates at once, the server confirms in the background ----
+  // One request at a time. Whatever the user changes while a request is in flight is kept and sent afterwards (see rebase).
+  var statusEl = document.getElementById('saveStatus'), statusTimer = null, inflight = false;
+  function setStatus(kind, text, tip){
+    clearTimeout(statusTimer); statusEl.className = 'save-status ' + kind; statusEl.textContent = text || ''; statusEl.title = tip || '';
+    if(kind==='saved') statusTimer = setTimeout(function(){ statusEl.textContent = ''; }, 4000);
+  }
   function syncChanges(){
     var ch = buildChanges(); if(!ch) return;
-    overlay2.hidden = false;
+    inflight = true; setStatus('saving', 'Ukladá sa…');
+    var sent = makeSnap(), t0 = Date.now();
     post({op:'sync', changes:ch}).then(function(d){
-      if(d.ok){ applyLoad(d); toast('Uložené.'); return; }
+      if(d.ok){
+        rebase(d, sent);
+        var total = ((Date.now()-t0)/1000).toFixed(1), srv = d.ms!=null ? (d.ms/1000).toFixed(1) : '?';
+        setStatus('saved', 'Uložené ✓ ('+total+' s)', 'Server '+srv+' s, celkom '+total+' s'); console.log('sync: server '+srv+' s, celkom '+total+' s');
+        return;
+      }
       if(d.error==='denied' || d.error==='bad_token') return leave('Prihlásenie už neplatí. Prihláste sa znova.');
-      toast(d.message || 'Zmenu sa nepodarilo uložiť.');
+      setStatus('', ''); toast(d.message || 'Zmenu sa nepodarilo uložiť.');
       return loadFromBackend();                       // show what the sheet really contains
-    }).catch(function(){ toast('Nepodarilo sa spojiť so serverom. Zmena sa neuložila.'); return loadFromBackend(); })
-      .then(function(){ overlay2.hidden = true; });
+    }).catch(function(){ setStatus('', ''); toast('Nepodarilo sa spojiť so serverom. Zmena sa neuložila.'); return loadFromBackend(); })
+      .then(function(){ inflight = false; if(buildChanges()) syncChanges(); });
+  }
+  var EDIT_S = ['date','start','end','durationMin','type','tag','color','clientName','phone','people','requiredTrainers','trainerIds','status','notes','paid'];
+  var EDIT_B = ['date','label','allDay','start','durationMin'];
+  var EDIT_T = ['name','email','phone','role','status','hidden','privateOnly','noAccess','_reset'];
+  // The reply is the sheet's truth. Edits made after the request was sent are laid back on top of it, and stay pending.
+  function rebase(d, sent){
+    var map = d.idMap || {}, mS = map.s || {}, mSer = map.series || {}, mB = map.b || {}, mT = map.t || {};
+    function pending(list, was, keyFn){ return list.filter(function(x){ var o = was[x.id]; o = (o && o.key !== undefined) ? o.key : o; return o === undefined || o !== keyFn(x); }); }
+    function gone(list, was){ var cur = {}; list.forEach(function(x){ cur[x.id] = 1; }); return Object.keys(was).filter(function(id){ return !cur[id]; }); }
+    var pS = pending(sessions, sent.sessions, sKey), dS = gone(sessions, sent.sessions);
+    var pB = pending(blocks, sent.blocks, bKey), dB = gone(blocks, sent.blocks);
+    var pT = pending(trainers, sent.trainers, tKey);
+    function lay(list, pend, dels, ids, fields, fix){
+      var at = {}; list.forEach(function(x, i){ at[x.id] = i; });
+      pend.forEach(function(x){
+        var rid = ids[x.id] || x.id, i = at[rid];
+        if(i === undefined){ var c = Object.assign({}, x); if(fix) fix(c); list.push(c); at[c.id] = list.length-1; return; }   // created after sending: still new
+        fields.forEach(function(k){ list[i][k] = x[k]; }); if(fix) fix(list[i]);
+      });
+      dels.forEach(function(id){ var rid = ids[id] || id; for(var i = list.length-1; i >= 0; i--) if(list[i].id === rid) list.splice(i, 1); });
+    }
+    var oldEditing = editingId, oldBlock = editingBlockId;
+    applyLoad(d, true);
+    lay(sessions, pS, dS, mS, EDIT_S, function(s){ if(s.seriesId && mSer[s.seriesId]) s.seriesId = mSer[s.seriesId]; });
+    lay(blocks, pB, dB, mB, EDIT_B);
+    lay(trainers, pT, [], mT, EDIT_T);
+    snap.logLen = sent.logLen;                        // log lines written while sending are not sent yet
+    if(oldEditing && mS[oldEditing]) editingId = mS[oldEditing];
+    if(oldBlock && mB[oldBlock]) editingBlockId = mB[oldBlock];
+    renderCalendar(); if(!views.team.hidden) renderTeam(); if(!views.reports.hidden) renderReports();
   }
   function loadFromBackend(){
     if(!idToken) return Promise.resolve();
