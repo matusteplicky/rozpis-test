@@ -255,6 +255,7 @@
     <button class="btn btn-sm" id="refreshBtn">Obnoviť dáta</button>
     <span class="save-status" id="saveStatus" aria-live="polite"></span>
     <button class="btn btn-ghost btn-sm" id="signOutBtn">Odhlásiť</button>
+    <button class="btn btn-ghost btn-sm" id="signOutAllBtn" title="Odhlási vás na všetkých zariadeniach">Odhlásiť všade</button>
   </div>
 
   <div class="notice" id="roleBanner"></div>
@@ -333,12 +334,12 @@
       <div class="subtabs" id="reportSubtabs">
         <button class="subtab subtab-urgent active" data-sub="missing">Chýba tréner</button>
         <button class="subtab subtab-urgent" data-sub="conflicts">Konflikty</button>
-        <button class="subtab" data-sub="activity">Aktivita</button>
         <button class="subtab" data-sub="summary">Prehľad</button>
         <button class="subtab" data-sub="vertigo">Vertigo</button>
         <button class="subtab" data-sub="private">Súkromné</button>
         <button class="subtab" data-sub="bytrainer">Podľa trénera</button>
         <button class="subtab" data-sub="load">Vyťaženosť</button>
+        <button class="subtab" data-sub="activity">Zmeny</button>
       </div>
 
       <div class="subview" id="sub-missing">
@@ -567,6 +568,7 @@
       <div class="field"><label for="te-phone">Telefón <span>(vidí len administrátor)</span></label><input id="te-phone" type="tel" placeholder="0900 000 000"></div>
       <div id="te-status" style="font-size:12px; color:var(--ink-dim);"></div>
       <label class="check-field" style="align-items:flex-start;"><input type="checkbox" id="te-reset"> <span>Zmeniť Google účet: súčasný účet sa odpojí a nový sa prepojí pri ďalšom prihlásení. Použite, ak osoba prechádza na iný účet (nový e-mail zadajte vyššie).</span></label>
+      <button class="btn btn-sm" id="te-revoke" type="button">Odhlásiť túto osobu na všetkých zariadeniach</button>
       <div id="te-err" class="err" style="color:var(--danger); font-size:12.5px;"></div>
     </div>
     <div class="modal-foot"><span></span><button class="btn btn-primary" id="teamEditSave">Uložiť</button></div>
@@ -593,7 +595,7 @@
   var BACKEND_URL = 'https://script.google.com/macros/s/AKfycbzedlCzQgBV4Z641BR84uhiXJ17b-20FPMhNgoNGkxSIQjtkSnmuOsPBkaTEsPFLJA/exec';       // Apps Script web app URL, ends with /exec
   var GOOGLE_CLIENT_ID = '610436969794-7dtpr3a713g24kgrlk6t05ode3fjssgd.apps.googleusercontent.com'; // OAuth web client ID from Google Cloud Console
   var READ_ONLY = false;      // true = the board only shows data and changes nothing
-  var idToken = null, me = null;
+  var idToken = null, me = null, session = null;   // idToken = Google's proof (login only); session = our own 30-day token
 
   var TODAY = isoOf(new Date());
   var START_MIN = 8*60, END_MIN = 21*60, SLOT_MIN = 30, ROW_PX = 24;
@@ -706,6 +708,26 @@
   function earliestTrainerDate(){ return addDays(isoOf(new Date()), -BACKDATE_DAYS); }
   function hasEnded(s){ return new Date(s.date+'T'+s.end+':00') <= new Date(); }
   function isAssigned(s){ return s.trainerIds.indexOf(currentTrainerId)!==-1; }
+  // Who sees / sets payment. Vertigo: the owner pays the trainers, so only the owner sees and sets it (plus each trainer sees their own).
+  // Private: the trainer pays the owner, so admin and owner see and set it. paid===null means the server hid it.
+  function paidVisible(s){
+    if(s.paid===null) return false;
+    if(isOwnerRole() || isAssigned(s)) return true;
+    return isPrivateSession(s) && isAdminOrOwnerRole();
+  }
+  function canEditPaid(s){ return isOwnerRole() || (isAdminOrOwnerRole() && isPrivateSession(s)); }
+  function existingBeingEdited(){ return editingId ? sessions.filter(function(x){ return x.id===editingId; })[0] : null; }
+  function syncPaidField(){
+    var box = document.getElementById('f-paid'), row = box.closest('.field'), ex = existingBeingEdited();
+    var editable = canEditPaid({type:document.getElementById('f-type').value});
+    row.hidden = !(editable || (ex && paidVisible(ex)));
+    box.disabled = !editable;
+  }
+  // The form only owns "paid" when this person may edit it; otherwise the stored value passes through untouched.
+  function paidFromForm(){
+    if(canEditPaid({type:document.getElementById('f-type').value})) return document.getElementById('f-paid').checked;
+    var ex = existingBeingEdited(); return ex ? !!ex.paid : false;
+  }
   // Closed = completed, paid or already over — records money may depend on.
   function isClosedForTrainer(s){ return !!s.paid || s.status==='completed' || hasEnded(s); }
   // Cancel/reinstate: only the sole trainer, only while still upcoming and unpaid.
@@ -986,7 +1008,7 @@
       var fallback = Array.prototype.filter.call(subtabButtons, function(b){ return !b.hidden; })[0];
       if(fallback){
         subtabButtons.forEach(function(b){ b.classList.toggle('active', b===fallback); });
-        ['missing','conflicts','activity','summary','vertigo','private','bytrainer','load'].forEach(function(k){ document.getElementById('sub-'+k).hidden = (k!==fallback.dataset.sub); });
+        ['missing','conflicts','summary','vertigo','private','bytrainer','load','activity'].forEach(function(k){ document.getElementById('sub-'+k).hidden = (k!==fallback.dataset.sub); });
       }
     }
 
@@ -1159,7 +1181,7 @@
           var badges = [];
           if(missing) badges.push('<span class="sb-missing">&#9888; chýba '+(s.requiredTrainers - s.trainerIds.length)+'</span>');
           if(s.status==='completed') badges.push('<span class="sb-done">&#10003; Dokončené</span>');
-          if(s.paid) badges.push('<span class="sb-done">&#128176; Zaplatené</span>');
+          if(s.paid && paidVisible(s)) badges.push('<span class="sb-done">&#128176; Zaplatené</span>');
           el.innerHTML = '<div class="sb-type"><span class="sb-time">'+s.start+'–'+s.end+'</span> &middot; '+esc(s.clientName||s.type)+'</div>'+
             (badges.length ? '<div class="sb-badges">'+badges.join(' &middot; ')+'</div>' : '')+
             '<div class="sb-trainers">'+(s.tag?esc(s.tag)+' &middot; ':'')+trNames+'</div>';
@@ -1244,6 +1266,7 @@
     syncSwatchSelection();
     syncRecurringFromType(this.value);
     applyPrivateOnlyToChecklist();
+    syncPaidField();
     var pe = document.getElementById('f-people'); if(this.value===TYPE_PRIVATE && !pe.value) pe.value = 1;
     updateConflicts();
   });
@@ -1352,7 +1375,7 @@
       end: start ? toHHMM(toMin(start)+dur) : '',
       type: document.getElementById('f-type').value,
       status: document.getElementById('f-status').value,
-      paid: document.getElementById('f-paid').checked,
+      paid: paidFromForm(),
       phone: document.getElementById('f-phone').value,
       people: peopleRaw===''? null : parseInt(peopleRaw,10),
       requiredTrainers: reqRaw===''? 0 : parseInt(reqRaw,10),
@@ -1422,14 +1445,14 @@
     // this training at all — trainers always see it, never toggle it themselves.
     var paidBox = document.getElementById('f-paid');
     paidBox.checked = !!data.paid;
-    paidBox.disabled = isTrainerRole();
     var paidMetaEl = document.getElementById('paidMeta');
-    if(data.paid && data.paidBy){
+    if(data.paid && data.paidBy && paidVisible(data)){
       paidMetaEl.hidden = false;
       paidMetaEl.textContent = 'Označil(a) '+data.paidBy+', '+fmtWhen(data.paidAt);
     } else {
       paidMetaEl.hidden = true;
     }
+    syncPaidField();
     document.getElementById('f-phone').value = data.phone || '';
     document.getElementById('f-people').value = (data.people===null || data.people===undefined) ? '' : data.people;
     document.getElementById('f-required').value = (data.requiredTrainers===undefined || data.requiredTrainers==='') ? '' : data.requiredTrainers;
@@ -1897,7 +1920,7 @@
   document.getElementById('reportSubtabs').addEventListener('click', function(e){
     var btn = e.target.closest('.subtab'); if(!btn) return;
     document.querySelectorAll('#reportSubtabs .subtab').forEach(function(b){ b.classList.toggle('active', b===btn); });
-    ['missing','conflicts','activity','summary','vertigo','private','bytrainer','load'].forEach(function(k){ document.getElementById('sub-'+k).hidden = (k!==btn.dataset.sub); });
+    ['missing','conflicts','summary','vertigo','private','bytrainer','load','activity'].forEach(function(k){ document.getElementById('sub-'+k).hidden = (k!==btn.dataset.sub); });
   });
 
   var reportTagFilters = [];
@@ -2025,7 +2048,7 @@
       rows.forEach(function(s){
         var hours = ((toMin(s.end)-toMin(s.start))/60).toFixed(2);
         var trainerNames = s.trainerIds.map(trainerName).join('; ');
-        lines.push([s.date, s.start, s.end, hours, s.type, s.tag||'', trainerNames, s.clientName||'', (s.people==null?'':s.people), s.status, (s.paid?'áno':'nie')].map(csvEscape).join(','));
+        lines.push([s.date, s.start, s.end, hours, s.type, s.tag||'', trainerNames, s.clientName||'', (s.people==null?'':s.people), s.status, (paidVisible(s)?(s.paid?'áno':'nie'):'')].map(csvEscape).join(','));
       });
       document.getElementById('csvOut').value = lines.join('\n');
       document.getElementById('exportOverlay').hidden = false;
@@ -2087,9 +2110,17 @@
     return '<div><h3 style="font-size:13px; margin-bottom:8px;">'+title+' <span style="font-weight:400; color:var(--ink-dim);">('+list.length+')</span></h3>'+
       '<div style="display:flex; flex-direction:column; gap:6px;">'+(list.length ? list.map(activityRow).join('') : '<div class="agenda-empty" style="padding:10px;">Nič nové.</div>')+'</div></div>';
   }
+  // Payments for Vertigo trainings are the owner's business: leave those lines out for everyone else.
+  function hidePay(e){
+    if(isOwnerRole() || e.isPrivate) return e;
+    if(e.action==='paid') return null;
+    var ch = (e.changes||[]).filter(function(x){ return x.k!=='paid'; });
+    if(e.action==='edited' && (e.changes||[]).length && !ch.length) return null;
+    return Object.assign({}, e, {changes:ch});
+  }
   function drawActivity(){
     var cutoff = Date.now() - activityHours*3600*1000;
-    var items = changeLog.filter(function(e){ return new Date(e.t).getTime() >= cutoff; }).sort(function(a,b){ return b.t.localeCompare(a.t); });
+    var items = changeLog.filter(function(e){ return new Date(e.t).getTime() >= cutoff; }).sort(function(a,b){ return b.t.localeCompare(a.t); }).map(hidePay).filter(Boolean);
     var wrap = document.getElementById('activityBody');
     wrap.innerHTML =
       activitySection('Nové tréningy Vertigo', items.filter(function(e){ return e.action==='created' && !e.isPrivate; })) +
@@ -2114,15 +2145,16 @@
     return !!t && t.role==='trainer' && (s.createdById===trainerId || s.lastEditedById===trainerId);
   }
   var STATUS_LABEL = {confirmed:'Potvrdené', tentative:'Predbežné', completed:'Dokončené', cancelled:'Zrušené'};
-  function paidTagFor(s){
+  function paidTagFor(s, noPay){
     var out = ' &middot; '+(STATUS_LABEL[s.status] || s.status);
-    if(s.status==='completed'){
+    if(s.status==='completed' && !noPay && paidVisible(s)){
       out += s.paid
         ? ' &middot; <span style="color:var(--success);">&#128176; Zaplatené</span>'
         : ' &middot; <span style="color:var(--warning);">Nezaplatené</span>';
     }
     return out;
   }
+  // Same structure as Vertigo (grouped by trainer), but no bulk button: the trainer settles their cut with the gym per training.
   function drawPrivate(){
     var unpaidOnly = document.getElementById('privateUnpaidOnly').checked;
     var monthSessions = filteredMonthSessions().filter(isPrivateSession)
@@ -2134,17 +2166,37 @@
       '<div class="stat-tile"><div class="v num">'+live.length+'</div><div class="l">Súkromné tréningy</div></div>'+
       '<div class="stat-tile"><div class="v num" style="color:'+(unpaidCompleted.length>0?'var(--warning)':'inherit')+';">'+unpaidCompleted.length+'</div><div class="l">Nezaplatené tréningy</div></div>';
 
-    var shown = unpaidOnly ? unpaidCompleted : monthSessions;
+    var byTrainer = {};
+    live.forEach(function(s){
+      (s.trainerIds.length ? s.trainerIds : ['_none']).forEach(function(id){ (byTrainer[id] = byTrainer[id] || []).push(s); });
+    });
+    function nameOf(id){ return id==='_none' ? 'Bez trénera' : trainerName(id); }
+    var ids = Object.keys(byTrainer).sort(function(a,b){ return nameOf(a).localeCompare(nameOf(b)); });
+
     var wrap = document.getElementById('privateList');
-    wrap.innerHTML = shown.length ? shown.map(function(s){
-      var trNames = s.trainerIds.map(trainerNameH).join(', ') || 'Netreba trénera';
-      return '<div class="agenda-item'+(s.status==='cancelled'?' cancelled':'')+'" data-id="'+s.id+'">'+
-        '<span class="dot" style="background:var(--swatch-purple)"></span>'+
-        '<span class="a-time" style="width:220px;">'+fmtReportDate(s.date)+' '+s.start+'–'+s.end+'</span>'+
-        '<span class="a-main"><div class="a-type">'+esc(s.clientName||s.type)+paidTagFor(s)+'</div>'+
-        '<div class="a-sub">'+trNames+'</div></span></div>';
-    }).join('') : '<div class="agenda-empty">V tomto výbere nie sú žiadne súkromné tréningy.</div>';
-    wrap.querySelectorAll('.agenda-item').forEach(function(it){ it.addEventListener('click', function(){ openModal(it.dataset.id); }); });
+    var groupsHtml = ids.map(function(id){
+      var list = byTrainer[id];
+      var completed = list.filter(function(s){ return s.status==='completed'; });
+      var unpaid = completed.filter(function(s){ return !s.paid; });
+      var shownItems = unpaidOnly ? unpaid : list;
+      if(shownItems.length===0) return '';
+      var itemsHtml = shownItems.map(function(s){
+        var others = s.trainerIds.filter(function(x){ return x!==id; }).map(trainerNameH).join(', ');
+        return '<div class="agenda-item" data-id="'+s.id+'">'+
+          '<span class="dot" style="background:var(--swatch-purple)"></span>'+
+          '<span class="a-time" style="width:220px;">'+fmtReportDate(s.date)+' '+s.start+'–'+s.end+'</span>'+
+          '<span class="a-main"><div class="a-type">'+esc(s.clientName||s.type)+paidTagFor(s)+'</div>'+
+          '<div class="a-sub">'+(s.people!=null?s.people+' '+osobLabel(s.people):'')+(others?(s.people!=null?' &middot; ':'')+'s: '+others:'')+'</div></span></div>';
+      }).join('');
+      return '<div style="border:1px solid var(--border-soft); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px;">'+
+        '<div style="font-weight:700; font-size:13px;">'+(id==='_none'?'Bez trénera':trainerNameH(id))+
+          ' <span style="font-weight:400; color:var(--ink-dim); font-size:12px;">&middot; '+list.length+' tréningov'+
+          (unpaid.length ? ', '+unpaid.length+' nezaplatené' : (completed.length ? ', všetko zaplatené' : ''))+'</span></div>'+
+        itemsHtml+'</div>';
+    }).join('');
+
+    wrap.innerHTML = groupsHtml || '<div class="agenda-empty">V tomto výbere nie sú žiadne súkromné tréningy.</div>';
+    wrap.querySelectorAll('.agenda-item[data-id]').forEach(function(it){ it.addEventListener('click', function(){ openModal(it.dataset.id); }); });
   }
   document.getElementById('privateUnpaidOnly').addEventListener('change', drawPrivate);
 
@@ -2152,7 +2204,9 @@
   // these, paid out monthly in a batch — so unlike Súkromné, this is grouped
   // by trainer with a one-click bulk action, not a flat per-training log.
   function drawVertigo(){
-    var unpaidOnly = document.getElementById('vertigoUnpaidOnly').checked;
+    var showPay = isOwnerRole();   // payment is between the owner and the trainers
+    document.getElementById('vertigoUnpaidOnly').closest('label').hidden = !showPay;
+    var unpaidOnly = showPay && document.getElementById('vertigoUnpaidOnly').checked;
     var monthSessions = filteredMonthSessions().filter(isGymSession)
       .sort(function(a,b){ return a.date===b.date ? toMin(a.start)-toMin(b.start) : a.date.localeCompare(b.date); });
     var live = monthSessions.filter(function(s){ return s.status!=='cancelled'; });
@@ -2160,7 +2214,7 @@
 
     document.getElementById('vertigoStats').innerHTML =
       '<div class="stat-tile"><div class="v num">'+live.length+'</div><div class="l">Tréningy Vertigo</div></div>'+
-      '<div class="stat-tile"><div class="v num" style="color:'+(unpaidCompleted.length>0?'var(--warning)':'inherit')+';">'+unpaidCompleted.length+'</div><div class="l">Nezaplatené tréningy</div></div>';
+      (showPay ? '<div class="stat-tile"><div class="v num" style="color:'+(unpaidCompleted.length>0?'var(--warning)':'inherit')+';">'+unpaidCompleted.length+'</div><div class="l">Nezaplatené tréningy</div></div>' : '');
 
     var byTrainer = {};
     live.forEach(function(s){
@@ -2187,15 +2241,15 @@
         return '<div class="agenda-item'+(s.status==='cancelled'?' cancelled':'')+'" data-id="'+s.id+'">'+
           '<span class="dot" style="background:'+colorVar(s.color)+'"></span>'+
           '<span class="a-time" style="width:220px;">'+fmtReportDate(s.date)+' '+s.start+'–'+s.end+'</span>'+
-          '<span class="a-main"><div class="a-type">'+esc(s.clientName||s.type)+paidTagFor(s)+(enteredByTrainer(s,id)?' &middot; <span style="color:var(--warning);">&#9998; zadané trénerom</span>':'')+'</div>'+
+          '<span class="a-main"><div class="a-type">'+esc(s.clientName||s.type)+paidTagFor(s, !showPay)+(showPay && enteredByTrainer(s,id)?' &middot; <span style="color:var(--warning);">&#9998; zadané trénerom</span>':'')+'</div>'+
           '<div class="a-sub">'+esc(s.type)+(s.tag?' &middot; '+esc(s.tag):'')+'</div></span></div>';
       }).join('');
       return '<div style="border:1px solid var(--border-soft); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px;">'+
         '<div class="flexbar">'+
           '<div style="font-weight:700; font-size:13px;">'+trainerNameH(id)+
             ' <span style="font-weight:400; color:var(--ink-dim); font-size:12px;">&middot; '+list.length+' tréningov'+
-            (unpaid.length ? ', '+unpaid.length+' nezaplatené'+(flagged?' ('+flagged+' zadané trénerom)':'') : (completed.length ? ', všetko zaplatené' : ''))+'</span></div>'+
-          (unpaid.length ? '<button class="btn btn-sm mark-paid-btn" data-trainer="'+id+'">Označiť nezaplatené ako zaplatené</button>' : '')+
+            (!showPay ? '' : unpaid.length ? ', '+unpaid.length+' nezaplatené'+(flagged?' ('+flagged+' zadané trénerom)':'') : (completed.length ? ', všetko zaplatené' : ''))+'</span></div>'+
+          (showPay && unpaid.length ? '<button class="btn btn-sm mark-paid-btn" data-trainer="'+id+'">Označiť nezaplatené ako zaplatené</button>' : '')+
         '</div>'+itemsHtml+'</div>';
     }).join('');
 
@@ -2203,7 +2257,7 @@
     wrap.querySelectorAll('.agenda-item[data-id]').forEach(function(it){ it.addEventListener('click', function(){ openModal(it.dataset.id); }); });
     wrap.querySelectorAll('.mark-paid-btn').forEach(function(btn){
       btn.addEventListener('click', armButtonFactory(function(){
-        if(!isAdminOrOwnerRole()) return;
+        if(!isOwnerRole()) return;
         var id = btn.dataset.trainer;
         var marked = [];
         byTrainer[id].filter(function(s){ return s.status==='completed' && !s.paid; }).forEach(function(s){
@@ -2227,7 +2281,7 @@
     wrap.innerHTML = monthSessions.length ? monthSessions.map(function(s){
       var have = s.trainerIds.map(trainerNameH).join(', ') || 'zatiaľ nikto';
       return '<div class="flag-row" data-id="'+s.id+'"><div class="fr-main">'+esc(s.clientName||s.type)+' &middot; '+s.date+' '+s.start+'–'+s.end+
-        '<div class="fr-sub">Potrebuje '+s.requiredTrainers+', má '+s.trainerIds.length+' ('+have+') &middot; '+esc(s.tag||'bez značky')+'</div></div></div>';
+        '<div class="fr-sub">Potrebuje '+s.requiredTrainers+', má '+s.trainerIds.length+' ('+have+')'+(s.tag?' &middot; '+esc(s.tag):'')+'</div></div></div>';
     }).join('') : '<div class="agenda-empty">V tomto výbere nič nechýba.</div>';
     wrap.querySelectorAll('.flag-row').forEach(function(row){ row.addEventListener('click', function(){ openModal(row.dataset.id); }); });
   }
@@ -2292,12 +2346,18 @@
     teId = id;
     document.getElementById('te-name').value = t.name; document.getElementById('te-email').value = t.email || ''; document.getElementById('te-phone').value = t.phone || '';
     var reset = document.getElementById('te-reset'); reset.checked = false; reset.disabled = (id === currentTrainerId);
+    document.getElementById('te-revoke').hidden = (id === currentTrainerId) || !t.signedIn;   // your own: use the button in the header
     document.getElementById('te-status').textContent = t.signedIn ? 'Google účet je prepojený (osoba sa už prihlásila).' : 'Osoba sa ešte neprihlásila.';
     document.getElementById('te-err').textContent = '';
     teOverlay.hidden = false;
   }
   function closeTeamEdit(){ teOverlay.hidden = true; teId = null; }
   document.getElementById('teamEditClose').addEventListener('click', closeTeamEdit);
+  document.getElementById('te-revoke').addEventListener('click', function(){
+    var t = trainerById(teId); if(!t || !confirm('Odhlásiť osobu ' + t.name + ' na všetkých zariadeniach?')) return;
+    post({op:'revoke', personId:teId}).then(function(d){ toast(d.ok ? 'Osoba bola odhlásená na všetkých zariadeniach.' : (d.message || 'Nepodarilo sa.')); if(d.ok) closeTeamEdit(); })
+      .catch(function(){ toast('Nepodarilo sa spojiť so serverom.'); });
+  });
   document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !teOverlay.hidden) closeTeamEdit(); });
   document.getElementById('teamTableBody').addEventListener('click', function(e){ var b = e.target.closest('.edit-trainer'); if(b) openTeamEdit(b.dataset.id); });
   document.getElementById('teamEditSave').addEventListener('click', function(){
@@ -2326,9 +2386,12 @@
   function jwtExpired(t){
     try{ var p = JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); return !p.exp || p.exp*1000 < Date.now()+30000; }catch(e){ return true; }
   }
+  // The session token is kept in localStorage (per browser, survives closing it) so nobody has to sign in again for 30 days.
+  function storeSession(t){ session = t; try{ if(t) localStorage.setItem('rozpis_session', t); else localStorage.removeItem('rozpis_session'); }catch(e){} }
   // Ends the session and reloads, so no data of the previous person stays in the page.
   function leave(msg){
-    try{ sessionStorage.removeItem('rozpis_token'); if(msg) sessionStorage.setItem('rozpis_msg', msg); }catch(e){}
+    storeSession(null);
+    try{ if(msg) sessionStorage.setItem('rozpis_msg', msg); }catch(e){}
     try{ google.accounts.id.disableAutoSelect(); }catch(e){}
     location.replace(location.pathname);   // reload without any query string (a test token in the URL must not loop)
   }
@@ -2389,8 +2452,9 @@
   }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
-    body.idToken = idToken;
-    return fetch(BACKEND_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(body)}).then(function(r){ return r.json(); });
+    if(!body.idToken) body.session = session;
+    return fetch(BACKEND_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(body)}).then(function(r){ return r.json(); })
+      .then(function(d){ if(d && d.session) storeSession(d.session); return d; });   // the server hands out a fresh token now and then (sliding 30 days)
   }
 
   // ---- saving: the page updates at once, the server confirms in the background ----
@@ -2448,7 +2512,7 @@
     renderCalendar(); if(!views.team.hidden) renderTeam(); if(!views.reports.hidden) renderReports();
   }
   function loadFromBackend(){
-    if(!idToken) return Promise.resolve();
+    if(!session) return Promise.resolve();
     return post({op:'load'})
       .then(function(d){
         if(d.ok) return applyLoad(d);
@@ -2462,19 +2526,31 @@
   function initGoogle(){
     if(!(window.google && google.accounts && google.accounts.id)){ setTimeout(initGoogle, 250); return; }
     google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID, auto_select:false, callback:function(r){
-      idToken = r.credential; try{ sessionStorage.setItem('rozpis_token', idToken); }catch(e){}
-      showGate('Načítavam…'); loadFromBackend();
+      showGate('Načítavam…'); login(r.credential);
     }});
     google.accounts.id.renderButton(document.getElementById('gsiBtn'), {theme:'outline', size:'large', locale:'sk'});
   }
+  // Google proves who you are once; the server answers with our own session token (and the first load of data).
+  function login(googleToken){
+    post({op:'login', idToken:googleToken}).then(function(d){
+      if(d.ok) return applyLoad(d);
+      leave(d.error==='denied' ? 'Tento účet nie je v zozname tímu alebo je neaktívny. Požiadajte administrátora o pridanie.'
+          : d.error==='bad_token' ? 'Google prihlásenie sa nepodarilo overiť. Skúste to znova.' : 'Server hlási chybu. Skúste to o chvíľu.');
+    }).catch(function(){ showGate('Nepodarilo sa spojiť so serverom. Skontrolujte pripojenie a obnovte stránku.'); });
+  }
+  document.getElementById('signOutAllBtn').addEventListener('click', function(){
+    if(!confirm('Odhlásiť sa na všetkých zariadeniach?')) return;
+    post({op:'logoutAll'}).then(function(d){ leave(d.ok ? 'Boli ste odhlásený(á) na všetkých zariadeniach.' : ''); }).catch(function(){ toast('Nepodarilo sa spojiť so serverom.'); });
+  });
   (function boot(){
-    var msg = '', saved = null, params = new URLSearchParams(location.search);
-    try{ msg = sessionStorage.getItem('rozpis_msg') || ''; sessionStorage.removeItem('rozpis_msg'); saved = sessionStorage.getItem('rozpis_token'); }catch(e){}
+    var msg = '', params = new URLSearchParams(location.search);
+    try{ msg = sessionStorage.getItem('rozpis_msg') || ''; sessionStorage.removeItem('rozpis_msg'); session = localStorage.getItem('rozpis_session'); }catch(e){}
     var dev = params.get('devtoken');   // for local testing only: the real backend rejects anything that is not a genuine Google token
     if(READ_ONLY) document.body.classList.add('ro');
     if(BACKEND_URL.indexOf('PASTE')===0 || (GOOGLE_CLIENT_ID.indexOf('PASTE')===0 && !dev)){ showGate(msg || 'Aplikácia ešte nie je nastavená (adresa servera alebo Google client ID).'); return; }
-    if(dev || (saved && !jwtExpired(saved))){ idToken = dev || saved; showGate('Načítavam…'); loadFromBackend(); } else { showGate(msg); }
-    if(!dev) initGoogle();
+    if(dev){ showGate('Načítavam…'); login(dev); return; }
+    if(session){ showGate('Načítavam…'); loadFromBackend(); } else { showGate(msg); }
+    if(!session) initGoogle();
   })();
 
   // ---------- init ----------
