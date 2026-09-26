@@ -266,6 +266,7 @@
       <p style="margin:0; color:var(--ink-dim); font-size:13px;">Prihláste sa účtom Google, ktorý je v zozname tímu.</p>
       <div id="gsiBtn" style="display:flex; justify-content:center; min-height:44px;"></div>
       <p id="gateMsg" style="margin:0; font-size:13px; color:var(--danger);"></p>
+      <button class="btn" id="gateRetry" hidden>Skúsiť znova</button>
     </div>
   </div>
 
@@ -473,7 +474,7 @@
     </div>
     <div class="modal-body">
       <div class="series-note" id="modalLockNote" hidden></div>
-      <div class="field"><label for="f-client">Klient / skupina</label><input id="f-client" type="text" placeholder="napr. rodina Nováková, alebo skupina 7-9 rokov"></div>
+      <div class="field"><label for="f-client">Klient / skupina <span>(povinné)</span></label><input id="f-client" type="text" placeholder="napr. rodina Nováková, alebo skupina 7-9 rokov"><div id="clientErr" class="err" hidden>Zadajte klienta.</div></div>
       <div class="row2">
         <div class="field"><label for="f-tag">Značka <span>(na filtrovanie v reportoch)</span></label><input id="f-tag" type="text" list="tagDatalist" placeholder="napr. Medvedica"><datalist id="tagDatalist"></datalist></div>
         <div class="field"><label for="f-type">Typ tréningu</label><select id="f-type"></select></div>
@@ -511,8 +512,8 @@
         <div class="required-counter" id="requiredCounter"></div>
       </div>
       <div class="field"><label for="f-notes">Poznámky</label><textarea id="f-notes" placeholder="napr. 1x bezlepkové, len voda"></textarea></div>
-      <div id="dateErr" class="err" hidden>Dátum a čas začiatku sú povinné.</div>
-      <div id="backdateErr" class="err" hidden>Tréner môže tréning zadať najviac 1 deň spätne. Staršie zmeny robí administrátor alebo majiteľ.</div>
+      <div id="dateErr" class="err" hidden>Zadajte dátum a čas začiatku.</div>
+      <div id="backdateErr" class="err" hidden>Tréner môže zadať tréning najviac 1 deň spätne.</div>
       <div class="conflict-box" id="conflictBox" hidden></div>
     </div>
     <div class="modal-foot">
@@ -742,10 +743,6 @@
   // What an external sees instead of details: just that a training runs, and roughly how many people are in it.
   function osobLabel(n){ return n===1 ? 'osoba' : (n>=2 && n<=4 ? 'osoby' : 'osôb'); }
   function maskedLabel(s){ return 'Tréning' + (s.people!=null ? ' &middot; '+s.people+' '+osobLabel(s.people) : ''); }
-  // Trainers on this training who have no login, i.e. whose work an admin entered for them.
-  function onBehalfNames(s){
-    return s.trainerIds.filter(function(id){ var t = trainerById(id); return id!==currentTrainerId && t && t.noAccess; }).map(trainerName);
-  }
   // "Iba súkromné" people may never be newly put on a Vertigo (gym) training.
   function keepPrivateOnlyOffGym(f, existing){
     if(f.type===TYPE_PRIVATE) return;
@@ -822,9 +819,16 @@
     });
     return out;
   }
+  // Team changes (someone added, role/status/flags changed, deleted) — shown in Zmeny under "Zmeny v tíme".
+  var TEAM_ROLE_TXT = {owner:'majiteľ', admin:'administrátor', trainer:'tréner'};
+  function logTeam(p, action, changes){
+    changeLog.push({t:new Date().toISOString(), by:currentTrainerId, byName:currentActorLabel(), action:action, isTeam:true, sid:'', label:p.name, when:'Tím',
+                    isPrivate:false, forNames:[], changes:changes||[], count:1});
+    if(changeLog.length > LOG_MAX) changeLog = changeLog.slice(-LOG_MAX);
+  }
   function logChange(action, s, extra){
     var e = {t:new Date().toISOString(), by:currentTrainerId, byName:currentActorLabel(), action:action,
-             sid:s.id, label:s.clientName||s.type, when:s.date+' '+s.start, isPrivate:isPrivateSession(s), forNames:onBehalfNames(s)};
+             sid:s.id, label:s.clientName||s.type, when:s.date+' '+s.start, isPrivate:isPrivateSession(s), forNames:[]};
     Object.keys(extra||{}).forEach(function(k){ e[k] = extra[k]; });
     changeLog.push(e);
     if(changeLog.length > LOG_MAX) changeLog = changeLog.slice(-LOG_MAX);
@@ -984,11 +988,11 @@
     var el = document.getElementById('roleBanner');
     var name = trainerNameH(currentTrainerId);
     if(isOwnerRole()){
-      el.innerHTML = '&#128275; <span>Zobrazené ako <b>Majiteľ &mdash; '+name+'</b>. Plný prístup, plus záložka <b>Tím</b> na zmenu roly komukoľvek.</span>';
+      el.innerHTML = '&#128275; <span><b>Majiteľ &mdash; '+name+'</b></span>';
     } else if(isAdminOrOwnerRole()){
-      el.innerHTML = '&#128275; <span>Zobrazené ako <b>Administrátor &mdash; '+name+'</b>. Plný prístup, rovnako ako v bežnej verzii bez rolí &mdash; zatiaľ vrátane záložky <b>Tím</b>.</span>';
+      el.innerHTML = '&#128275; <span><b>Administrátor &mdash; '+name+'</b></span>';
     } else {
-      el.innerHTML = '&#128274; <span>Zobrazené ako <b>Tréner &mdash; '+name+'</b>. Môže upravovať len budúce nezaplatené tréningy, na ktoré je '+name+' priradený(á) (dokončené, zaplatené a minulé zamyká administrátor), pridávať nové tréningy (vždy vrátane seba, najviac 1 deň spätne), zrušiť svoj budúci tréning ak je v ňom sám, a pripojiť sa k budúcim tréningom, ktorým chýba tréner. Nemôže vytvárať bloky ani spravovať tím.'+(isPrivateOnlyViewer()?' Externý tréner: pracuje len so súkromnými tréningami, cudzie tréningy vidí len ako „Tréning“ s počtom osôb.':'')+'</span>';
+      el.innerHTML = '&#128274; <span><b>Tréner &mdash; '+name+'</b>. Môžete upravovať svoje budúce tréningy, pridávať nové a pripojiť sa k tréningom, ktorým chýba tréner.'+(isPrivateOnlyViewer()?' Externý tréner: ostatné tréningy vidíte len ako „Tréning“ s počtom osôb.':'')+'</span>';
     }
   }
   function applyRoleUI(){
@@ -1384,13 +1388,19 @@
     };
   }
 
+  var clientTouched = false;
+  document.getElementById('f-client').addEventListener('blur', function(){ clientTouched = true; updateConflicts(); });
   function updateConflicts(){
     var f = currentFormSession();
     var dateErr = document.getElementById('dateErr');
     var box = document.getElementById('conflictBox');
     var saveBtn = document.getElementById('saveBtn');
-    var bad = !f.date || !f.start || !f.durationMin;
-    dateErr.hidden = !bad;
+    var badTime = !f.date || !f.start || !f.durationMin;
+    var ex0 = existingBeingEdited();   // old rows that never had a client stay editable; a new one, or clearing one, needs a name
+    var noClient = !String(f.clientName||'').trim() && !(ex0 && !String(ex0.clientName||'').trim());
+    document.getElementById('clientErr').hidden = !(noClient && clientTouched);
+    var bad = badTime || noClient;
+    dateErr.hidden = !badTime;
     var backdated = !bad && isTrainerRole() && currentModalMode!=='selfOnly' && f.date < earliestTrainerDate();
     document.getElementById('backdateErr').hidden = !backdated;
     updateEndDisplay(); updateRequiredCounter();
@@ -1411,7 +1421,7 @@
     saveBtn.hidden = (currentModalMode==='locked');
   }
 
-  ['f-date','f-start','f-duration','f-type','f-required'].forEach(function(id){
+  ['f-client','f-date','f-start','f-duration','f-type','f-required'].forEach(function(id){
     document.getElementById(id).addEventListener('input', updateConflicts);
     document.getElementById(id).addEventListener('change', updateConflicts);
   });
@@ -1420,7 +1430,7 @@
     var s = sessionId ? sessions.filter(function(x){return x.id===sessionId;})[0] : null;
     if(READ_ONLY && !s) return;
     if(s && isMaskedForViewer(s)) return; // externals never open a Vertigo client's training
-    editingId = sessionId;
+    editingId = sessionId; clientTouched = false;
     editingOriginalDate = s ? s.date : null;
     var mode = trainingEditMode(s);
     currentModalMode = mode;
@@ -1470,7 +1480,7 @@
       recurRow.hidden = true;
       if(s.seriesId){
         seriesNote.hidden = false;
-        seriesNote.textContent = 'Súčasť týždenne opakovaného radu. Uložením si vyberiete, či zmeniť len tento tréning, alebo aj všetky budúce.';
+        seriesNote.textContent = 'Opakovaný tréning. Pri uložení vyberiete, či zmeniť len tento, alebo aj budúce.';
       } else { seriesNote.hidden = true; }
     } else {
       recurRow.hidden = false;
@@ -1486,26 +1496,25 @@
     } else if(mode==='selfOnly'){
       setTrainingFormDisabled(true);
       lockNote.hidden = false;
-      lockNote.textContent = 'Nie ste priradený(á) k tomuto tréningu. Chýba mu tréner — pripojte sa zaškrtnutím svojho mena nižšie. Nič iné tu nie je možné upraviť.';
+      lockNote.textContent = 'Tomuto tréningu chýba tréner. Zaškrtnite svoje meno a pripojte sa.';
     } else {
       setTrainingFormDisabled(true);
       lockNote.hidden = false;
       if(isTrainerRole() && isAssigned(s)){
         lockNote.textContent = (s.status==='cancelled' && !isClosedForTrainer(s))
-          ? 'Tréning je zrušený — môžete ho obnoviť tlačidlom nižšie.'
-          : 'Tréning je uzavretý (dokončený, zaplatený alebo už skončil) — zmeny môže robiť len administrátor alebo majiteľ.';
+          ? 'Tréning je zrušený. Môžete ho obnoviť tlačidlom nižšie.'
+          : 'Tréning je uzavretý — zmeny môže robiť len administrátor alebo majiteľ.';
       } else {
         lockNote.textContent = (isMissing(s) && hasEnded(s))
-          ? 'Tréning už skončil — pripojiť sa k nemu už nie je možné.'
-          : 'Nie ste priradený(á) k tomuto tréningu, takže je len na čítanie.';
+          ? 'Tréning už skončil, pripojiť sa nie je možné.'
+          : 'Tento tréning je len na čítanie.';
       }
     }
 
     var metaEl = document.getElementById('modalMeta');
     if(s && s.lastEditedBy){
       metaEl.hidden = false;
-      var obn = s.trainerIds.filter(function(id){ var t = trainerById(id); return id!==s.lastEditedById && t && t.noAccess; }).map(trainerName);
-      metaEl.textContent = 'Naposledy upravil(a) '+s.lastEditedBy+', '+fmtWhen(s.lastEditedAt)+(obn.length ? ' (za: '+obn.join(', ')+')' : '');
+      metaEl.textContent = 'Naposledy upravil(a) '+s.lastEditedBy+', '+fmtWhen(s.lastEditedAt);
     } else {
       metaEl.hidden = true;
     }
@@ -1553,7 +1562,7 @@
     if(s && isTrainerRole() && mode==='full' && !canTrainerToggleCancel(s)){
       var hint = document.createElement('span');
       hint.style.cssText = 'font-size:11.5px; color:var(--ink-dim);';
-      hint.textContent = 'Zrušiť tréning môže administrátor (sú priradení aj iní tréneri) — alebo sa z neho odhláste.';
+      hint.textContent = 'Zrušiť tréning môže administrátor, alebo sa z neho odhláste.';
       editArea.appendChild(hint);
     }
 
@@ -1708,7 +1717,7 @@
     });
     if(clashing.length){
       box.hidden = false;
-      box.innerHTML = '<b>&#9888; V tomto čase je už niečo naplánované</b>' + clashing.map(function(s){ return '<div>'+s.start+'–'+s.end+' — '+esc(displayClient(s))+'</div>'; }).join('');
+      box.innerHTML = '<b>&#9888; Termín sa prekrýva s iným tréningom</b>' + clashing.map(function(s){ return '<div>'+s.start+'–'+s.end+' — '+esc(displayClient(s))+'</div>'; }).join('');
       saveBtn.textContent = 'Napriek tomu blokovať'; saveBtn.className = 'btn btn-warning';
     } else {
       box.hidden = true;
@@ -1732,7 +1741,7 @@
     var blockLocked = isTrainerRole();
     ['b-label','b-date','b-allday','b-start','b-duration'].forEach(function(id){ document.getElementById(id).disabled = blockLocked; });
     document.getElementById('blockLockNote').hidden = !blockLocked;
-    document.getElementById('blockLockNote').textContent = 'Tréneri môžu blokovaný čas vidieť, ale nemôžu ho vytvárať ani meniť.';
+    document.getElementById('blockLockNote').textContent = 'Blokovaný čas môže meniť len administrátor.';
     document.getElementById('blockSaveBtn').hidden = blockLocked;
 
     var blockMetaEl = document.getElementById('blockModalMeta');
@@ -1849,7 +1858,9 @@
       sel.addEventListener('change', function(){
         if(!isAdminOrOwnerRole()) return;
         var t = trainerById(sel.dataset.id);
+        var oldRole = t.role;
         t.role = sel.value;
+        if(t.role!==oldRole) logTeam(t, 'edited', [{f:'Rola', k:'role', from:TEAM_ROLE_TXT[oldRole], to:TEAM_ROLE_TXT[t.role]}]);
         if(t.role!=='trainer'){ t.privateOnly = false; t.noAccess = false; }
         t.roleChangedBy = currentActorLabel();
         t.roleChangedAt = new Date().toISOString();
@@ -1866,6 +1877,7 @@
         var t = trainerById(cb.dataset.id);
         if(cb.dataset.flag==='noAccess' && t.id===currentTrainerId){ cb.checked = false; return; } // don't lock yourself out
         t[cb.dataset.flag] = cb.checked;
+        logTeam(t, 'edited', [{f:cb.dataset.flag==='privateOnly'?'Iba súkromné':'Bez prístupu', k:cb.dataset.flag, from:cb.checked?'nie':'áno', to:cb.checked?'áno':'nie'}]);
         saveState(); renderTeam(); populateViewingAsSelect(); renderRoleBanner(); applyRoleUI(); renderCalendar();
       });
     });
@@ -1874,6 +1886,7 @@
         if(!isAdminOrOwnerRole()) return;
         var t = trainerById(btn.dataset.id);
         if(t.status==='active'){ t.status='inactive'; t.until=TODAY; } else { t.status='active'; t.until=null; }
+        logTeam(t, 'edited', [{f:'Stav', k:'status', from:t.status==='active'?'neaktívny':'aktívny', to:t.status==='active'?'aktívny':'neaktívny'}]);
         saveState(); renderTeam();
       }, btn.textContent));
     });
@@ -1882,6 +1895,7 @@
         if(!isAdminOrOwnerRole()) return;
         var t = trainerById(btn.dataset.id);
         t.hidden = true;
+        logTeam(t, 'edited', [{f:'Vymazaný', k:'hidden', from:'nie', to:'áno'}]);
         saveState(); renderTeam(); populateViewingAsSelect();
       }, 'Vymazať'));
     });
@@ -1890,6 +1904,7 @@
         if(!isAdminOrOwnerRole()) return;
         var t = trainerById(btn.dataset.id);
         t.hidden = false;
+        logTeam(t, 'edited', [{f:'Vymazaný', k:'hidden', from:'áno', to:'nie'}]);
         saveState(); renderTeam(); populateViewingAsSelect();
       });
     });
@@ -1907,6 +1922,7 @@
     if(dupe){ toast('Tento e-mail už používa: '+dupe.name); return; }
     trainers.push({id:uid('t'), name:name, email:email, phone:phone, status:'active', since:TODAY, until:null, hidden:false, role:'trainer', roleChangedBy:null, roleChangedAt:null});
     nameInput.value=''; emailInput.value=''; phoneInput.value='';
+    logTeam(trainers[trainers.length-1], 'created', []);
     saveState(); renderTeam(); populateViewingAsSelect();
   });
 
@@ -2091,14 +2107,15 @@
     var danger = e.action==='cancelled' || e.action==='deleted';
     var typeChanged = (e.changes||[]).some(function(ch){ return ch.k==='type'; });
     var text;
-    if(e.action==='created') text = 'Nový tréning' + (e.count>1 ? ' ('+e.count+'× týždenne)' : '');
+    if(e.isTeam) text = (e.action==='created' ? 'Osoba pridaná' : 'Upravené');
+    else if(e.action==='created') text = 'Nový tréning' + (e.count>1 ? ' ('+e.count+'× týždenne)' : '');
     else if(e.action==='cancelled') text = 'ZRUŠENÉ' + (e.count>1 ? ' (tento a ďalšie: '+e.count+')' : '') + (e.wasCompleted ? ' — bol dokončený' : '');
     else if(e.action==='deleted') text = 'VYMAZANÉ';
     else if(e.action==='reinstated') text = 'Obnovené';
     else if(e.action==='paid') text = 'Označené ako zaplatené: '+e.count+(e.count===1?' tréning':' tréningov')+'';
     else text = 'Upravené' + (e.count>1 ? ' (rad: '+e.count+' tréningov)' : '') + (e.wasCompleted ? ' — po dokončení' : '');
-    var changes = (e.changes||[]).slice(0,4).map(function(ch){ return esc(ch.f)+': '+esc(ch.from)+' → '+esc(ch.to); }).join(' &middot; ') + ((e.changes||[]).length>4 ? ' &middot; …' : '');
-    var who = esc(e.byName) + ((e.forNames && e.forNames.length) ? ' (za: '+e.forNames.map(esc).join(', ')+')' : '');
+    var changes = (e.changes||[]).slice(0,4).map(function(ch){ return esc(ch.f)+': '+(ch.from ? esc(ch.from)+' → ' : '')+esc(ch.to); }).join(' &middot; ') + ((e.changes||[]).length>4 ? ' &middot; …' : '');
+    var who = esc(e.byName);
     var st = (exists ? '' : 'cursor:default;') + (danger ? 'background:var(--danger-soft); border-color:var(--danger);' : (typeChanged ? 'background:var(--warning-soft); border-color:var(--warning);' : ''));
     return '<div class="agenda-item"'+(exists?' data-sid="'+esc(e.sid)+'"':'')+(st?' style="'+st+'"':'')+'>'+
       '<span class="dot" style="background:'+(danger?'var(--danger)':(e.isPrivate?'var(--swatch-purple)':'var(--accent)'))+'"></span>'+
@@ -2123,9 +2140,10 @@
     var items = changeLog.filter(function(e){ return new Date(e.t).getTime() >= cutoff; }).sort(function(a,b){ return b.t.localeCompare(a.t); }).map(hidePay).filter(Boolean);
     var wrap = document.getElementById('activityBody');
     wrap.innerHTML =
-      activitySection('Nové tréningy Vertigo', items.filter(function(e){ return e.action==='created' && !e.isPrivate; })) +
-      activitySection('Nové súkromné tréningy', items.filter(function(e){ return e.action==='created' && e.isPrivate; })) +
-      activitySection('Ostatné zmeny', items.filter(function(e){ return e.action!=='created'; }));
+      activitySection('Nové tréningy Vertigo', items.filter(function(e){ return !e.isTeam && e.action==='created' && !e.isPrivate; })) +
+      activitySection('Nové súkromné tréningy', items.filter(function(e){ return !e.isTeam && e.action==='created' && e.isPrivate; })) +
+      activitySection('Ostatné zmeny', items.filter(function(e){ return !e.isTeam && e.action!=='created'; })) +
+      activitySection('Zmeny v tíme', items.filter(function(e){ return e.isTeam; }));
     wrap.querySelectorAll('.agenda-item[data-sid]').forEach(function(it){ it.addEventListener('click', function(){ openModal(it.dataset.sid); }); });
   }
   document.getElementById('activityRange').addEventListener('click', function(e){
@@ -2303,7 +2321,7 @@
         '<span class="dot" style="background:'+colorVar(s.color)+'"></span>'+
         '<span class="a-time" style="width:220px;">'+fmtReportDate(s.date)+' '+s.start+'–'+s.end+'</span>'+
         '<span class="a-main"><div class="a-type">'+esc(s.clientName||s.type)+'</div>'+
-        '<div class="a-sub">'+esc(s.type)+(s.tag?' &middot; '+esc(s.tag):'')+(withOthers?' &middot; s: '+withOthers:' &middot; sólo')+'</div></span></div>';
+        '<div class="a-sub">'+esc(s.type)+(s.tag?' &middot; '+esc(s.tag):'')+(withOthers?' &middot; s: '+withOthers:'')+'</div></span></div>';
     }).join('') : '<div class="agenda-empty">Pre tohto trénera nie sú v tomto výbere žiadne tréningy.</div>';
     wrap.querySelectorAll('.agenda-item[data-id]').forEach(function(it){ it.addEventListener('click', function(){ openModal(it.dataset.id); }); });
   }
@@ -2356,7 +2374,7 @@
   document.getElementById('te-revoke').addEventListener('click', function(){
     var t = trainerById(teId); if(!t || !confirm('Odhlásiť osobu ' + t.name + ' na všetkých zariadeniach?')) return;
     post({op:'revoke', personId:teId}).then(function(d){ toast(d.ok ? 'Osoba bola odhlásená na všetkých zariadeniach.' : (d.message || 'Nepodarilo sa.')); if(d.ok) closeTeamEdit(); })
-      .catch(function(){ toast('Nepodarilo sa spojiť so serverom.'); });
+      .catch(function(){ toast('Spojenie zlyhalo.'); });
   });
   document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !teOverlay.hidden) closeTeamEdit(); });
   document.getElementById('teamTableBody').addEventListener('click', function(e){ var b = e.target.closest('.edit-trainer'); if(b) openTeamEdit(b.dataset.id); });
@@ -2371,8 +2389,14 @@
     if(others.some(function(x){ return x.name.trim().toLowerCase() === name.toLowerCase(); })) return bad('Meno „' + name + '“ už existuje.');
     var dupe = others.filter(function(x){ return normMail(x.email) === normMail(email); })[0];
     if(dupe) return bad('Tento e-mail už používa: ' + dupe.name);
+    var lc = [];
+    if(name !== t.name) lc.push({f:'Meno', k:'name', from:t.name, to:name});
+    if(email !== (t.email || '')) lc.push({f:'E-mail', k:'email', from:t.email || '', to:email});
+    if(phone !== (t.phone || '')) lc.push({f:'Telefón', k:'phone', from:'', to:'zmenený'});
+    if(document.getElementById('te-reset').checked) lc.push({f:'Google účet', k:'account', from:'prepojený', to:'odpojený'});
     t.name = name; t.email = email; t.phone = phone;
     if(document.getElementById('te-reset').checked) t._reset = true;
+    if(lc.length) logTeam(t, 'edited', lc);
     saveState(); closeTeamEdit(); renderTeam();
   });
   // ---------- live mode: Google sign-in, data from the backend ----------
@@ -2382,7 +2406,15 @@
     document.body.appendChild(t); setTimeout(function(){ t.remove(); }, 3500);
   }
   var gate = document.getElementById('authGate'), gateMsg = document.getElementById('gateMsg');
-  function showGate(msg){ gate.hidden = false; gateMsg.textContent = msg || ''; }
+  var gateRetry = document.getElementById('gateRetry'), retryLoadTimer = null, retryLoadN = 0;
+  function showGate(msg){ gate.hidden = false; gateMsg.textContent = msg || ''; gateRetry.hidden = true; }
+  // The server did not answer (network, sleeping phone, Apps Script hiccup). That is NOT a sign-out: the session stays, we just try again.
+  function showRetry(){
+    gate.hidden = false; gateMsg.textContent = 'Spojenie zlyhalo. Skúšam znova…'; gateRetry.hidden = false;
+    clearTimeout(retryLoadTimer); retryLoadN++;
+    retryLoadTimer = setTimeout(function(){ loadFromBackend({boot:true}); }, Math.min(30000, 3000 * retryLoadN));
+  }
+  gateRetry.addEventListener('click', function(){ clearTimeout(retryLoadTimer); gateMsg.textContent = 'Načítavam…'; loadFromBackend({boot:true}); });
   function jwtExpired(t){
     try{ var p = JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); return !p.exp || p.exp*1000 < Date.now()+30000; }catch(e){ return true; }
   }
@@ -2407,7 +2439,7 @@
     syncCurrentRoleFromPerson();
     renderRoleBanner();
     document.getElementById('roleBanner').insertAdjacentHTML('beforeend', READ_ONLY ? ' <b>Len na čítanie (testovacia fáza).</b>' : ' <b>Testovací režim: zmeny sa ukladajú do testovacieho zošita.</b>');
-    applyRoleUI(); runAutoComplete(); takeSnapshot();
+    applyRoleUI(); runAutoComplete(); takeSnapshot(); lastLoadAt = Date.now(); retryLoadN = 0; clearTimeout(retryLoadTimer);
     if(!deferRender){ renderCalendar(); if(!views.team.hidden) renderTeam(); if(!views.reports.hidden) renderReports(); }
     gate.hidden = true;
   }
@@ -2445,6 +2477,7 @@
       ch.trainers.push({_new:old===undefined, id:t.id, name:t.name, email:t.email||'', phone:t.phone||'', role:t.role, status:t.status, hidden:!!t.hidden, privateOnly:!!t.privateOnly, noAccess:!!t.noAccess, resetAccount:!!t._reset});
     });
     changeLog.slice(snap.logLen).forEach(function(e){
+      if(e.isTeam) return;                                  // team lines are written by the server
       ch.log.push({action:e.action, sid:e.sid, label:e.label, when:e.when, isPrivate:!!e.isPrivate, changes:e.changes||[], forNames:e.forNames||[], count:e.count||1, bulkFor:e.bulkFor||''});
     });
     var any = ch.sessions.length || ch.delSessions.length || ch.blocks.length || ch.delBlocks.length || ch.trainers.length || ch.log.length;
@@ -2459,28 +2492,52 @@
 
   // ---- saving: the page updates at once, the server confirms in the background ----
   // One request at a time. Whatever the user changes while a request is in flight is kept and sent afterwards (see rebase).
-  var statusEl = document.getElementById('saveStatus'), statusTimer = null, inflight = false;
+  var statusEl = document.getElementById('saveStatus'), statusTimer = null, inflight = false, lastLoadAt = 0;
+  var pendingReq = null, pendingSent = null, pendingT0 = 0, syncRetries = 0, syncTimer = null;
   function setStatus(kind, text, tip){
     clearTimeout(statusTimer); statusEl.className = 'save-status ' + kind; statusEl.textContent = text || ''; statusEl.title = tip || '';
     if(kind==='saved') statusTimer = setTimeout(function(){ statusEl.textContent = ''; }, 4000);
   }
+  function newRid(){ return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+  // A network/server hiccup is not a refusal: the browser cannot know whether the server applied the request, so the SAME request
+  // (same id) is repeated until it gets an answer. The server recognises the id and never applies it twice.
+  function isAuthError(d){ return d && d.ok===false && (d.error==='bad_token' || d.error==='denied'); }
+  function isHiccup(d){ return !d || (d.ok===false && (d.error==='network' || d.error==='server')); }
+  function safePost(body){ return post(body).catch(function(){ return {ok:false, error:'network'}; }); }
   function syncChanges(){
-    var ch = buildChanges(); if(!ch) return;
-    inflight = true; setStatus('saving', 'Ukladá sa…');
-    var sent = makeSnap(), t0 = Date.now();
-    post({op:'sync', changes:ch}).then(function(d){
+    clearTimeout(syncTimer);
+    if(!pendingReq){
+      var ch = buildChanges(); if(!ch) return;
+      pendingReq = {op:'sync', changes:ch, rid:newRid()}; pendingSent = makeSnap(); pendingT0 = Date.now(); syncRetries = 0;
+    }
+    inflight = true; setStatus(syncRetries ? 'failed' : 'saving', syncRetries ? 'Ukladanie zlyhalo. Skúšam znova…' : 'Ukladá sa…');
+    safePost({op:pendingReq.op, changes:pendingReq.changes, rid:pendingReq.rid}).then(function(d){
       if(d.ok){
+        var sent = pendingSent, total = ((Date.now()-pendingT0)/1000).toFixed(1), srv = d.ms!=null ? (d.ms/1000).toFixed(1) : '?';
+        pendingReq = null; pendingSent = null; syncRetries = 0;
         rebase(d, sent);
-        var total = ((Date.now()-t0)/1000).toFixed(1), srv = d.ms!=null ? (d.ms/1000).toFixed(1) : '?';
         setStatus('saved', 'Uložené ✓ ('+total+' s)', 'Server '+srv+' s, celkom '+total+' s'); console.log('sync: server '+srv+' s, celkom '+total+' s');
-        return;
+        return finishSync();
       }
-      if(d.error==='denied' || d.error==='bad_token') return leave('Prihlásenie už neplatí. Prihláste sa znova.');
+      if(isAuthError(d)) return leave('Prihlásenie vypršalo. Prihláste sa znova.');
+      if(isHiccup(d)){
+        syncRetries++;
+        syncTimer = setTimeout(syncChanges, Math.min(30000, 2000 * Math.pow(2, Math.min(syncRetries, 4))));
+        setStatus('failed', 'Ukladanie zlyhalo. Skúšam znova…', 'Kliknite pre okamžitý nový pokus');
+        return;                                        // stays in flight: the same request is repeated
+      }
+      pendingReq = null; pendingSent = null; syncRetries = 0;   // a real refusal (rule, conflict, invalid): show why, then the sheet's truth
       setStatus('', ''); toast(d.message || 'Zmenu sa nepodarilo uložiť.');
-      return loadFromBackend();                       // show what the sheet really contains
-    }).catch(function(){ setStatus('', ''); toast('Nepodarilo sa spojiť so serverom. Zmena sa neuložila.'); return loadFromBackend(); })
-      .then(function(){ inflight = false; if(buildChanges()) syncChanges(); });
+      return loadFromBackend().then(finishSync);
+    });
   }
+  function finishSync(){ inflight = false; if(buildChanges()) syncChanges(); }
+  statusEl.addEventListener('click', function(){ if(statusEl.classList.contains('failed')){ clearTimeout(syncTimer); syncChanges(); } });
+  window.addEventListener('beforeunload', function(e){ if(inflight || buildChanges()){ e.preventDefault(); e.returnValue = ''; } });
+  // Coming back to the page (phone unlocked, tab reopened): refresh quietly if it has been a while and nothing is unsaved.
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState==='visible' && me && !inflight && !buildChanges() && Date.now()-lastLoadAt > 120000) loadFromBackend({quiet:true});
+  });
   var EDIT_S = ['date','start','end','durationMin','type','tag','color','clientName','phone','people','requiredTrainers','trainerIds','status','notes','paid'];
   var EDIT_B = ['date','label','allDay','start','durationMin'];
   var EDIT_T = ['name','email','phone','role','status','hidden','privateOnly','noAccess','_reset'];
@@ -2511,17 +2568,19 @@
     if(oldBlock && mB[oldBlock]) editingBlockId = mB[oldBlock];
     renderCalendar(); if(!views.team.hidden) renderTeam(); if(!views.reports.hidden) renderReports();
   }
-  function loadFromBackend(){
-    if(!session) return Promise.resolve();
-    return post({op:'load'})
-      .then(function(d){
-        if(d.ok) return applyLoad(d);
-        leave(d.error==='denied' ? 'Tento účet nie je v zozname tímu alebo je neaktívny. Požiadajte administrátora o pridanie.'
-            : d.error==='bad_token' ? 'Prihlásenie vypršalo alebo je neplatné. Prihláste sa znova.' : 'Server hlási chybu. Skúste to o chvíľu.');
-      })
-      .catch(function(){ showGate('Nepodarilo sa spojiť so serverom. Skontrolujte pripojenie a obnovte stránku.'); });
+  // Only a refused login ends the session. A failed request never does.
+  function loadFromBackend(opts){
+    opts = opts || {};
+    if(!session) return Promise.resolve(false);
+    return safePost({op:'load'}).then(function(d){
+      if(d.ok){ applyLoad(d); return true; }
+      if(d.error==='denied'){ leave('Tento účet nie je v zozname tímu. Požiadajte administrátora o pridanie.'); return false; }
+      if(d.error==='bad_token'){ leave('Prihlásenie vypršalo. Prihláste sa znova.'); return false; }
+      if(opts.boot) showRetry(); else if(!opts.quiet) toast('Spojenie zlyhalo. Údaje sa nepodarilo obnoviť.');
+      return false;
+    });
   }
-  document.getElementById('refreshBtn').addEventListener('click', function(){ loadFromBackend().then(function(){ toast('Dáta obnovené.'); }); });
+  document.getElementById('refreshBtn').addEventListener('click', function(){ if(inflight || buildChanges()){ toast('Najprv sa dokončí ukladanie.'); return; } loadFromBackend().then(function(ok){ if(ok) toast('Dáta obnovené.'); }); });
   document.getElementById('signOutBtn').addEventListener('click', function(){ leave(''); });
   function initGoogle(){
     if(!(window.google && google.accounts && google.accounts.id)){ setTimeout(initGoogle, 250); return; }
@@ -2532,15 +2591,16 @@
   }
   // Google proves who you are once; the server answers with our own session token (and the first load of data).
   function login(googleToken){
-    post({op:'login', idToken:googleToken}).then(function(d){
+    safePost({op:'login', idToken:googleToken}).then(function(d){
       if(d.ok) return applyLoad(d);
-      leave(d.error==='denied' ? 'Tento účet nie je v zozname tímu alebo je neaktívny. Požiadajte administrátora o pridanie.'
-          : d.error==='bad_token' ? 'Google prihlásenie sa nepodarilo overiť. Skúste to znova.' : 'Server hlási chybu. Skúste to o chvíľu.');
-    }).catch(function(){ showGate('Nepodarilo sa spojiť so serverom. Skontrolujte pripojenie a obnovte stránku.'); });
+      if(d.error==='denied') return leave('Tento účet nie je v zozname tímu. Požiadajte administrátora o pridanie.');
+      if(d.error==='bad_token') return leave('Google prihlásenie sa nepodarilo overiť. Skúste to znova.');
+      showGate('Spojenie zlyhalo. Skúste to znova.');
+    });
   }
   document.getElementById('signOutAllBtn').addEventListener('click', function(){
     if(!confirm('Odhlásiť sa na všetkých zariadeniach?')) return;
-    post({op:'logoutAll'}).then(function(d){ leave(d.ok ? 'Boli ste odhlásený(á) na všetkých zariadeniach.' : ''); }).catch(function(){ toast('Nepodarilo sa spojiť so serverom.'); });
+    post({op:'logoutAll'}).then(function(d){ leave(d.ok ? 'Boli ste odhlásený(á) na všetkých zariadeniach.' : ''); }).catch(function(){ toast('Spojenie zlyhalo.'); });
   });
   (function boot(){
     var msg = '', params = new URLSearchParams(location.search);
@@ -2549,7 +2609,7 @@
     if(READ_ONLY) document.body.classList.add('ro');
     if(BACKEND_URL.indexOf('PASTE')===0 || (GOOGLE_CLIENT_ID.indexOf('PASTE')===0 && !dev)){ showGate(msg || 'Aplikácia ešte nie je nastavená (adresa servera alebo Google client ID).'); return; }
     if(dev){ showGate('Načítavam…'); login(dev); return; }
-    if(session){ showGate('Načítavam…'); loadFromBackend(); } else { showGate(msg); }
+    if(session){ showGate('Načítavam…'); loadFromBackend({boot:true}); } else { showGate(msg); }
     if(!session) initGoogle();
   })();
 
