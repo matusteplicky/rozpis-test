@@ -2483,17 +2483,23 @@
     var any = ch.sessions.length || ch.delSessions.length || ch.blocks.length || ch.delBlocks.length || ch.trainers.length || ch.log.length;
     return any ? ch : null;
   }
+  var lastCtl = null;
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
     if(!body.idToken) body.session = session;
-    return fetch(BACKEND_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(body)}).then(function(r){ return r.json(); })
+    // Every request has a time limit: a connection that silently died must not leave the page waiting forever.
+    // The attempt is abandoned and the caller repeats it (saves carry an id, so a repeat is never applied twice).
+    var ctl = new AbortController(), ms = window.__reqTimeout || (body.op==='load' ? 30000 : 40000), timer = setTimeout(function(){ ctl.abort(); }, ms);
+    lastCtl = ctl;
+    return fetch(BACKEND_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(body), signal:ctl.signal, cache:'no-store'})
+      .then(function(r){ clearTimeout(timer); return r.json(); }, function(e){ clearTimeout(timer); throw e; })
       .then(function(d){ if(d && d.session) storeSession(d.session); return d; });   // the server hands out a fresh token now and then (sliding 30 days)
   }
 
   // ---- saving: the page updates at once, the server confirms in the background ----
   // One request at a time. Whatever the user changes while a request is in flight is kept and sent afterwards (see rebase).
   var statusEl = document.getElementById('saveStatus'), statusTimer = null, inflight = false, lastLoadAt = 0;
-  var pendingReq = null, pendingSent = null, pendingT0 = 0, syncRetries = 0, syncTimer = null;
+  var pendingReq = null, pendingSent = null, pendingT0 = 0, syncRetries = 0, syncTimer = null, slowTimer = null;
   function setStatus(kind, text, tip){
     clearTimeout(statusTimer); statusEl.className = 'save-status ' + kind; statusEl.textContent = text || ''; statusEl.title = tip || '';
     if(kind==='saved') statusTimer = setTimeout(function(){ statusEl.textContent = ''; }, 4000);
@@ -2505,13 +2511,15 @@
   function isHiccup(d){ return !d || (d.ok===false && (d.error==='network' || d.error==='server')); }
   function safePost(body){ return post(body).catch(function(){ return {ok:false, error:'network'}; }); }
   function syncChanges(){
-    clearTimeout(syncTimer);
+    clearTimeout(syncTimer); syncTimer = null;
     if(!pendingReq){
       var ch = buildChanges(); if(!ch) return;
       pendingReq = {op:'sync', changes:ch, rid:newRid()}; pendingSent = makeSnap(); pendingT0 = Date.now(); syncRetries = 0;
     }
     inflight = true; setStatus(syncRetries ? 'failed' : 'saving', syncRetries ? 'Ukladanie zlyhalo. Skúšam znova…' : 'Ukladá sa…');
+    clearTimeout(slowTimer); slowTimer = setTimeout(function(){ if(inflight && !syncTimer) setStatus('saving', 'Server odpovedá pomaly…', 'Kliknite pre nový pokus'); }, window.__slowMs || 15000);
     safePost({op:pendingReq.op, changes:pendingReq.changes, rid:pendingReq.rid}).then(function(d){
+      clearTimeout(slowTimer);
       if(d.ok){
         var sent = pendingSent, total = ((Date.now()-pendingT0)/1000).toFixed(1), srv = d.ms!=null ? (d.ms/1000).toFixed(1) : '?';
         pendingReq = null; pendingSent = null; syncRetries = 0;
@@ -2532,7 +2540,11 @@
     });
   }
   function finishSync(){ inflight = false; if(buildChanges()) syncChanges(); }
-  statusEl.addEventListener('click', function(){ if(statusEl.classList.contains('failed')){ clearTimeout(syncTimer); syncChanges(); } });
+  // Click while waiting: give up on the current attempt now (it is repeated at once) — or, if already waiting to retry, retry immediately.
+  statusEl.addEventListener('click', function(){
+    if(statusEl.classList.contains('failed')){ clearTimeout(syncTimer); syncChanges(); }
+    else if(inflight && lastCtl){ lastCtl.abort(); }
+  });
   window.addEventListener('beforeunload', function(e){ if(inflight || buildChanges()){ e.preventDefault(); e.returnValue = ''; } });
   // Coming back to the page (phone unlocked, tab reopened): refresh quietly if it has been a while and nothing is unsaved.
   document.addEventListener('visibilitychange', function(){
