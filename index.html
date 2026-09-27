@@ -547,7 +547,6 @@
       </div>
       </div></div>
       <div id="dateErr" class="err" hidden>Zadajte dátum a čas začiatku.</div>
-      <div id="backdateErr" class="err" hidden>Tréner môže zadať tréning najviac 1 deň spätne.</div>
       <div class="conflict-box" id="conflictBox" hidden></div>
     </div>
     <div class="modal-foot">
@@ -1382,7 +1381,7 @@
       // training that doesn't include them.
       // onlySelfEditable: a trainer editing an existing training may add/remove only themselves.
       var locked = editMode==='locked' || (editMode==='selfOnly' && !isSelf) || (lockSelfChecked && isSelf) || (onlySelfEditable && !isSelf);
-      return '<label class="trainer-opt'+(t.status==='inactive'?' inactive':'')+'"><input type="checkbox" value="'+t.id+'" id="trainer-'+t.id+'" '+(checked?'checked':'')+(locked?' disabled':'')+'> '+esc(t.name)+(t.privateOnly?' (iba súkromné)':'')+(t.status==='inactive'?' (neaktívny)':'')+(isSelf?' (vy)':'')+'</label>';
+      return '<label class="trainer-opt'+(t.status==='inactive'?' inactive':'')+'"><input type="checkbox" value="'+t.id+'" id="trainer-'+t.id+'" '+(checked?'checked':'')+(locked?' disabled':'')+'> '+esc(t.name)+(t.privateOnly?' (iba súkromné)':'')+(t.status==='inactive'?' (neaktívny)':'')+(isSelf?' (ty)':'')+'</label>';
     }).join('');
     wrap.querySelectorAll('input').forEach(function(cb){ cb.addEventListener('change', updateConflicts); });
     applyPrivateOnlyToChecklist();
@@ -1499,7 +1498,6 @@
     var bad = problems.length > 0;
     if(formAttempted) showProblems(problems);
     var backdated = !bad && isTrainerRole() && currentModalMode!=='selfOnly' && f.date < earliestTrainerDate();
-    document.getElementById('backdateErr').hidden = !backdated;
     updateEndDisplay(); updateRequiredCounter();
 
     if(bad || backdated){ box.hidden = true; saveBtn.disabled = false; saveBtn.hidden = (currentModalMode==='locked'); return; }
@@ -1777,7 +1775,7 @@
     formAttempted = true;
     var probs = formProblems(f); showProblems(probs);
     if(probs.length){ focusField(probs[0].id); return; }
-    if(isTrainerRole() && currentModalMode!=='selfOnly' && f.date < earliestTrainerDate()){ markInvalid('f-date', 'Tréner môže zadať tréning najviac 1 deň spätne.'); focusField('f-date'); return; }
+    if(isTrainerRole() && currentModalMode!=='selfOnly' && f.date < earliestTrainerDate()){ markInvalid('f-date', 'Tréningy staršie ako 1 deň zadáva len administrátor.'); focusField('f-date'); return; }
     // one question to catch typos, only for earlier DAYS (today's earlier hours are normal to enter)
     if(f.date < isoOf(new Date()) && (!editingId || f.date !== editingOriginalDate)){
       askConfirm('Tento tréning je v minulosti ('+longDate(f.date)+'). Naozaj ho uložiť?', 'Áno, uložiť', 'Zrušiť', function(){ continueSave(f); });
