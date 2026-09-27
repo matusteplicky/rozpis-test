@@ -169,16 +169,15 @@
   .row2{ display:flex; gap:10px; }
   .row2 > *{ flex:1; }
   .row3{ display:flex; gap:10px; } .row3 > *{ flex:1; }
-  .row-client{ display:flex; gap:10px; } .row-client > :first-child{ flex:2; } .row-client > :last-child{ flex:1; }
-  .form-sec{ font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent); border-top:1px solid var(--border-soft); padding-top:12px; margin-top:4px; }
-  .form-sec.first{ border-top:none; padding-top:0; margin-top:0; }
+  .row-contact{ display:flex; gap:10px; } .row-contact > :first-child{ flex:1; } .row-contact > :last-child{ flex:0 0 100px; }
+  .field-split label{ display:flex; flex-direction:column; gap:1px; } .field-split label span{ font-weight:400; }
+  .form-sec{ border-top:1px solid var(--border-soft); padding-top:1px; margin-top:4px; }
   /* the training form uses the full window height, so a message appearing does not make a scrollbar */
   /* wide screens: two columns (who/when on the left, trainers/details on the right), so the whole form fits without a scrollbar */
   #sessionOverlay .modal{ width:min(880px, 100%); max-height:calc(100vh - 24px); }
   #sessionOverlay .modal-body{ gap:11px; }
   .form-cols{ display:grid; grid-template-columns:1fr 1fr; gap:0 26px; }
   .form-col{ display:flex; flex-direction:column; gap:11px; min-width:0; }
-  @media (min-width:901px){ .form-col > .form-sec:first-child{ border-top:none; padding-top:0; margin-top:0; } }
   @media (max-width:900px){ .form-cols{ grid-template-columns:1fr; gap:11px; } #sessionOverlay .modal{ width:min(540px, 100%); } }
   /* number with big - / + buttons (the native arrows are too small to hit) */
   .stepper{ display:inline-flex; align-items:stretch; width:150px; }
@@ -191,7 +190,9 @@
   .field input.invalid, .field select.invalid{ border-color:var(--danger); box-shadow:0 0 0 2px var(--danger-soft); }
   .check-field{ display:flex; align-items:center; gap:7px; font-size:13px; font-weight:600; }
   .check-field input{ width:15px; height:15px; }
-  .trainer-list{ display:flex; flex-direction:column; gap:6px; max-height:170px; overflow-y:auto; border:1px solid var(--border-soft); border-radius:8px; padding:8px; }
+  .trainer-list{ display:flex; flex-direction:column; gap:6px; min-height:170px; max-height:60vh; overflow-y:auto; border:1px solid var(--border-soft); border-radius:8px; padding:8px; }
+  .field-grow{ flex:1 1 auto; display:flex; flex-direction:column; min-height:0; }
+  .field-grow .trainer-list{ flex:1 1 auto; }
   .trainer-opt{ display:flex; align-items:center; gap:8px; font-size:13px; }
   .trainer-opt input{ width:15px; height:15px; }
   .trainer-opt.inactive{ color:var(--ink-faint); }
@@ -461,7 +462,7 @@
       <div class="trainer-add">
         <div class="field" style="flex:2; min-width:160px;">
           <label for="newTrainerName">Meno</label>
-          <input id="newTrainerName" type="text" placeholder="napr. Radka Horná">
+          <input id="newTrainerName" type="text" placeholder="napr. Horná">
         </div>
         <div class="field" style="flex:2; min-width:200px;">
           <label for="newTrainerEmail">E-mail (Google účet)</label>
@@ -497,51 +498,49 @@
       <div class="series-note" id="modalLockNote" hidden></div>
 
       <div class="form-cols"><div class="form-col">
-      <div class="form-sec first">Kto</div>
-      <div class="row-client">
-        <div class="field"><label for="f-client">Klient / skupina <span>(povinné)</span></label><input id="f-client" type="text" list="clientDatalist" autocomplete="off" placeholder="napr. rodina Nováková, alebo skupina 7-9 rokov"><datalist id="clientDatalist"></datalist></div>
-        <div class="field"><label for="f-phone">Telefón <span>(nepovinné)</span></label><input id="f-phone" type="text" placeholder="napr. 0905 123 456"></div>
+      <div class="field"><label for="f-client">Klient / skupina <span>(povinné)</span></label><input id="f-client" type="text" list="clientDatalist" autocomplete="off" placeholder="napr. Nováková"><datalist id="clientDatalist"></datalist></div>
+      <div class="row-contact">
+        <div class="field field-split"><label for="f-phone">Telefón <span>(nepovinné)</span></label><input id="f-phone" type="text" placeholder="napr. 0905 123 456"></div>
+        <div class="field field-split"><label for="f-people">Počet osôb <span>(nepovinné)</span></label><input id="f-people" type="number" min="0" max="999" placeholder="napr. 8"></div>
       </div>
-      <div class="field"><label for="f-people">Počet osôb <span>(nepovinné, slúži len na výpočet vyťaženosti)</span></label><input id="f-people" type="number" min="0" placeholder="napr. 8"></div>
+      <div class="row2">
+        <div class="field"><label for="f-type">Typ tréningu</label><select id="f-type"></select></div>
+        <div class="field"><label for="f-status">Stav</label>
+          <select id="f-status"><option value="confirmed">Potvrdené</option><option value="tentative">Predbežné</option><option value="completed">Dokončené</option></select>
+        </div>
+      </div>
+      <div class="field">
+        <label class="check-field"><input type="checkbox" id="f-paid"> Zaplatené</label>
+        <div id="paidMeta" style="font-size:10.5px; color:var(--ink-faint); margin-top:2px;" hidden></div>
+      </div>
+      <div class="field"><label for="f-notes">Poznámky</label><textarea id="f-notes"></textarea></div>
 
-      <div class="form-sec">Kedy</div>
+      <div class="form-sec"></div>
       <div class="row3">
-        <div class="field"><label for="f-date">Dátum <span>(povinné)</span></label><input id="f-date" type="date"></div>
-        <div class="field"><label for="f-start">Začiatok <span>(povinné)</span></label><input id="f-start" type="time" step="900"></div>
-        <div class="field"><label for="f-duration">Trvanie <span>(min, povinné)</span></label><input id="f-duration" type="number" min="15" step="15" value="60"></div>
+        <div class="field field-split"><label for="f-date">Dátum <span>(povinné)</span></label><input id="f-date" type="date"></div>
+        <div class="field field-split"><label for="f-start">Začiatok <span>(povinné)</span></label><input id="f-start" type="time" step="900"></div>
+        <div class="field field-split"><label for="f-duration">Trvanie <span>(min, povinné)</span></label><input id="f-duration" type="number" min="15" step="15" value="60"></div>
       </div>
       <div class="end-display" id="endDisplay"></div>
-      <div class="field"><label for="f-type">Typ tréningu</label><select id="f-type"></select></div>
       <div class="field" id="recurRow"><label class="check-field"><input type="checkbox" id="f-repeat"> Opakuje sa týždenne</label></div>
       <div class="row2" id="recurUntilRow" hidden>
         <div class="field"><label for="f-until">Opakovať do <span id="occurrenceCount" style="font-weight:400; text-transform:none;"></span></label><input id="f-until" type="date"></div>
         <div class="field"><span style="font-size:11.5px; color:var(--ink-dim); align-self:flex-end;">Vytvorí jeden tréning týždenne, v rovnaký deň a čas.</span></div>
       </div>
       <div class="series-note" id="seriesNote" hidden></div>
-      <div class="row2">
-        <div class="field"><label for="f-status">Stav</label>
-          <select id="f-status"><option value="confirmed">Potvrdené</option><option value="tentative">Predbežné</option><option value="completed">Dokončené</option></select>
-        </div>
-        <div class="field">
-          <label class="check-field" style="margin-top:22px;"><input type="checkbox" id="f-paid"> Zaplatené</label>
-          <div id="paidMeta" style="font-size:10.5px; color:var(--ink-faint); margin-top:2px;" hidden></div>
-        </div>
-      </div>
 
       </div><div class="form-col">
-      <div class="form-sec">Tréneri</div>
       <div class="field">
         <label for="f-required">Potrebných trénerov</label>
-        <div class="stepper"><button type="button" class="step-btn" data-for="f-required" data-step="-1" aria-label="Menej">&minus;</button><input id="f-required" type="number" min="0" max="20" step="1" placeholder="2"><button type="button" class="step-btn" data-for="f-required" data-step="1" aria-label="Viac">+</button></div>
+        <div class="stepper"><button type="button" class="step-btn" data-for="f-required" data-step="-1" aria-label="Menej">&minus;</button><input id="f-required" type="number" min="0" max="20" step="1" placeholder="1"><button type="button" class="step-btn" data-for="f-required" data-step="1" aria-label="Viac">+</button></div>
       </div>
-      <div class="field">
+      <div class="field field-grow">
         <label>Priradení tréneri</label>
         <div class="trainer-list" id="trainerCheckList"></div>
         <div class="required-counter" id="requiredCounter"></div>
       </div>
 
-      <div class="form-sec">Ďalšie</div>
-      <div class="field"><label for="f-notes">Poznámky</label><textarea id="f-notes" placeholder="napr. 1x bezlepkové, len voda"></textarea></div>
+      <div class="form-sec"></div>
       <div class="row2">
         <div class="field"><label for="f-tag">Značka <span>(na filtrovanie v reportoch)</span></label><input id="f-tag" type="text" list="tagDatalist" placeholder="napr. Medvedica"><datalist id="tagDatalist"></datalist></div>
         <div class="field"><label>Farba</label><div class="swatch-row" id="colorSwatches"></div></div>
@@ -575,7 +574,7 @@
     </div>
     <div class="modal-body">
       <div class="series-note" id="blockLockNote" hidden></div>
-      <div class="field"><label for="b-label">Dôvod</label><input id="b-label" type="text" placeholder="napr. Kontrola steny, posilňovňa zatvorená"></div>
+      <div class="field"><label for="b-label">Dôvod</label><input id="b-label" type="text" placeholder="napr. Kontrola steny"></div>
       <div class="row2">
         <div class="field"><label for="b-date">Dátum</label><input id="b-date" type="date"></div>
         <div class="field"><label class="check-field" style="margin-top:22px;"><input type="checkbox" id="b-allday"> Blokovať celý deň</label></div>
@@ -1434,7 +1433,7 @@
       paid: paidFromForm(),
       phone: document.getElementById('f-phone').value,
       people: peopleRaw===''? null : parseInt(peopleRaw,10),
-      requiredTrainers: reqRaw===''? 0 : parseInt(reqRaw,10),
+      requiredTrainers: reqRaw===''? 1 : parseInt(reqRaw,10),
       notes: document.getElementById('f-notes').value,
       trainerIds: trainerIds
     };
@@ -1537,7 +1536,7 @@
     // below, lock) their own name so it's never possible to create one without
     // themselves on it.
     var newDefaultTrainerIds = (!s && isTrainerRole()) ? [currentTrainerId] : [];
-    var data = s || Object.assign({date:selectedDate, start:'16:00', durationMin:60, type:(isPrivateOnlyViewer() ? TYPE_PRIVATE : TYPES[0]), status:'confirmed', notes:'', clientName:'', tag:'', phone:'', people:(isPrivateOnlyViewer() ? 1 : null), requiredTrainers:'', trainerIds:newDefaultTrainerIds}, prefill||{});
+    var data = s || Object.assign({date:selectedDate, start:'16:00', durationMin:60, type:(isPrivateOnlyViewer() ? TYPE_PRIVATE : TYPES[0]), status:'confirmed', notes:'', clientName:'', tag:'', phone:'', people:(isPrivateOnlyViewer() ? 1 : null), requiredTrainers:1, trainerIds:newDefaultTrainerIds}, prefill||{});
     document.getElementById('f-client').value = data.clientName || '';
     fillClientDatalist();
     document.getElementById('tagDatalist').innerHTML = allTags().map(function(t){ return '<option value="'+esc(t)+'">'; }).join('');
@@ -1564,7 +1563,7 @@
     syncPaidField();
     document.getElementById('f-phone').value = data.phone || '';
     document.getElementById('f-people').value = (data.people===null || data.people===undefined) ? '' : data.people;
-    document.getElementById('f-required').value = (data.requiredTrainers===undefined || data.requiredTrainers==='') ? '' : data.requiredTrainers;
+    document.getElementById('f-required').value = (data.requiredTrainers===undefined || data.requiredTrainers==='') ? 1 : data.requiredTrainers;
     document.getElementById('f-notes').value = data.notes || '';
     selectedColor = data.color || TYPE_DEFAULT_COLOR[data.type || TYPES[0]] || 'blue';
     syncSwatchSelection();
