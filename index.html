@@ -122,6 +122,11 @@
   .team-contact{ font-size:11px; color:var(--ink-dim); }
   .session-block.busy{ background:var(--surface-2); border:1px solid var(--border); color:var(--ink-dim); cursor:default; }
   .session-block.busy:hover{ filter:none; }
+  .hover-preview{ position:fixed; z-index:220; background:var(--surface); border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow); padding:11px 13px; font-size:12.5px; line-height:1.45; max-width:260px; pointer-events:none; }
+  .hp-title{ font-weight:700; font-size:13px; margin-bottom:2px; }
+  .hp-sub{ color:var(--ink-dim); font-size:11.5px; margin-bottom:6px; }
+  .hp-row{ margin-top:3px; } .hp-row b{ font-weight:700; }
+  .hp-notes{ margin-top:6px; padding-top:6px; border-top:1px solid var(--border-soft); white-space:pre-wrap; }
   .session-block .sb-time{ font-family:'IBM Plex Mono'; font-size:9.5px; font-weight:600; opacity:0.85; }
   .session-block .sb-type{ font-size:11px; font-weight:700; margin-bottom:1px; }
   .session-block .sb-trainers{ font-size:9.5px; opacity:0.85; }
@@ -937,6 +942,28 @@
   }
   function visibleSessionsOnDate(iso){ return sessionsOnDate(iso).filter(matchesClientScope); }
   function isMissing(s){ return s.status!=='cancelled' && s.trainerIds.length < s.requiredTrainers; }
+  // ---- hover preview on a calendar block: the fuller detail that doesn't fit in the compact block itself ----
+  var hoverPreview = document.createElement('div');
+  hoverPreview.className = 'hover-preview'; hoverPreview.hidden = true;
+  document.body.appendChild(hoverPreview);
+  function hpRow(label, value){ return value ? '<div class="hp-row"><b>'+esc(label)+':</b> '+esc(value)+'</div>' : ''; }
+  function positionPreview(el){
+    var r = el.getBoundingClientRect();
+    var pw = hoverPreview.offsetWidth, ph = hoverPreview.offsetHeight;
+    var left = r.right + 8; if(left + pw > innerWidth - 8) left = r.left - pw - 8; if(left < 8) left = 8;
+    var top = r.top; if(top + ph > innerHeight - 8) top = innerHeight - ph - 8; if(top < 8) top = 8;
+    hoverPreview.style.left = left+'px'; hoverPreview.style.top = top+'px';
+  }
+  function showPreview(el, s){
+    var trNames = s.trainerIds.map(trainerNameH).join(', ') || (s.requiredTrainers===0 ? 'Netreba trénera' : 'zatiaľ nikto');
+    hoverPreview.innerHTML = '<div class="hp-title">'+esc(displayClient(s))+'</div>'+
+      '<div class="hp-sub">'+fmtReportDate(s.date)+' &middot; '+s.start+'–'+s.end+'</div>'+
+      hpRow('Tréneri', trNames) + hpRow('Telefón', s.phone) +
+      (s.notes ? '<div class="hp-notes">'+esc(s.notes)+'</div>' : '');
+    hoverPreview.hidden = false;
+    positionPreview(el);
+  }
+  function hidePreview(){ hoverPreview.hidden = true; }
   function colorVar(id){ return 'var(--swatch-'+(id||'blue')+')'; }
   function allTags(){
     var set={};
@@ -1154,6 +1181,7 @@
   }
 
   function renderCalendar(){
+    hidePreview();
     runAutoComplete();
     applyRoleUI();
     document.getElementById('calDateLabel').textContent = viewMode==='day' ? fmtDateLabel(selectedDate) : monthLabel(startOfWeek(selectedDate));
@@ -1237,7 +1265,9 @@
           el.innerHTML = '<div class="sb-type"><span class="sb-time">'+s.start+'–'+s.end+'</span> &middot; '+esc(s.clientName||s.type)+'</div>'+
             (badges.length ? '<div class="sb-badges">'+badges.join(' &middot; ')+'</div>' : '')+
             '<div class="sb-trainers">'+[s.tag?esc(s.tag):'', trNames].filter(Boolean).join(' &middot; ')+'</div>';
-          el.addEventListener('click', function(s){ return function(e){ e.stopPropagation(); openModal(s.id); }; }(s));
+          el.addEventListener('click', function(s){ return function(e){ e.stopPropagation(); hidePreview(); openModal(s.id); }; }(s));
+          el.addEventListener('mouseenter', function(s){ return function(){ showPreview(this, s); }; }(s));
+          el.addEventListener('mouseleave', hidePreview);
           body.appendChild(el);
         });
       });
@@ -2703,11 +2733,14 @@
   function schedulePoll(){ clearTimeout(pollTimer); pollTimer = setTimeout(doPoll, 20000); }
   function doPoll(){
     if(!session || document.visibilityState !== 'visible' || inflight || anyModalOpen()){ schedulePoll(); return; }
+    var t0 = Date.now();
     safePost({op:'poll', since:pollCursor}).then(function(d){
-      if(!d || !d.ok) return;
+      var ms = ((Date.now() - t0) / 1000).toFixed(1);
+      if(!d || !d.ok){ console.log('poll: zlyhalo ('+ms+' s)'); return; }
       if(d.logCursor != null) pollCursor = d.logCursor;
-      var changed = (d.sessions && d.sessions.length) || (d.blocks && d.blocks.length) || (d.trainers && d.trainers.length) || (d.deletedSessions && d.deletedSessions.length);
-      if(!changed) return;
+      var n = (d.sessions ? d.sessions.length : 0) + (d.blocks ? d.blocks.length : 0) + (d.trainers ? d.trainers.length : 0) + (d.deletedSessions ? d.deletedSessions.length : 0);
+      console.log('poll: ' + (n ? (n + ' zmien (' + ms + ' s)') : ('nič nové (' + ms + ' s)')));
+      if(!n) return;
       var landed = (d.sessions || []).map(fixColor);
       upsert(sessions, landed, null); upsert(blocks, d.blocks || [], null); upsert(trainers, d.trainers || [], null);
       (d.deletedSessions || []).forEach(function(id){ for(var i = sessions.length - 1; i >= 0; i--) if(sessions[i].id === id) sessions.splice(i, 1); });
