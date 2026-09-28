@@ -1213,7 +1213,7 @@
             // even mixed in with gym trainings in the "Oboje" view.
             el.style.borderLeft = isPrivateSession(s) ? '5px solid var(--swatch-purple)' : ('3px solid '+color);
           }
-          var trNames = s.trainerIds.map(trainerNameH).join(', ') || 'Netreba trénera';
+          var trNames = s.trainerIds.map(trainerNameH).join(', ') || (s.requiredTrainers===0 ? 'Netreba trénera' : '');
           var missing = isMissing(s);
           // Time stays inline with the name rather than its own line — the block's
           // vertical position already gives an approximate time, but the gutter
@@ -1229,7 +1229,7 @@
           if(s.paid && paidVisible(s)) badges.push('<span class="sb-done">&#128176; Zaplatené</span>');
           el.innerHTML = '<div class="sb-type"><span class="sb-time">'+s.start+'–'+s.end+'</span> &middot; '+esc(s.clientName||s.type)+'</div>'+
             (badges.length ? '<div class="sb-badges">'+badges.join(' &middot; ')+'</div>' : '')+
-            '<div class="sb-trainers">'+(s.tag?esc(s.tag)+' &middot; ':'')+trNames+'</div>';
+            '<div class="sb-trainers">'+[s.tag?esc(s.tag):'', trNames].filter(Boolean).join(' &middot; ')+'</div>';
           el.addEventListener('click', function(s){ return function(e){ e.stopPropagation(); openModal(s.id); }; }(s));
           body.appendChild(el);
         });
@@ -1262,11 +1262,11 @@
           '<span class="a-time">'+(dates.length>1?s.date.slice(5)+' ':'')+s.start+'–'+s.end+'</span><span class="a-main"><div class="a-type">'+maskedLabel(s)+'</div></span></div>';
       }
       var color = isPrivateSession(s) ? colorVar('purple') : colorVar(s.color);
-      var trNames = s.trainerIds.map(trainerNameH).join(', ') || 'Netreba trénera';
+      var trNames = s.trainerIds.map(trainerNameH).join(', ') || (s.requiredTrainers===0 ? 'Netreba trénera' : '');
       var missing = isMissing(s);
       var subParts = [esc(s.type)];
       if(s.tag) subParts.push(esc(s.tag));
-      subParts.push(trNames);
+      if(trNames) subParts.push(trNames);
       if(missing) subParts.push('chýba ešte '+(s.requiredTrainers-s.trainerIds.length));
       return '<div class="agenda-item'+(s.status==='cancelled'?' cancelled':'')+'" data-id="'+s.id+'">'+
         '<span class="dot" style="background:'+color+'"></span>'+
