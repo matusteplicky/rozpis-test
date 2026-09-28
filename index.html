@@ -248,6 +248,8 @@
   .flag-row .fr-main{ flex:1; }
   .flag-row .fr-sub{ font-size:11.5px; color:var(--ink-dim); }
   .conflict-pair{ border:1px solid var(--danger); background:var(--danger-soft); border-radius:9px; padding:9px 12px; font-size:13px; }
+  .report-date-h{ font-size:12.5px; font-weight:700; color:var(--ink-dim); margin:14px 0 6px; }
+  .report-date-h:first-child{ margin-top:0; }
 
   .view[hidden]{ display:none; }
   .flexbar{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
@@ -898,6 +900,11 @@
   function fmtReportDate(iso){
     var d = new Date(iso+'T00:00:00');
     return WEEKDAY_FULL[(d.getDay()+6)%7]+', '+d.getDate()+'. '+MONTH_ABBR[d.getMonth()];
+  }
+  // Same style as fmtReportDate, plus the year — used as a group heading where trainings from several months can appear together.
+  function fmtDateHeading(iso){
+    var d = new Date(iso+'T00:00:00');
+    return WEEKDAY_FULL[(d.getDay()+6)%7]+', '+d.getDate()+'. '+MONTH_ABBR[d.getMonth()]+' '+d.getFullYear();
   }
   function monthLabel(dateObjOrStr){
     var d = typeof dateObjOrStr==='string' ? new Date(dateObjOrStr+'-01T00:00:00') : dateObjOrStr;
@@ -2428,9 +2435,11 @@
   function drawMissing(){
     var monthSessions = filteredMonthSessions().filter(isMissing).sort(function(a,b){ return a.date===b.date ? toMin(a.start)-toMin(b.start) : a.date.localeCompare(b.date); });
     var wrap = document.getElementById('missingList');
+    var lastDate = null;
     wrap.innerHTML = monthSessions.length ? monthSessions.map(function(s){
       var have = s.trainerIds.map(trainerNameH).join(', ') || 'zatiaľ nikto';
-      return '<div class="flag-row" data-id="'+s.id+'"><div class="fr-main">'+esc(s.clientName||s.type)+' &middot; '+s.date+' '+s.start+'–'+s.end+
+      var heading = s.date!==lastDate ? (lastDate=s.date, '<div class="report-date-h">'+fmtDateHeading(s.date)+'</div>') : '';
+      return heading + '<div class="flag-row" data-id="'+s.id+'"><div class="fr-main">'+esc(s.clientName||s.type)+' &middot; '+s.start+'–'+s.end+
         '<div class="fr-sub">Potrebuje '+s.requiredTrainers+', má '+s.trainerIds.length+' ('+have+')'+(s.tag?' &middot; '+esc(s.tag):'')+'</div></div></div>';
     }).join('') : '<div class="agenda-empty">V tomto výbere nič nechýba.</div>';
     wrap.querySelectorAll('.flag-row').forEach(function(row){ row.addEventListener('click', function(){ openModal(row.dataset.id); }); });
@@ -2470,9 +2479,12 @@
         shared.forEach(function(id){ pairs.push({trainer:trainerNameH(id), a:a, b:b}); });
       }
     }
+    pairs.sort(function(x,y){ return x.a.date===y.a.date ? toMin(x.a.start)-toMin(y.a.start) : x.a.date.localeCompare(y.a.date); });
     var wrap = document.getElementById('conflictsList');
+    var lastDate = null;
     wrap.innerHTML = pairs.length ? pairs.map(function(p){
-      return '<div class="conflict-pair"><b>'+p.trainer+'</b> má súbežnú rezerváciu '+p.a.date+': '+p.a.start+'–'+p.a.end+' ('+esc(p.a.clientName||p.a.type)+') a '+p.b.start+'–'+p.b.end+' ('+esc(p.b.clientName||p.b.type)+')</div>';
+      var heading = p.a.date!==lastDate ? (lastDate=p.a.date, '<div class="report-date-h">'+fmtDateHeading(p.a.date)+'</div>') : '';
+      return heading + '<div class="conflict-pair"><b>'+p.trainer+'</b> má súbežnú rezerváciu '+p.a.start+'–'+p.a.end+' ('+esc(p.a.clientName||p.a.type)+') a '+p.b.start+'–'+p.b.end+' ('+esc(p.b.clientName||p.b.type)+')</div>';
     }).join('') : '<div class="agenda-empty">V tomto výbere nie sú žiadne súbežné rezervácie trénerov.</div>';
   }
 
