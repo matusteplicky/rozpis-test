@@ -2686,10 +2686,19 @@
   var EDIT_B = ['date','label','allDay','start','durationMin'];
   var EDIT_T = ['name','email','phone','role','status','hidden','privateOnly','noAccess','_reset'];
   // The reply is the sheet's truth. Edits made after the request was sent are laid back on top of it, and stay pending.
+  // A sync reply carries only the rows THIS save touched, not the whole board (see rozpis-write.gs) — so unlike a full
+  // load, rebase() must MERGE those rows into what the page already has, never replace the arrays wholesale.
+  function upsert(list, rows, tempMap){
+    if(tempMap) Object.keys(tempMap).forEach(function(tid){ for(var i = list.length - 1; i >= 0; i--) if(list[i].id === tid) list.splice(i, 1); });   // a created row's temp id is superseded by its real one below
+    var at = {}; list.forEach(function(x, i){ at[x.id] = i; });
+    rows.forEach(function(row){ var i = at[row.id]; if(i === undefined){ list.push(row); at[row.id] = list.length - 1; } else list[i] = row; });
+  }
   function rebase(d, sent){
     var map = d.idMap || {}, mS = map.s || {}, mSer = map.series || {}, mB = map.b || {}, mT = map.t || {};
     function pending(list, was, keyFn){ return list.filter(function(x){ var o = was[x.id]; o = (o && o.key !== undefined) ? o.key : o; return o === undefined || o !== keyFn(x); }); }
     function gone(list, was){ var cur = {}; list.forEach(function(x){ cur[x.id] = 1; }); return Object.keys(was).filter(function(id){ return !cur[id]; }); }
+    // What changed locally SINCE this request was sent (someone kept editing while it was in flight) — computed against
+    // the arrays as they stand right now, before the server's answer is merged in.
     var pS = pending(sessions, sent.sessions, sKey), dS = gone(sessions, sent.sessions);
     var pB = pending(blocks, sent.blocks, bKey), dB = gone(blocks, sent.blocks);
     var pT = pending(trainers, sent.trainers, tKey);
@@ -2703,7 +2712,18 @@
       dels.forEach(function(id){ var rid = ids[id] || id; for(var i = list.length-1; i >= 0; i--) if(list[i].id === rid) list.splice(i, 1); });
     }
     var oldEditing = editingId, oldBlock = editingBlockId;
-    applyLoad(d, true);
+    me = d.me; currentTrainerId = me.id; syncCurrentRoleFromPerson(); renderRoleBanner();   // rare, but your own role/name could have changed elsewhere
+    var landedSessions = (d.sessions || []).map(fixColor);
+    upsert(sessions, landedSessions, mS);
+    upsert(blocks, d.blocks || [], mB);
+    upsert(trainers, d.trainers || [], mT);
+    // Only the rows the server just confirmed get their baseline updated — every other row's baseline is untouched,
+    // because nothing about it changed either (a full reload, not this save, is what would tell us otherwise).
+    landedSessions.forEach(function(s){ snap.sessions[s.id] = {key:sKey(s), version:s.version}; });
+    (d.blocks || []).forEach(function(b){ snap.blocks[b.id] = bKey(b); });
+    (d.trainers || []).forEach(function(t){ snap.trainers[t.id] = tKey(t); });
+    dS.forEach(function(id){ delete snap.sessions[id]; });
+    dB.forEach(function(id){ delete snap.blocks[id]; });
     lay(sessions, pS, dS, mS, EDIT_S, function(s){ if(s.seriesId && mSer[s.seriesId]) s.seriesId = mSer[s.seriesId]; });
     lay(blocks, pB, dB, mB, EDIT_B);
     lay(trainers, pT, [], mT, EDIT_T);
