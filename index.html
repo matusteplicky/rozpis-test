@@ -2572,6 +2572,8 @@
     renderRoleBanner();
     document.getElementById('roleBanner').insertAdjacentHTML('beforeend', READ_ONLY ? ' <b>Len na čítanie (testovacia fáza).</b>' : ' <b>Testovací režim: zmeny sa ukladajú do testovacieho zošita.</b>');
     applyRoleUI(); runAutoComplete(); takeSnapshot(); lastLoadAt = Date.now(); retryLoadN = 0; clearTimeout(retryLoadTimer);
+    if(d.logCursor != null) pollCursor = d.logCursor;
+    schedulePoll();
     if(!deferRender){ renderCalendar(); if(!views.team.hidden) renderTeam(); if(!views.reports.hidden) renderReports(); }
     gate.hidden = true;
   }
@@ -2621,7 +2623,7 @@
     if(!body.idToken) body.session = session;
     // Every request has a time limit: a connection that silently died must not leave the page waiting forever.
     // The attempt is abandoned and the caller repeats it (saves carry an id, so a repeat is never applied twice).
-    var ctl = new AbortController(), ms = window.__reqTimeout || (body.op==='load' ? 30000 : 40000), timer = setTimeout(function(){ ctl.abort(); }, ms);
+    var ctl = new AbortController(), ms = window.__reqTimeout || (body.op==='poll' ? 10000 : (body.op==='load' ? 30000 : 40000)), timer = setTimeout(function(){ ctl.abort(); }, ms);
     lastCtl = ctl;
     return fetch(BACKEND_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(body), signal:ctl.signal, cache:'no-store'})
       .then(function(r){ clearTimeout(timer); return r.json(); }, function(e){ clearTimeout(timer); throw e; })
@@ -2682,6 +2684,29 @@
   document.addEventListener('visibilitychange', function(){
     if(document.visibilityState==='visible' && me && !inflight && !buildChanges() && Date.now()-lastLoadAt > 120000) loadFromBackend({quiet:true});
   });
+  // ---- polling: pick up other people's changes every 20 s, without a full reload ----
+  // Paused while a modal is open (nothing should shift under you mid-edit) or while your own save is in flight.
+  var pollCursor = 0, pollTimer = null;
+  function anyModalOpen(){ return !overlay.hidden || !blockOverlay.hidden || !document.getElementById('teamEditOverlay').hidden || !confirmOverlay.hidden; }
+  function schedulePoll(){ clearTimeout(pollTimer); pollTimer = setTimeout(doPoll, 20000); }
+  function doPoll(){
+    if(!session || document.visibilityState !== 'visible' || inflight || anyModalOpen()){ schedulePoll(); return; }
+    safePost({op:'poll', since:pollCursor}).then(function(d){
+      if(!d || !d.ok) return;
+      if(d.logCursor != null) pollCursor = d.logCursor;
+      var changed = (d.sessions && d.sessions.length) || (d.blocks && d.blocks.length) || (d.trainers && d.trainers.length) || (d.deletedSessions && d.deletedSessions.length);
+      if(!changed) return;
+      var landed = (d.sessions || []).map(fixColor);
+      upsert(sessions, landed, null); upsert(blocks, d.blocks || [], null); upsert(trainers, d.trainers || [], null);
+      (d.deletedSessions || []).forEach(function(id){ for(var i = sessions.length - 1; i >= 0; i--) if(sessions[i].id === id) sessions.splice(i, 1); });
+      landed.forEach(function(s){ snap.sessions[s.id] = {key:sKey(s), version:s.version}; });
+      (d.blocks || []).forEach(function(b){ snap.blocks[b.id] = bKey(b); });
+      (d.trainers || []).forEach(function(t){ snap.trainers[t.id] = tKey(t); });
+      (d.deletedSessions || []).forEach(function(id){ delete snap.sessions[id]; });
+      renderCalendar(); if(!views.team.hidden) renderTeam(); if(!views.reports.hidden) renderReports();
+    }).then(schedulePoll, schedulePoll);
+  }
+
   var EDIT_S = ['date','start','end','durationMin','type','tag','color','clientName','phone','people','requiredTrainers','trainerIds','status','notes','paid'];
   var EDIT_B = ['date','label','allDay','start','durationMin'];
   var EDIT_T = ['name','email','phone','role','status','hidden','privateOnly','noAccess','_reset'];
@@ -2712,6 +2737,7 @@
       dels.forEach(function(id){ var rid = ids[id] || id; for(var i = list.length-1; i >= 0; i--) if(list[i].id === rid) list.splice(i, 1); });
     }
     var oldEditing = editingId, oldBlock = editingBlockId;
+    if(d.logCursor != null) pollCursor = d.logCursor;   // avoid a poll immediately re-fetching what this save just landed
     me = d.me; currentTrainerId = me.id; syncCurrentRoleFromPerson(); renderRoleBanner();   // rare, but your own role/name could have changed elsewhere
     var landedSessions = (d.sessions || []).map(fixColor);
     upsert(sessions, landedSessions, mS);
