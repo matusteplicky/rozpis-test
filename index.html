@@ -921,6 +921,10 @@
     var d = new Date(iso+'T00:00:00');
     return WEEKDAY_FULL[(d.getDay()+6)%7]+', '+d.getDate()+'. '+MONTH_FULL[d.getMonth()];
   }
+  function fmtShortDate(iso){
+    var d = new Date(iso+'T00:00:00');
+    return d.getDate()+'.'+(d.getMonth()+1)+'.'+d.getFullYear();
+  }
   function startOfWeek(iso){
     var d = new Date(iso+'T00:00:00');
     var dow = (d.getDay()+6)%7;
@@ -1615,7 +1619,12 @@
       recurRow.hidden = true;
       if(s.seriesId){
         seriesNote.hidden = false;
-        seriesNote.textContent = 'Opakovaný tréning. Pri uložení vyberiete, či zmeniť len tento, alebo aj budúce.';
+        var siblings = sessions.filter(function(x){ return x.seriesId===s.seriesId; }).sort(function(a,b){ return a.date<b.date?-1:a.date>b.date?1:0; });
+        var pos = siblings.findIndex(function(x){ return x.id===s.id; }) + 1;
+        var scope = pos>0 && siblings.length>1
+          ? (pos+'. z '+siblings.length+', od '+fmtShortDate(siblings[0].date)+' do '+fmtShortDate(siblings[siblings.length-1].date)+'. ')
+          : '';
+        seriesNote.textContent = 'Opakovaný tréning — '+scope+'Pri uložení vyberiete, či zmeniť len tento, alebo aj budúce.';
       } else { seriesNote.hidden = true; }
     } else {
       recurRow.hidden = false;
