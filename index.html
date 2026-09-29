@@ -705,7 +705,9 @@
   }
   // Every handler calls saveState() after changing the in-memory state. Live mode turns that into one 'sync' request with just the
   // differences; the server validates it and answers with the sheet's truth. Read-only: the change is discarded by re-reading.
-  function saveState(){ if(!me) return; if(READ_ONLY){ toast('Len na čítanie: zmena sa neuložila.'); loadFromBackend(); } else if(!inflight){ syncChanges(); } }
+  // Always calls syncChanges(), even mid-retry: it recomputes the diff fresh each time, so a new edit is never silently
+  // skipped just because an earlier save is still trying (see syncChanges()/fetchBusy for how overlap is avoided instead).
+  function saveState(){ if(!me) return; if(READ_ONLY){ toast('Len na čítanie: zmena sa neuložila.'); loadFromBackend(); } else syncChanges(); }
   trainers=[]; sessions=[]; blocks=[]; changeLog=[];   // filled after sign-in; never cached in the browser
 
   // Auto: a Confirmed training whose end time has passed becomes Completed.
@@ -2673,44 +2675,59 @@
   }
 
   // ---- saving: the page updates at once, the server confirms in the background ----
-  // One request at a time. Whatever the user changes while a request is in flight is kept and sent afterwards (see rebase).
-  var statusEl = document.getElementById('saveStatus'), statusTimer = null, inflight = false, lastLoadAt = 0;
+  // `inflight` means "there is unconfirmed work outstanding" (used to pause polling, warn before closing the tab, etc — it
+  // stays true across retries, not just during the network call). `fetchBusy` is narrower: true only while a request is
+  // literally in the air, so a second one is never fired alongside it.
+  // Every syncChanges() call (a fresh edit, a retry timer, the current fetch resolving) recomputes the diff first: if it
+  // differs from whatever was last attempted, that's new content, so it gets its own id and a clean retry count — a save
+  // stuck retrying an OLD attempt can never again block a NEW edit from being picked up (that used to be the saveState()
+  // guard below: `else if(!inflight)` silently skipped queuing anything while a retry was pending).
+  var statusEl = document.getElementById('saveStatus'), statusTimer = null, inflight = false, fetchBusy = false, lastLoadAt = 0;
   var pendingReq = null, pendingSent = null, pendingT0 = 0, syncRetries = 0, syncTimer = null, slowTimer = null;
   function setStatus(kind, text, tip){
     clearTimeout(statusTimer); statusEl.className = 'save-status ' + kind; statusEl.textContent = text || ''; statusEl.title = tip || '';
     if(kind==='saved') statusTimer = setTimeout(function(){ statusEl.textContent = ''; }, 4000);
   }
   function newRid(){ return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
-  // A network/server hiccup is not a refusal: the browser cannot know whether the server applied the request, so the SAME request
-  // (same id) is repeated until it gets an answer. The server recognises the id and never applies it twice.
+  // A network/server hiccup is not a refusal: the browser cannot know whether the server applied the request, so the SAME
+  // request (same id, same content) is repeated until it gets an answer — the server recognises the id and never applies
+  // it twice. Content that has never been sent gets a fresh id instead, since it is not a repeat of anything.
   function isAuthError(d){ return d && d.ok===false && (d.error==='bad_token' || d.error==='denied'); }
   function isHiccup(d){ return !d || (d.ok===false && (d.error==='network' || d.error==='server')); }
   function safePost(body){ return post(body).catch(function(){ return {ok:false, error:'network'}; }); }
   function syncChanges(){
-    clearTimeout(syncTimer); syncTimer = null;
-    if(!pendingReq){
-      var ch = buildChanges(); if(!ch) return;
+    var ch = buildChanges();
+    if(!ch){ clearTimeout(syncTimer); syncTimer = null; pendingReq = null; pendingSent = null; syncRetries = 0; inflight = false; return; }
+    inflight = true;
+    if(!pendingReq || JSON.stringify(ch) !== JSON.stringify(pendingReq.changes)){
       pendingReq = {op:'sync', changes:ch, rid:newRid()}; pendingSent = makeSnap(); pendingT0 = Date.now(); syncRetries = 0;
     }
-    inflight = true; setStatus(syncRetries ? 'failed' : 'saving', syncRetries ? 'Ukladanie zlyhalo. Skúšam znova…' : 'Ukladá sa…');
-    clearTimeout(slowTimer); slowTimer = setTimeout(function(){ if(inflight && !syncTimer) setStatus('saving', 'Server odpovedá pomaly…', 'Kliknite pre nový pokus'); }, window.__slowMs || 15000);
-    safePost({op:pendingReq.op, changes:pendingReq.changes, rid:pendingReq.rid}).then(function(d){
-      clearTimeout(slowTimer);
+    if(fetchBusy) return;                    // already sending pendingReq; it (or whatever supersedes it) is picked up when that resolves
+    clearTimeout(syncTimer); syncTimer = null;
+    fetchBusy = true;
+    var reqNow = pendingReq, sentNow = pendingSent, t0Now = pendingT0;
+    setStatus(syncRetries ? 'failed' : 'saving', syncRetries ? 'Ukladanie zlyhalo. Skúšam znova…' : 'Ukladá sa…');
+    clearTimeout(slowTimer); slowTimer = setTimeout(function(){ if(fetchBusy && !syncTimer) setStatus('saving', 'Server odpovedá pomaly…', 'Kliknite pre nový pokus'); }, window.__slowMs || 15000);
+    safePost({op:reqNow.op, changes:reqNow.changes, rid:reqNow.rid}).then(function(d){
+      fetchBusy = false; clearTimeout(slowTimer);
       if(d.ok){
-        var sent = pendingSent, total = ((Date.now()-pendingT0)/1000).toFixed(1), srv = d.ms!=null ? (d.ms/1000).toFixed(1) : '?';
-        pendingReq = null; pendingSent = null; syncRetries = 0;
-        rebase(d, sent);
+        var total = ((Date.now()-t0Now)/1000).toFixed(1), srv = d.ms!=null ? (d.ms/1000).toFixed(1) : '?';
+        if(pendingReq === reqNow){ pendingReq = null; pendingSent = null; syncRetries = 0; }   // nothing newer queued up while this was in flight
+        rebase(d, sentNow);
         setStatus('saved', 'Uložené ✓ ('+total+' s)', 'Server '+srv+' s, celkom '+total+' s'); console.log('sync: server '+srv+' s, celkom '+total+' s');
         return finishSync();
       }
       if(isAuthError(d)) return leave('Prihlásenie vypršalo. Prihláste sa znova.');
       if(isHiccup(d)){
-        syncRetries++;
-        syncTimer = setTimeout(syncChanges, Math.min(30000, 2000 * Math.pow(2, Math.min(syncRetries, 4))));
+        // Only this exact content just failed and needs the backoff; if a newer edit has already superseded it while it
+        // was in flight, that content has never been attempted, so it goes out right away, not after the old failure's wait.
+        var delay = 0;
+        if(pendingReq === reqNow){ syncRetries++; delay = Math.min(30000, 2000 * Math.pow(2, Math.min(syncRetries, 4))); }
+        syncTimer = setTimeout(syncChanges, delay);
         setStatus('failed', 'Ukladanie zlyhalo. Skúšam znova…', 'Kliknite pre okamžitý nový pokus');
-        return;                                        // stays in flight: the same request is repeated
+        return;
       }
-      pendingReq = null; pendingSent = null; syncRetries = 0;   // a real refusal (rule, conflict, invalid): show why, then the sheet's truth
+      if(pendingReq === reqNow){ pendingReq = null; pendingSent = null; syncRetries = 0; }   // a real refusal (rule, conflict, invalid): show why, then the sheet's truth
       setStatus('', ''); toast(d.message || 'Zmenu sa nepodarilo uložiť.');
       return loadFromBackend().then(finishSync);
     });
