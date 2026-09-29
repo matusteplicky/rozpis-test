@@ -2690,12 +2690,16 @@
   // stuck retrying an OLD attempt can never again block a NEW edit from being picked up (that used to be the saveState()
   // guard below: `else if(!inflight)` silently skipped queuing anything while a retry was pending).
   var statusEl = document.getElementById('saveStatus'), statusTimer = null, inflight = false, fetchBusy = false, lastLoadAt = 0;
-  var pendingReq = null, pendingSent = null, pendingT0 = 0, syncRetries = 0, syncTimer = null, slowTimer = null;
+  var pendingReq = null, pendingSent = null, pendingT0 = 0, syncRetries = 0, syncTimer = null, slowTimer = null, pendingCount = 0;
   function setStatus(kind, text, tip){
     clearTimeout(statusTimer); statusEl.className = 'save-status ' + kind; statusEl.textContent = text || ''; statusEl.title = tip || '';
     if(kind==='saved') statusTimer = setTimeout(function(){ statusEl.textContent = ''; }, 4000);
   }
   function newRid(){ return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+  // How many separate rows a change payload touches — shown to the person so "is it done yet?" has a concrete answer
+  // instead of a generic spinner, especially while several edits have piled up during a slow or retrying save.
+  function changeCount(ch){ return (ch.sessions||[]).length + (ch.delSessions||[]).length + (ch.blocks||[]).length + (ch.delBlocks||[]).length + (ch.trainers||[]).length; }
+  function changeWord(n){ return n + ' ' + (n===1 ? 'zmena' : (n>=2 && n<=4 ? 'zmeny' : 'zmien')); }
   // A network/server hiccup is not a refusal: the browser cannot know whether the server applied the request, so the SAME
   // request (same id, same content) is repeated until it gets an answer — the server recognises the id and never applies
   // it twice. Content that has never been sent gets a fresh id instead, since it is not a repeat of anything.
@@ -2704,24 +2708,24 @@
   function safePost(body){ return post(body).catch(function(){ return {ok:false, error:'network'}; }); }
   function syncChanges(){
     var ch = buildChanges();
-    if(!ch){ clearTimeout(syncTimer); syncTimer = null; pendingReq = null; pendingSent = null; syncRetries = 0; inflight = false; return; }
-    inflight = true;
+    if(!ch){ clearTimeout(syncTimer); syncTimer = null; pendingReq = null; pendingSent = null; syncRetries = 0; inflight = false; pendingCount = 0; return; }
+    inflight = true; pendingCount = changeCount(ch);   // kept current on every call, including the "already sending" branch below, so the count never goes stale
     if(!pendingReq || JSON.stringify(ch) !== JSON.stringify(pendingReq.changes)){
       pendingReq = {op:'sync', changes:ch, rid:newRid()}; pendingSent = makeSnap(); pendingT0 = Date.now(); syncRetries = 0;
     }
-    if(fetchBusy) return;                    // already sending pendingReq; it (or whatever supersedes it) is picked up when that resolves
+    if(fetchBusy){ setStatus('saving', 'Ukladá sa ' + changeWord(pendingCount) + '…'); return; }   // already sending pendingReq; it (or whatever supersedes it) is picked up when that resolves
     clearTimeout(syncTimer); syncTimer = null;
     fetchBusy = true;
-    var reqNow = pendingReq, sentNow = pendingSent, t0Now = pendingT0;
-    setStatus(syncRetries ? 'failed' : 'saving', syncRetries ? 'Ukladanie zlyhalo. Skúšam znova…' : 'Ukladá sa…');
-    clearTimeout(slowTimer); slowTimer = setTimeout(function(){ if(fetchBusy && !syncTimer) setStatus('saving', 'Server odpovedá pomaly…', 'Kliknite pre nový pokus'); }, window.__slowMs || 15000);
+    var reqNow = pendingReq, sentNow = pendingSent, t0Now = pendingT0, countNow = pendingCount;
+    setStatus(syncRetries ? 'failed' : 'saving', syncRetries ? ('Ukladanie zlyhalo (' + changeWord(countNow) + '). Skúšam znova…') : ('Ukladá sa ' + changeWord(countNow) + '…'));
+    clearTimeout(slowTimer); slowTimer = setTimeout(function(){ if(fetchBusy && !syncTimer) setStatus('saving', 'Server odpovedá pomaly… (' + changeWord(pendingCount) + ')', 'Kliknite pre nový pokus'); }, window.__slowMs || 15000);
     safePost({op:reqNow.op, changes:reqNow.changes, rid:reqNow.rid}).then(function(d){
       fetchBusy = false; clearTimeout(slowTimer);
       if(d.ok){
         var total = ((Date.now()-t0Now)/1000).toFixed(1), srv = d.ms!=null ? (d.ms/1000).toFixed(1) : '?';
-        if(pendingReq === reqNow){ pendingReq = null; pendingSent = null; syncRetries = 0; }   // nothing newer queued up while this was in flight
+        if(pendingReq === reqNow){ pendingReq = null; pendingSent = null; syncRetries = 0; pendingCount = 0; }   // nothing newer queued up while this was in flight
         rebase(d, sentNow);
-        setStatus('saved', 'Uložené ✓ ('+total+' s)', 'Server '+srv+' s, celkom '+total+' s'); console.log('sync: server '+srv+' s, celkom '+total+' s');
+        setStatus('saved', 'Uložené ✓ — ' + changeWord(countNow) + ' (' + total + ' s)', 'Server ' + srv + ' s, celkom ' + total + ' s'); console.log('sync: server '+srv+' s, celkom '+total+' s');
         return finishSync();
       }
       if(isAuthError(d)) return leave('Prihlásenie vypršalo. Prihláste sa znova.');
@@ -2731,10 +2735,10 @@
         var delay = 0;
         if(pendingReq === reqNow){ syncRetries++; delay = Math.min(30000, 2000 * Math.pow(2, Math.min(syncRetries, 4))); }
         syncTimer = setTimeout(syncChanges, delay);
-        setStatus('failed', 'Ukladanie zlyhalo. Skúšam znova…', 'Kliknite pre okamžitý nový pokus');
+        setStatus('failed', 'Ukladanie zlyhalo (' + changeWord(pendingCount) + '). Skúšam znova…', 'Kliknite pre okamžitý nový pokus');
         return;
       }
-      if(pendingReq === reqNow){ pendingReq = null; pendingSent = null; syncRetries = 0; }   // a real refusal (rule, conflict, invalid): show why, then the sheet's truth
+      if(pendingReq === reqNow){ pendingReq = null; pendingSent = null; syncRetries = 0; pendingCount = 0; }   // a real refusal (rule, conflict, invalid): show why, then the sheet's truth
       setStatus('', ''); toast(d.message || 'Zmenu sa nepodarilo uložiť.');
       return loadFromBackend().then(finishSync);
     });
