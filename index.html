@@ -2087,11 +2087,10 @@
     var name = nameInput.value.trim();
     var emailInput = document.getElementById('newTrainerEmail'), email = emailInput.value.trim().toLowerCase(), phoneInput = document.getElementById('newTrainerPhone'), phone = phoneInput.value.trim();
     if(!name) { nameInput.focus(); return; }
-    if(!/^[^@\s]+@[^@\s]+$/.test(email)){ toast('Zadajte platný e-mail.'); emailInput.focus(); return; }
+    if(email && !/^[^@\s]+@[^@\s]+$/.test(email)){ toast('Zadajte platný e-mail.'); emailInput.focus(); return; }
     if(phone && !/^[0-9+()\/\-\s]{3,30}$/.test(phone)){ toast('Neplatný telefón.'); phoneInput.focus(); return; }
-    var dupe = trainers.filter(function(t){ return normMail(t.email)===normMail(email); })[0];
-    if(dupe){ toast('Tento e-mail už používa: '+dupe.name); return; }
-    trainers.push({id:uid('t'), name:name, email:email, phone:phone, status:'active', since:TODAY, until:null, hidden:false, role:'trainer', roleChangedBy:null, roleChangedAt:null});
+    if(email){ var dupe = trainers.filter(function(t){ return normMail(t.email)===normMail(email); })[0]; if(dupe){ toast('Tento e-mail už používa: '+dupe.name); return; } }
+    trainers.push({id:uid('t'), name:name, email:email, phone:phone, status:'active', since:TODAY, until:null, hidden:false, role:'trainer', roleChangedBy:null, roleChangedAt:null, noAccess:!email});
     nameInput.value=''; emailInput.value=''; phoneInput.value='';
     logTeam(trainers[trainers.length-1], 'created', []);
     saveState(); renderTeam(); populateViewingAsSelect();
@@ -2559,12 +2558,11 @@
     var name = document.getElementById('te-name').value.trim(), email = document.getElementById('te-email').value.trim().toLowerCase(), phone = document.getElementById('te-phone').value.trim();
     function bad(m){ err.textContent = m; }
     if(!name) return bad('Zadajte meno.');
-    if(!normMail(email)) return bad('Zadajte platný e-mail.');
+    if(email && !normMail(email)) return bad('Zadajte platný e-mail.');   // blank is fine — see noAccess handling server-side
     if(phone && !/^[0-9+()\/\-\s]{3,30}$/.test(phone)) return bad('Neplatný telefón.');
     var others = trainers.filter(function(x){ return x.id !== t.id; });
     if(others.some(function(x){ return x.name.trim().toLowerCase() === name.toLowerCase(); })) return bad('Meno „' + name + '“ už existuje.');
-    var dupe = others.filter(function(x){ return normMail(x.email) === normMail(email); })[0];
-    if(dupe) return bad('Tento e-mail už používa: ' + dupe.name);
+    if(email){ var dupe = others.filter(function(x){ return normMail(x.email) === normMail(email); })[0]; if(dupe) return bad('Tento e-mail už používa: ' + dupe.name); }
     var lc = [];
     if(name !== t.name) lc.push({f:'Meno', k:'name', from:t.name, to:name});
     if(email !== (t.email || '')) lc.push({f:'E-mail', k:'email', from:t.email || '', to:email});
