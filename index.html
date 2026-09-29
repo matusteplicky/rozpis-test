@@ -2724,9 +2724,18 @@
       if(d.ok){
         var total = ((Date.now()-t0Now)/1000).toFixed(1), srv = d.ms!=null ? (d.ms/1000).toFixed(1) : '?';
         if(pendingReq === reqNow){ pendingReq = null; pendingSent = null; syncRetries = 0; pendingCount = 0; }   // nothing newer queued up while this was in flight
-        rebase(d, sentNow);
-        setStatus('saved', 'Uložené ✓ — ' + changeWord(countNow) + ' (' + total + ' s)', 'Server ' + srv + ' s, celkom ' + total + ' s'); console.log('sync: server '+srv+' s, celkom '+total+' s');
-        return finishSync();
+        // The save itself already succeeded server-side by this point — only applying the reply locally is left, and
+        // that must never be able to wedge the page. If it throws for any reason, fall back to a full reload instead
+        // of leaving inflight stuck true forever (which would also silently stop polling — see doPoll()).
+        try{
+          rebase(d, sentNow);
+          setStatus('saved', 'Uložené ✓ — ' + changeWord(countNow) + ' (' + total + ' s)', 'Server ' + srv + ' s, celkom ' + total + ' s'); console.log('sync: server '+srv+' s, celkom '+total+' s');
+          return finishSync();
+        }catch(e){
+          console.log('sync: uložené na serveri, ale spracovanie odpovede zlyhalo (' + (e && e.message || e) + ') — načítavam znova.');
+          setStatus('saving', 'Ukladá sa dokončuje, načítavam najnovší stav…');
+          return loadFromBackend().then(function(ok){ setStatus(ok ? 'saved' : '', ok ? 'Uložené ✓ (obnovené)' : ''); return finishSync(); });
+        }
       }
       if(isAuthError(d)) return leave('Prihlásenie vypršalo. Prihláste sa znova.');
       if(isHiccup(d)){
@@ -2744,10 +2753,12 @@
     });
   }
   function finishSync(){ inflight = false; if(buildChanges()) syncChanges(); }
-  // Click while waiting: give up on the current attempt now (it is repeated at once) — or, if already waiting to retry, retry immediately.
+  // Click while waiting: always forces a fresh attempt now, whatever state things are actually in — never conditional
+  // on which CSS class happens to be showing, since a stuck/inconsistent state is exactly when this matters most.
   statusEl.addEventListener('click', function(){
-    if(statusEl.classList.contains('failed')){ clearTimeout(syncTimer); syncChanges(); }
-    else if(inflight && lastCtl){ lastCtl.abort(); }
+    if(fetchBusy && lastCtl) lastCtl.abort();   // a request is genuinely in flight: give up on it now, it is repeated at once
+    clearTimeout(syncTimer); syncTimer = null;
+    syncChanges();
   });
   window.addEventListener('beforeunload', function(e){ if(inflight || buildChanges()){ e.preventDefault(); e.returnValue = ''; } });
   // Coming back to the page (phone unlocked, tab reopened): refresh quietly if it has been a while and nothing is unsaved.
