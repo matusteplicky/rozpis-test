@@ -2624,6 +2624,7 @@
   function applyLoad(d, deferRender){
     me = d.me; trainers = d.trainers; blocks = d.blocks;
     changeLog = []; logLoaded = false; logTriedAt = 0;   // the log is fetched only when Activity is opened (see ensureLog)
+    syncGen++;
     sessions = d.sessions.map(fixColor);
     currentTrainerId = me.id;
     populateViewingAsSelect();
@@ -2750,11 +2751,12 @@
     // out client-side while the server was still slow to answer, and the write itself very often already landed (the
     // page just never got told). Claiming "failed" here would be lying to the person about their own data, so the
     // wording only ever claims what is actually known: the outcome of THIS attempt has not been confirmed yet.
-    setStatus(syncRetries ? 'retrying' : 'saving', syncRetries ? ('Overujem, či sa uložilo (' + changeWord(countNow) + ')…') : ('Ukladá sa ' + changeWord(countNow) + '…'));
-    clearTimeout(slowTimer); slowTimer = setTimeout(function(){ if(fetchBusy && !syncTimer) setStatus('saving', 'Server odpovedá pomaly… (' + changeWord(pendingCount) + ')', 'Kliknite pre nový pokus'); }, window.__slowMs || 15000);
+    setStatus(syncRetries ? 'retrying' : 'saving', syncRetries ? ('Overuje sa uloženie (' + changeWord(countNow) + ') — môžete pokračovať') : ('Ukladá sa ' + changeWord(countNow) + '…'));
+    clearTimeout(slowTimer); slowTimer = setTimeout(function(){ if(fetchBusy && !syncTimer) setStatus('saving', 'Čaká sa na potvrdenie (' + changeWord(pendingCount) + ') — môžete pokračovať', 'Zmena mohla byť už uložená; čaká sa, kým to server potvrdí. Ďalšie zmeny sa uložia hneď potom. Kliknutím skúsite znova.'); }, window.__slowMs || 15000);
     safePost({op:reqNow.op, changes:reqNow.changes, rid:reqNow.rid}).then(function(d){
       fetchBusy = false; clearTimeout(slowTimer);
       if(!isHiccup(d) && unsure){ unsure = null; syncRetries = 0; }   // any real answer (saved, refused, signed out) settles it
+      if(d.ok) syncGen++;   // the board just changed under any poll still in the air (see doPoll)
       if(d.ok){
         var total = ((Date.now()-t0Now)/1000).toFixed(1), srv = d.ms!=null ? (d.ms/1000).toFixed(1) : '?';
         if(pendingReq === reqNow){ pendingReq = null; pendingSent = null; syncRetries = 0; pendingCount = 0; }   // nothing newer queued up while this was in flight
@@ -2767,8 +2769,8 @@
           return finishSync();
         }catch(e){
           console.log('sync: uložené na serveri, ale spracovanie odpovede zlyhalo (' + (e && e.message || e) + ') — načítavam znova.');
-          setStatus('saving', 'Ukladá sa dokončuje, načítavam najnovší stav…');
-          return loadFromBackend().then(function(ok){ setStatus(ok ? 'saved' : '', ok ? 'Uložené ✓ (obnovené)' : ''); return finishSync(); });
+          setStatus('saving', 'Dokončuje sa uloženie…');
+          return loadFromBackend().then(function(ok){ setStatus(ok ? 'saved' : '', ok ? 'Uložené ✓' : ''); return finishSync(); });
         }
       }
       if(isAuthError(d)) return leave('Prihlásenie vypršalo. Prihláste sa znova.');
@@ -2778,7 +2780,7 @@
         syncRetries++;
         var delay = retryNow ? 0 : Math.min(30000, 2000 * Math.pow(2, Math.min(syncRetries, 4))); retryNow = false;
         syncTimer = setTimeout(syncChanges, delay);
-        setStatus('retrying', 'Neviem, či sa uložilo — overujem znova (' + changeWord(pendingCount) + ')…', 'Kliknite pre okamžitý nový pokus');
+        setStatus('retrying', 'Overuje sa uloženie (' + changeWord(pendingCount) + ') — môžete pokračovať', 'Ďalšie zmeny sa uložia hneď potom. Kliknutím skúsite znova hneď.');
         return;
       }
       if(pendingReq === reqNow){ pendingReq = null; pendingSent = null; syncRetries = 0; pendingCount = 0; }   // a real refusal (rule, conflict, invalid): show why, then the sheet's truth
@@ -2811,18 +2813,21 @@
   });
   // ---- polling: pick up other people's changes every 20 s, without a full reload ----
   // Paused while a modal is open (nothing should shift under you mid-edit) or while your own save is in flight.
-  var pollCursor = 0, pollTimer = null;
+  var pollCursor = 0, pollTimer = null, syncGen = 0;
   function anyModalOpen(){ return !overlay.hidden || !blockOverlay.hidden || !document.getElementById('teamEditOverlay').hidden || !confirmOverlay.hidden; }
   function schedulePoll(){ clearTimeout(pollTimer); pollTimer = setTimeout(doPoll, 20000); }
   function doPoll(){
     if(!session || document.visibilityState !== 'visible' || inflight || anyModalOpen()){ schedulePoll(); return; }
-    var t0 = Date.now();
+    var t0 = Date.now(), gen = syncGen;
     safePost({op:'poll', since:pollCursor}).then(function(d){
       var ms = ((Date.now() - t0) / 1000).toFixed(1);
       if(!d || !d.ok){ console.log('poll: zlyhalo ('+ms+' s)'); return; }
       // An edit made while this poll was in the air must not be overwritten by it (the next save would then send the old
       // value back). Drop the whole answer and keep the cursor where it was — the next poll fetches the same lines again.
-      if(inflight || buildChanges()){ console.log('poll: odložené, čaká sa na uloženie'); return; }
+      // Also dropped when one of your own saves completed while it was in the air: it read the sheet BEFORE that save, so its
+      // rows are older than what the page now has — applying them would roll your edit back on screen and leave the page
+      // holding a stale version, so your next edit of that training would be refused as "changed by someone else".
+      if(inflight || buildChanges() || gen !== syncGen){ console.log('poll: odložené (prebieha alebo práve skončilo ukladanie)'); return; }
       if(d.logCursor != null) pollCursor = d.logCursor;
       var n = (d.sessions ? d.sessions.length : 0) + (d.blocks ? d.blocks.length : 0) + (d.trainers ? d.trainers.length : 0) + (d.deletedSessions ? d.deletedSessions.length : 0);
       console.log('poll: ' + (n ? (n + ' zmien (' + ms + ' s)') : ('nič nové (' + ms + ' s)')));
