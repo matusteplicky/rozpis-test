@@ -844,7 +844,7 @@
   }
   // ---- change log: one line per action, so "what happened lately" can actually be answered ----
   // (a training only remembers its LAST edit; this remembers every one).
-  var LOG_MAX = 1000;
+  var LOG_MAX = Infinity;
   var TRACKED = {type:'Typ', date:'Dátum', start:'Začiatok', durationMin:'Trvanie', clientName:'Klient', tag:'Značka', status:'Stav',
                  requiredTrainers:'Potrebných trénerov', trainerIds:'Tréneri', paid:'Zaplatené', notes:'Poznámky', phone:'Telefón', people:'Počet osôb'};
   function fieldText(k, v){
@@ -2320,6 +2320,7 @@
     return Object.assign({}, e, {changes:ch});
   }
   function drawActivity(){
+    if(!logLoaded && isAdminOrOwnerRole()){ ensureLog(); document.getElementById('activityBody').innerHTML = '<div class="agenda-empty">' + (logLoading || !logTriedAt ? 'Načítavam aktivitu…' : 'Aktivitu sa nepodarilo načítať.') + '</div>'; return; }
     var cutoff = Date.now() - activityHours*3600*1000;
     var items = changeLog.filter(function(e){ return new Date(e.t).getTime() >= cutoff; }).sort(function(a,b){ return b.t.localeCompare(a.t); }).map(hidePay).filter(Boolean);
     var wrap = document.getElementById('activityBody');
@@ -2622,7 +2623,7 @@
   function fixColor(s){ s.color = s.color || TYPE_DEFAULT_COLOR[s.type] || 'blue'; return s; }
   function applyLoad(d, deferRender){
     me = d.me; trainers = d.trainers; blocks = d.blocks;
-    if(d.changeLog) changeLog = d.changeLog;   // a save's reply omits the log (faster); the page keeps its own copy until the next full load
+    changeLog = []; logLoaded = false; logTriedAt = 0;   // the log is fetched only when Activity is opened (see ensureLog)
     sessions = d.sessions.map(fixColor);
     currentTrainerId = me.id;
     populateViewingAsSelect();
@@ -2686,7 +2687,7 @@
     // Sync gets the longest leash: a save that is merely slow (not dead) should get the chance to finish on its
     // own rather than being given up on and repeated while it is still genuinely working.
     var ctl = new AbortController(), ms = window.__reqTimeout || (body.op==='poll' ? 10000 : (body.op==='load' ? 30000 : 60000)), timer = setTimeout(function(){ ctl.abort(); }, ms);
-    lastCtl = ctl;
+    if(body.op === 'sync') lastCtl = ctl;   // the status pill's "try again" aborts the save in flight, never a poll/log request
     return fetch(BACKEND_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(body), signal:ctl.signal, cache:'no-store'})
       .then(function(r){ clearTimeout(timer); return r.json(); }, function(e){ clearTimeout(timer); throw e; })
       .then(function(d){ if(d && d.session) storeSession(d.session); return d; });   // the server hands out a fresh token now and then (sliding 30 days)
@@ -2799,6 +2800,9 @@
     safePost({op:'poll', since:pollCursor}).then(function(d){
       var ms = ((Date.now() - t0) / 1000).toFixed(1);
       if(!d || !d.ok){ console.log('poll: zlyhalo ('+ms+' s)'); return; }
+      // An edit made while this poll was in the air must not be overwritten by it (the next save would then send the old
+      // value back). Drop the whole answer and keep the cursor where it was — the next poll fetches the same lines again.
+      if(inflight || buildChanges()){ console.log('poll: odložené, čaká sa na uloženie'); return; }
       if(d.logCursor != null) pollCursor = d.logCursor;
       var n = (d.sessions ? d.sessions.length : 0) + (d.blocks ? d.blocks.length : 0) + (d.trainers ? d.trainers.length : 0) + (d.deletedSessions ? d.deletedSessions.length : 0);
       console.log('poll: ' + (n ? (n + ' zmien (' + ms + ' s)') : ('nič nové (' + ms + ' s)')));
@@ -2812,6 +2816,24 @@
       (d.deletedSessions || []).forEach(function(id){ delete snap.sessions[id]; });
       renderCalendar(); if(!views.team.hidden) renderTeam(); if(!views.reports.hidden) renderReports();
     }).then(schedulePoll, schedulePoll);
+  }
+
+  // ---- change log: loaded on demand (only admins/owner see Activity), so sign-in and refresh skip one Sheets read ----
+  // It replaces the page's copy wholesale, so it waits until nothing is pending: snap.logLen / a save in flight index into
+  // that copy, and swapping it underneath them would drop or repeat unsent log lines.
+  var logLoaded = false, logLoading = false, logTriedAt = 0;
+  function ensureLog(){
+    if(logLoaded || logLoading || !isAdminOrOwnerRole()) return;
+    if(logTriedAt && Date.now() - logTriedAt < 10000) return;   // a failed attempt is retried on a later redraw, not in a loop
+    if(inflight || buildChanges()){ setTimeout(ensureLog, 1500); return; }
+    logLoading = true;
+    safePost({op:'log'}).then(function(d){
+      logLoading = false;
+      if(!d || !d.ok){ logTriedAt = Date.now(); return; }
+      if(inflight || buildChanges()){ setTimeout(ensureLog, 1500); return; }
+      changeLog = d.changeLog || []; snap.logLen = changeLog.length; logLoaded = true;
+      if(!views.reports.hidden) renderReports();
+    });
   }
 
   var EDIT_S = ['date','start','end','durationMin','type','tag','color','clientName','phone','people','requiredTrainers','trainerIds','status','notes','paid'];
@@ -2844,7 +2866,8 @@
       dels.forEach(function(id){ var rid = ids[id] || id; for(var i = list.length-1; i >= 0; i--) if(list[i].id === rid) list.splice(i, 1); });
     }
     var oldEditing = editingId, oldBlock = editingBlockId;
-    if(d.logCursor != null) pollCursor = d.logCursor;   // avoid a poll immediately re-fetching what this save just landed
+    // pollCursor is deliberately NOT moved to this save's cursor: other people's changes logged since the last poll sit
+    // before it and would be skipped for good. The next poll re-fetches this save's own rows too — harmless, they match.
     me = d.me; currentTrainerId = me.id; syncCurrentRoleFromPerson(); renderRoleBanner();   // rare, but your own role/name could have changed elsewhere
     var landedSessions = (d.sessions || []).map(fixColor);
     upsert(sessions, landedSessions, mS);
