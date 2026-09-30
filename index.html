@@ -2702,16 +2702,19 @@
   // stuck retrying an OLD attempt can never again block a NEW edit from being picked up (that used to be the saveState()
   // guard below: `else if(!inflight)` silently skipped queuing anything while a retry was pending).
   var statusEl = document.getElementById('saveStatus'), statusTimer = null, inflight = false, fetchBusy = false, lastLoadAt = 0;
-  var pendingReq = null, pendingSent = null, pendingT0 = 0, syncRetries = 0, syncTimer = null, slowTimer = null, pendingCount = 0;
+  var pendingReq = null, pendingSent = null, pendingT0 = 0, syncRetries = 0, syncTimer = null, slowTimer = null, pendingCount = 0, unsure = null;
   function setStatus(kind, text, tip){
     clearTimeout(statusTimer); statusEl.className = 'save-status ' + kind; statusEl.textContent = text || ''; statusEl.title = tip || '';
     if(kind==='saved') statusTimer = setTimeout(function(){ statusEl.textContent = ''; }, 4000);
     // TEMP DEBUG — remove along with #pendingDebug once the pending-change diagnosis is done.
     var dbg = document.getElementById('pendingDebug');
     if(dbg){
-      if(pendingReq){
+      if(pendingReq || unsure){
+        var part = function(title, r, t0){ return title + '\nrid: ' + r.rid + '\nod: ' + ((Date.now()-t0)/1000).toFixed(1) + ' s\n' + JSON.stringify(r.changes, null, 2); };
         dbg.style.display = 'block';
-        dbg.textContent = 'rid: ' + pendingReq.rid + '\npokusov: ' + syncRetries + '\nodoslané pred: ' + ((Date.now()-pendingT0)/1000).toFixed(1) + ' s\n\n' + JSON.stringify(pendingReq.changes, null, 2);
+        dbg.textContent = 'pokusov: ' + syncRetries + '\n\n' +
+          (unsure ? part('NEPOTVRDENÉ — posiela sa znova rovnako:', unsure.req, unsure.t0) + '\n\n' : '') +
+          (pendingReq && (!unsure || pendingReq !== unsure.req) ? part(unsure ? 'ČAKÁ (novšie zmeny):' : 'UKLADÁ SA:', pendingReq, pendingT0) : '');
       } else { dbg.style.display = 'none'; dbg.textContent = ''; }
     }
   }
@@ -2728,15 +2731,21 @@
   function safePost(body){ return post(body).catch(function(){ return {ok:false, error:'network'}; }); }
   function syncChanges(){
     var ch = buildChanges();
-    if(!ch){ clearTimeout(syncTimer); syncTimer = null; pendingReq = null; pendingSent = null; syncRetries = 0; inflight = false; pendingCount = 0; setStatus('', ''); return; }
-    inflight = true; pendingCount = changeCount(ch);   // kept current on every call, including the "already sending" branch below, so the count never goes stale
-    if(!pendingReq || JSON.stringify(ch) !== JSON.stringify(pendingReq.changes)){
-      pendingReq = {op:'sync', changes:ch, rid:newRid()}; pendingSent = makeSnap(); pendingT0 = Date.now(); syncRetries = 0;
+    if(!ch && !unsure){ clearTimeout(syncTimer); syncTimer = null; pendingReq = null; pendingSent = null; syncRetries = 0; inflight = false; pendingCount = 0; setStatus('', ''); return; }
+    inflight = true; pendingCount = ch ? changeCount(ch) : changeCount(unsure.req.changes);   // kept current on every call, so the count never goes stale
+    if(ch && (!pendingReq || JSON.stringify(ch) !== JSON.stringify(pendingReq.changes))){
+      pendingReq = {op:'sync', changes:ch, rid:newRid()}; pendingSent = makeSnap(); pendingT0 = Date.now(); if(!unsure) syncRetries = 0;
     }
-    if(fetchBusy){ setStatus('saving', 'Ukladá sa ' + changeWord(pendingCount) + '…'); return; }   // already sending pendingReq; it (or whatever supersedes it) is picked up when that resolves
+    if(fetchBusy){ setStatus('saving', 'Ukladá sa ' + changeWord(pendingCount) + '…'); return; }   // already sending; whatever is newer goes out when that resolves
     clearTimeout(syncTimer); syncTimer = null;
     fetchBusy = true;
-    var reqNow = pendingReq, sentNow = pendingSent, t0Now = pendingT0, countNow = pendingCount;
+    // A request whose outcome is unknown (timed out, lost reply) goes again EXACTLY as it was — same rid, same content —
+    // before anything newer. The server answers a repeat from cache, so it is never applied twice; and only once its
+    // answer is in do the rows it touched carry the right version. Sending newer content first instead (a fresh rid that
+    // still contains the unconfirmed edit with its old _base) made the server see our own earlier save as someone else's
+    // conflicting edit, refuse the whole batch, and the reload that follows threw away every edit made in the meantime.
+    var job = unsure || {req:pendingReq, sent:pendingSent, t0:pendingT0};
+    var reqNow = job.req, sentNow = job.sent, t0Now = job.t0, countNow = changeCount(reqNow.changes);
     // Retrying does NOT mean the previous attempt failed — the most common reason to be here at all is that it timed
     // out client-side while the server was still slow to answer, and the write itself very often already landed (the
     // page just never got told). Claiming "failed" here would be lying to the person about their own data, so the
@@ -2745,6 +2754,7 @@
     clearTimeout(slowTimer); slowTimer = setTimeout(function(){ if(fetchBusy && !syncTimer) setStatus('saving', 'Server odpovedá pomaly… (' + changeWord(pendingCount) + ')', 'Kliknite pre nový pokus'); }, window.__slowMs || 15000);
     safePost({op:reqNow.op, changes:reqNow.changes, rid:reqNow.rid}).then(function(d){
       fetchBusy = false; clearTimeout(slowTimer);
+      if(!isHiccup(d) && unsure){ unsure = null; syncRetries = 0; }   // any real answer (saved, refused, signed out) settles it
       if(d.ok){
         var total = ((Date.now()-t0Now)/1000).toFixed(1), srv = d.ms!=null ? (d.ms/1000).toFixed(1) : '?';
         if(pendingReq === reqNow){ pendingReq = null; pendingSent = null; syncRetries = 0; pendingCount = 0; }   // nothing newer queued up while this was in flight
@@ -2752,7 +2762,7 @@
         // that must never be able to wedge the page. If it throws for any reason, fall back to a full reload instead
         // of leaving inflight stuck true forever (which would also silently stop polling — see doPoll()).
         try{
-          rebase(d, sentNow);
+          rebase(d, sentNow, reqNow.changes); lastConfirmed = JSON.stringify(reqNow.changes);
           setStatus('saved', 'Uložené ✓ — ' + changeWord(countNow) + ' (' + total + ' s)', 'Server ' + srv + ' s, celkom ' + total + ' s'); console.log('sync: server '+srv+' s, celkom '+total+' s');
           return finishSync();
         }catch(e){
@@ -2763,10 +2773,10 @@
       }
       if(isAuthError(d)) return leave('Prihlásenie vypršalo. Prihláste sa znova.');
       if(isHiccup(d)){
-        // Only this exact content just failed and needs the backoff; if a newer edit has already superseded it while it
-        // was in flight, that content has never been attempted, so it goes out right away, not after the old failure's wait.
-        var delay = 0;
-        if(pendingReq === reqNow){ syncRetries++; delay = Math.min(30000, 2000 * Math.pow(2, Math.min(syncRetries, 4))); }
+        // The server may or may not have applied it: remember it, and resend this very request (see `unsure` above).
+        unsure = {req:reqNow, sent:sentNow, t0:t0Now};
+        syncRetries++;
+        var delay = retryNow ? 0 : Math.min(30000, 2000 * Math.pow(2, Math.min(syncRetries, 4))); retryNow = false;
         syncTimer = setTimeout(syncChanges, delay);
         setStatus('retrying', 'Neviem, či sa uložilo — overujem znova (' + changeWord(pendingCount) + ')…', 'Kliknite pre okamžitý nový pokus');
         return;
@@ -2776,11 +2786,21 @@
       return loadFromBackend().then(finishSync);
     });
   }
-  function finishSync(){ inflight = false; if(buildChanges()) syncChanges(); }
+  // Safety net: if the change the server just confirmed comes straight back out of the diff, the page's baseline is out of
+  // step with the sheet (a reconciliation bug) — resending it would loop forever and hammer the server. Reload the truth instead.
+  var lastConfirmed = null;
+  function finishSync(){
+    inflight = false;
+    var ch = buildChanges(), again = ch && lastConfirmed && JSON.stringify(ch) === lastConfirmed;
+    lastConfirmed = null;
+    if(again){ console.log('sync: potvrdená zmena by sa posielala znova — načítavam stav zo servera'); return loadFromBackend({quiet:true}); }
+    if(ch) syncChanges();
+  }
   // Click while waiting: always forces a fresh attempt now, whatever state things are actually in — never conditional
   // on which CSS class happens to be showing, since a stuck/inconsistent state is exactly when this matters most.
+  var retryNow = false;
   statusEl.addEventListener('click', function(){
-    if(fetchBusy && lastCtl) lastCtl.abort();   // a request is genuinely in flight: give up on it now, it is repeated at once
+    if(fetchBusy && lastCtl){ retryNow = true; lastCtl.abort(); }   // a request is genuinely in flight: give up on it now, it is repeated at once (no backoff)
     clearTimeout(syncTimer); syncTimer = null;
     syncChanges();
   });
@@ -2847,7 +2867,8 @@
     var at = {}; list.forEach(function(x, i){ at[x.id] = i; });
     rows.forEach(function(row){ var i = at[row.id]; if(i === undefined){ list.push(row); at[row.id] = list.length - 1; } else list[i] = row; });
   }
-  function rebase(d, sent){
+  function rebase(d, sent, req){
+    req = req || {};
     var map = d.idMap || {}, mS = map.s || {}, mSer = map.series || {}, mB = map.b || {}, mT = map.t || {};
     function pending(list, was, keyFn){ return list.filter(function(x){ var o = was[x.id]; o = (o && o.key !== undefined) ? o.key : o; return o === undefined || o !== keyFn(x); }); }
     function gone(list, was){ var cur = {}; list.forEach(function(x){ cur[x.id] = 1; }); return Object.keys(was).filter(function(id){ return !cur[id]; }); }
@@ -2878,8 +2899,11 @@
     landedSessions.forEach(function(s){ snap.sessions[s.id] = {key:sKey(s), version:s.version}; });
     (d.blocks || []).forEach(function(b){ snap.blocks[b.id] = bKey(b); });
     (d.trainers || []).forEach(function(t){ snap.trainers[t.id] = tKey(t); });
-    dS.forEach(function(id){ delete snap.sessions[id]; });
-    dB.forEach(function(id){ delete snap.blocks[id]; });
+    // Deletions THIS request carried are confirmed now: drop them from the baseline, or the next diff would send them again —
+    // forever, since the server answers "already gone" with an OK. Rows deleted locally only AFTER it was sent (dS/dB) stay
+    // in the baseline on purpose: that is exactly what makes the next save send their deletion.
+    (req.delSessions || []).forEach(function(id){ delete snap.sessions[mS[id] || id]; });
+    (req.delBlocks || []).forEach(function(id){ delete snap.blocks[mB[id] || id]; });
     lay(sessions, pS, dS, mS, EDIT_S, function(s){ if(s.seriesId && mSer[s.seriesId]) s.seriesId = mSer[s.seriesId]; });
     lay(blocks, pB, dB, mB, EDIT_B);
     lay(trainers, pT, [], mT, EDIT_T);
