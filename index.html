@@ -300,9 +300,6 @@
     </div>
   </div>
 
-  <!-- TEMP DEBUG — remove once the pending-change diagnosis is done: shows the exact payload of whatever save is currently pending/in flight. -->
-  <pre id="pendingDebug" style="display:none; position:fixed; bottom:10px; right:10px; z-index:999; max-width:min(480px, 90vw); max-height:50vh; overflow:auto; background:#0b0f0c; color:#8ee6a8; font-family:'IBM Plex Mono',monospace; font-size:11px; line-height:1.4; padding:10px 12px; border-radius:8px; box-shadow:var(--shadow); white-space:pre-wrap; word-break:break-word;"></pre>
-
   <!-- CALENDAR VIEW -->
   <section class="view" id="view-calendar">
     <div class="card" style="display:flex; flex-direction:column; gap:14px;">
@@ -2707,17 +2704,6 @@
   function setStatus(kind, text, tip){
     clearTimeout(statusTimer); statusEl.className = 'save-status ' + kind; statusEl.textContent = text || ''; statusEl.title = tip || '';
     if(kind==='saved') statusTimer = setTimeout(function(){ statusEl.textContent = ''; }, 4000);
-    // TEMP DEBUG — remove along with #pendingDebug once the pending-change diagnosis is done.
-    var dbg = document.getElementById('pendingDebug');
-    if(dbg){
-      if(pendingReq || unsure){
-        var part = function(title, r, t0){ return title + '\nrid: ' + r.rid + '\nod: ' + ((Date.now()-t0)/1000).toFixed(1) + ' s\n' + JSON.stringify(r.changes, null, 2); };
-        dbg.style.display = 'block';
-        dbg.textContent = 'pokusov: ' + syncRetries + '\n\n' +
-          (unsure ? part('NEPOTVRDENÉ — posiela sa znova rovnako:', unsure.req, unsure.t0) + '\n\n' : '') +
-          (pendingReq && (!unsure || pendingReq !== unsure.req) ? part(unsure ? 'ČAKÁ (novšie zmeny):' : 'UKLADÁ SA:', pendingReq, pendingT0) : '');
-      } else { dbg.style.display = 'none'; dbg.textContent = ''; }
-    }
   }
   function newRid(){ return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
   // How many separate rows a change payload touches — shown to the person so "is it done yet?" has a concrete answer
@@ -2737,7 +2723,7 @@
     if(ch && (!pendingReq || JSON.stringify(ch) !== JSON.stringify(pendingReq.changes))){
       pendingReq = {op:'sync', changes:ch, rid:newRid()}; pendingSent = makeSnap(); pendingT0 = Date.now(); if(!unsure) syncRetries = 0;
     }
-    if(fetchBusy){ setStatus('saving', 'Ukladá sa ' + changeWord(pendingCount) + '…'); return; }   // already sending; whatever is newer goes out when that resolves
+    if(fetchBusy){ setStatus('saving', 'Ukladá sa (' + changeWord(pendingCount) + ')…'); return; }   // already sending; whatever is newer goes out when that resolves
     clearTimeout(syncTimer); syncTimer = null;
     fetchBusy = true;
     // A request whose outcome is unknown (timed out, lost reply) goes again EXACTLY as it was — same rid, same content —
@@ -2751,7 +2737,7 @@
     // out client-side while the server was still slow to answer, and the write itself very often already landed (the
     // page just never got told). Claiming "failed" here would be lying to the person about their own data, so the
     // wording only ever claims what is actually known: the outcome of THIS attempt has not been confirmed yet.
-    setStatus(syncRetries ? 'retrying' : 'saving', syncRetries ? ('Overuje sa uloženie (' + changeWord(countNow) + ') — môžete pokračovať') : ('Ukladá sa ' + changeWord(countNow) + '…'));
+    setStatus(syncRetries ? 'retrying' : 'saving', syncRetries ? ('Overuje sa uloženie (' + changeWord(countNow) + ') — môžete pokračovať') : ('Ukladá sa (' + changeWord(countNow) + ')…'));
     clearTimeout(slowTimer); slowTimer = setTimeout(function(){ if(fetchBusy && !syncTimer) setStatus('saving', 'Čaká sa na potvrdenie (' + changeWord(pendingCount) + ') — môžete pokračovať', 'Zmena mohla byť už uložená; čaká sa, kým to server potvrdí. Ďalšie zmeny sa uložia hneď potom. Kliknutím skúsite znova.'); }, window.__slowMs || 15000);
     safePost({op:reqNow.op, changes:reqNow.changes, rid:reqNow.rid}).then(function(d){
       fetchBusy = false; clearTimeout(slowTimer);
