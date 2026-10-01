@@ -101,10 +101,19 @@
   .legend span{ display:inline-flex; align-items:center; gap:6px; }
   .legend i{ width:9px; height:9px; border-radius:3px; display:inline-block; }
 
-  .cal-grid-wrap{ display:flex; flex-direction:column; overflow-x:auto; border:1px solid var(--border-soft); border-radius:var(--radius); background:var(--surface); }
+  .cal-grid-wrap{ display:flex; flex-direction:column; overflow-x:clip; border:1px solid var(--border-soft); border-radius:var(--radius); background:var(--surface); }
   .hrow{ display:flex; min-width:680px; border-top:1px solid var(--border-soft); }
   .hrow:first-child{ border-top:none; }
-  .hrow-ruler{ position:sticky; top:0; z-index:2; background:var(--surface); }
+  .hrow-ruler{ position:sticky; top:var(--cal-sticky-h, 0px); z-index:4; background:var(--surface); box-shadow:0 1px 0 var(--border-soft); }
+  /* Navigation (arrows, week/day, add buttons, scope, day strip) stays pinned while the week scrolls; the hour row pins right below it.
+     Desktop only: under 820px the grid is replaced by the agenda list, and on very short windows pinning would eat the screen. */
+  .cal-sticky{ display:flex; flex-direction:column; gap:10px; }
+  .cal-row2{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+  .cal-row2 .subtabs{ align-self:center; }
+  @media (min-width:821px) and (min-height:561px){
+    .cal-sticky{ position:sticky; top:0; z-index:6; background:var(--surface); padding:8px 0 10px; box-shadow:0 1px 0 var(--border-soft); }
+  }
+  @media (max-width:820px), (max-height:560px){ .hrow-ruler{ top:0; } }
   .hrow-label{ flex:0 0 76px; min-width:76px; display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:0; padding:6px 10px; font-size:12px; font-weight:700; border-right:1px solid var(--border-soft); background:var(--surface); }
   .hrow-label .hrl-dow{ font-size:10px; color:var(--ink-dim); font-weight:600; text-transform:uppercase; letter-spacing:0.04em; }
   .hrow-body{ position:relative; flex:1 1 0; min-height:54px; background-image: repeating-linear-gradient(to right, var(--border-soft) 0, var(--border-soft) 1px, transparent 1px, transparent calc(100%/var(--hours-count,13))); cursor:copy; }
@@ -122,6 +131,8 @@
   .save-status.saved{ color:var(--success); }
   body.ro .edit-trainer{ pointer-events:none; opacity:0.55; }
   .team-contact{ font-size:11px; color:var(--ink-dim); }
+  .outdated-banner{ display:flex; gap:12px; align-items:center; justify-content:space-between; background:var(--warning-soft); border-color:var(--warning); font-weight:600; }
+  .outdated-banner[hidden]{ display:none; }
   .arch-card{ border:1px solid var(--border-soft); border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
   .arch-card h3{ font-size:13.5px; margin:0; }
   .arch-help{ font-size:12px; color:var(--ink-dim); margin:0; line-height:1.5; }
@@ -301,6 +312,8 @@
 
   <div class="notice" id="roleBanner"></div>
 
+  <div class="notice outdated-banner" id="outdatedBanner" hidden><span></span><button class="btn btn-sm btn-primary" id="outdatedReload">Obnoviť stránku</button></div>
+
   <div id="authGate" hidden>
     <div class="card" style="max-width:380px; width:100%; text-align:center; display:flex; flex-direction:column; gap:14px;">
       <h2 style="margin:0;">Rozpis Inštruktori</h2>
@@ -314,6 +327,7 @@
   <!-- CALENDAR VIEW -->
   <section class="view" id="view-calendar">
     <div class="card" style="display:flex; flex-direction:column; gap:14px;">
+      <div class="cal-sticky" id="calSticky">
       <div class="cal-toolbar">
         <div class="cal-nav">
           <button class="btn btn-sm" id="prevDay">&larr;</button>
@@ -330,12 +344,15 @@
           <button class="btn btn-sm" id="addBlockBtn">+ Blokovať čas</button>
         </div>
       </div>
+      <div class="cal-row2">
       <div class="subtabs" id="clientScopeToggle">
         <button class="subtab" data-scope="gym">Vertigo</button>
         <button class="subtab" data-scope="private">Súkromné</button>
         <button class="subtab active" data-scope="both">Oboje</button>
       </div>
       <div class="week-strip" id="weekStrip"></div>
+      </div>
+      </div>
       <div class="legend" id="legend"></div>
       <div class="cal-grid-wrap" id="calGridWrap">
         <div class="hrow hrow-ruler"><div class="hrow-label"></div><div class="hrow-body" id="timeGutter"></div></div>
@@ -650,6 +667,7 @@
   var BACKEND_URL = 'https://script.google.com/macros/s/AKfycbzedlCzQgBV4Z641BR84uhiXJ17b-20FPMhNgoNGkxSIQjtkSnmuOsPBkaTEsPFLJA/exec';       // Apps Script web app URL, ends with /exec
   var GOOGLE_CLIENT_ID = '610436969794-7dtpr3a713g24kgrlk6t05ode3fjssgd.apps.googleusercontent.com'; // OAuth web client ID from Google Cloud Console
   var READ_ONLY = false;      // true = the board only shows data and changes nothing
+  var PAGE_VERSION = 1;    // sent with every request; the server refuses pages older than its MIN_PAGE_VERSION (a forgotten old tab can never write)
   var idToken = null, me = null, session = null;   // idToken = Google's proof (login only); session = our own 30-day token
 
   var TODAY = isoOf(new Date());
@@ -713,7 +731,7 @@
   // differences; the server validates it and answers with the sheet's truth. Read-only: the change is discarded by re-reading.
   // Always calls syncChanges(), even mid-retry: it recomputes the diff fresh each time, so a new edit is never silently
   // skipped just because an earlier save is still trying (see syncChanges()/fetchBusy for how overlap is avoided instead).
-  function saveState(){ if(!me) return; if(READ_ONLY){ toast('Len na čítanie: zmena sa neuložila.'); loadFromBackend(); } else syncChanges(); }
+  function saveState(){ if(!me) return; if(READ_ONLY){ toast('Len na čítanie: zmena sa neuložila.'); loadFromBackend(); } else queueSync(); }
   trainers=[]; sessions=[]; blocks=[]; changeLog=[];   // filled after sign-in; never cached in the browser
 
   // Auto: a Confirmed training whose end time has passed becomes Completed.
@@ -1149,6 +1167,13 @@
   });
 
   document.getElementById('calGridWrap').style.setProperty('--hours-count', (END_MIN-START_MIN)/60);
+  // The hour row pins directly below the pinned navigation, so it needs that block's height (it changes when the toolbar wraps).
+  (function(){
+    var nav = document.getElementById('calSticky'); if(!nav) return;
+    function sync(){ var h = getComputedStyle(nav).position === 'sticky' ? Math.round(nav.getBoundingClientRect().height) : 0; document.documentElement.style.setProperty('--cal-sticky-h', h + 'px'); }
+    if(window.ResizeObserver) new ResizeObserver(sync).observe(nav);
+    window.addEventListener('resize', sync); sync();
+  })();
   var gutter = document.getElementById('timeGutter');
   for(var m=START_MIN; m<=END_MIN; m+=60){
     var lbl = document.createElement('div');
@@ -2651,7 +2676,7 @@
     syncCurrentRoleFromPerson();
     renderRoleBanner();
     document.getElementById('roleBanner').insertAdjacentHTML('beforeend', READ_ONLY ? ' <b>Len na čítanie (testovacia fáza).</b>' : ' <b>Testovací režim: zmeny sa ukladajú do testovacieho zošita.</b>');
-    applyRoleUI(); takeSnapshot(); runAutoComplete();   // baseline FIRST: anything computed after this is compared against what the server just confirmed lastLoadAt = Date.now(); retryLoadN = 0; clearTimeout(retryLoadTimer);
+    applyRoleUI(); takeSnapshot(); runAutoComplete();   // baseline FIRST: anything computed after this is compared against what the server just confirmed lastLoadAt = lastContactAt = Date.now(); retryLoadN = 0; clearTimeout(retryLoadTimer);
     if(d.logCursor != null) pollCursor = d.logCursor;
     schedulePoll();
     if(!deferRender){ renderCalendar(); if(!views.team.hidden) renderTeam(); if(!views.reports.hidden) renderReports(); }
@@ -2701,6 +2726,8 @@
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
     if(!body.idToken) body.session = session;
+    body.v = PAGE_VERSION;
+    if(outdated) return Promise.resolve({ok:false, error:'outdated', message:outdatedMsg});   // halted: nothing more goes out from this page
     // Every request has a time limit: a connection that silently died must not leave the page waiting forever.
     // The attempt is abandoned and the caller repeats it (saves carry an id, so a repeat is never applied twice).
     // Sync gets the longest leash: a save that is merely slow (not dead) should get the chance to finish on its
@@ -2709,7 +2736,18 @@
     if(body.op === 'sync') lastCtl = ctl;   // the status pill's "try again" aborts the save in flight, never a poll/log request
     return fetch(BACKEND_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(body), signal:ctl.signal, cache:'no-store'})
       .then(function(r){ clearTimeout(timer); return r.json(); }, function(e){ clearTimeout(timer); throw e; })
-      .then(function(d){ if(d && d.session) storeSession(d.session); return d; });   // the server hands out a fresh token now and then (sliding 30 days)
+      .then(function(d){ if(d && d.error === 'outdated') pageOutdated(d); if(d && d.session) storeSession(d.session); return d; });   // the server hands out a fresh token now and then (sliding 30 days)
+  }
+  // The server says this page is older than it can safely work with. Stop everything (no polling, no saving) and say so loudly;
+  // unsaved edits stay on screen (and the browser still warns before the tab is closed) — they cannot be saved from here.
+  var outdated = false, outdatedMsg = '';
+  function pageOutdated(d){
+    if(outdated) return;
+    outdated = true; outdatedMsg = d.message || 'Je dostupná nová verzia aplikácie. Obnovte stránku.';
+    clearTimeout(pollTimer); clearTimeout(syncTimer); clearTimeout(debounceTimer);
+    if(!gate.hidden){ showGate(outdatedMsg); return; }
+    var b = document.getElementById('outdatedBanner'); b.querySelector('span').textContent = outdatedMsg + (inflight || buildChanges() ? ' Neuložené zmeny sa z tejto stránky už nedajú uložiť.' : ''); b.hidden = false;
+    setStatus('retrying', 'Neuložené — obnovte stránku');
   }
 
   // ---- saving: the page updates at once, the server confirms in the background ----
@@ -2720,7 +2758,7 @@
   // differs from whatever was last attempted, that's new content, so it gets its own id and a clean retry count — a save
   // stuck retrying an OLD attempt can never again block a NEW edit from being picked up (that used to be the saveState()
   // guard below: `else if(!inflight)` silently skipped queuing anything while a retry was pending).
-  var statusEl = document.getElementById('saveStatus'), statusTimer = null, inflight = false, fetchBusy = false, lastLoadAt = 0;
+  var statusEl = document.getElementById('saveStatus'), statusTimer = null, inflight = false, fetchBusy = false, lastLoadAt = 0, debounceTimer = null, firstDirtyAt = 0;
   var pendingReq = null, pendingSent = null, pendingT0 = 0, syncRetries = 0, syncTimer = null, slowTimer = null, pendingCount = 0, unsure = null;
   function setStatus(kind, text, tip){
     clearTimeout(statusTimer); statusEl.className = 'save-status ' + kind; statusEl.textContent = text || ''; statusEl.title = tip || '';
@@ -2746,6 +2784,7 @@
     }
     if(fetchBusy){ setStatus('saving', 'Ukladá sa (' + changeWord(pendingCount) + ')…'); return; }   // already sending; whatever is newer goes out when that resolves
     clearTimeout(syncTimer); syncTimer = null;
+    clearTimeout(debounceTimer); debounceTimer = null; firstDirtyAt = 0;   // whatever was waiting goes out now
     fetchBusy = true;
     // A request whose outcome is unknown (timed out, lost reply) goes again EXACTLY as it was — same rid, same content —
     // before anything newer. The server answers a repeat from cache, so it is never applied twice; and only once its
@@ -2762,6 +2801,7 @@
     clearTimeout(slowTimer); slowTimer = setTimeout(function(){ if(fetchBusy && !syncTimer) setStatus('saving', 'Čaká sa na potvrdenie (' + changeWord(pendingCount) + ') — môžete pokračovať', 'Zmena mohla byť už uložená; čaká sa, kým to server potvrdí. Ďalšie zmeny sa uložia hneď potom. Kliknutím skúsite znova.'); }, window.__slowMs || 15000);
     safePost({op:reqNow.op, changes:reqNow.changes, rid:reqNow.rid}).then(function(d){
       fetchBusy = false; clearTimeout(slowTimer);
+      if(d && d.error === 'outdated') return;   // pageOutdated() has shown the banner; nothing here may drop the person's unsaved edits
       if(!isHiccup(d) && unsure){ unsure = null; syncRetries = 0; }   // any real answer (saved, refused, signed out) settles it
       if(d.ok) syncGen++;   // the board just changed under any poll still in the air (see doPoll)
       if(d.ok){
@@ -2771,7 +2811,7 @@
         // that must never be able to wedge the page. If it throws for any reason, fall back to a full reload instead
         // of leaving inflight stuck true forever (which would also silently stop polling — see doPoll()).
         try{
-          rebase(d, sentNow, reqNow.changes); lastConfirmed = JSON.stringify(reqNow.changes);
+          rebase(d, sentNow, reqNow.changes); lastConfirmed = JSON.stringify(reqNow.changes); lastContactAt = Date.now();
           setStatus('saved', 'Uložené ✓ — ' + changeWord(countNow) + ' (' + total + ' s)', 'Server ' + srv + ' s, celkom ' + total + ' s'); console.log('sync: server '+srv+' s, celkom '+total+' s');
           return finishSync();
         }catch(e){
@@ -2798,6 +2838,22 @@
   // Safety net: if the change the server just confirmed comes straight back out of the diff, the page's baseline is out of
   // step with the sheet (a reconciliation bug) — resending it would loop forever and hammer the server. Reload the truth instead.
   var lastConfirmed = null;
+  // A burst of quick edits (add, cancel, add, …) would otherwise leave as a first request alone and a second one behind it. The
+  // first edit of a burst now waits a moment (restarted by each further edit, but never longer than MAX_WAIT_MS in total) so
+  // everything goes out together: fewer server runs, fewer chances to collide. While a request is already out, or a retry is
+  // waiting, there is nothing to gain from waiting — syncChanges() just refreshes what goes out next.
+  var DEBOUNCE_MS = 2000, MAX_WAIT_MS = 6000;
+  function queueSync(){
+    if(fetchBusy || syncTimer || unsure){ syncChanges(); return; }
+    var ch = buildChanges(); if(!ch){ syncChanges(); return; }
+    var now = Date.now(); if(!firstDirtyAt) firstDirtyAt = now;
+    pendingCount = changeCount(ch);
+    setStatus('saving', 'Ukladá sa (' + changeWord(pendingCount) + ')…');
+    clearTimeout(debounceTimer);
+    var d = window.__debounceMs !== undefined ? window.__debounceMs : DEBOUNCE_MS;
+    debounceTimer = setTimeout(flushSync, Math.max(0, Math.min(d, firstDirtyAt + MAX_WAIT_MS - now)));
+  }
+  function flushSync(){ clearTimeout(debounceTimer); debounceTimer = null; firstDirtyAt = 0; syncChanges(); }
   function finishSync(){
     inflight = false;
     var ch = buildChanges(), again = ch && lastConfirmed && JSON.stringify(ch) === lastConfirmed;
@@ -2811,24 +2867,47 @@
   statusEl.addEventListener('click', function(){
     if(fetchBusy && lastCtl){ retryNow = true; lastCtl.abort(); }   // a request is genuinely in flight: give up on it now, it is repeated at once (no backoff)
     clearTimeout(syncTimer); syncTimer = null;
-    syncChanges();
+    flushSync();
   });
   window.addEventListener('beforeunload', function(e){ if(inflight || buildChanges()){ e.preventDefault(); e.returnValue = ''; } });
   // Coming back to the page (phone unlocked, tab reopened): refresh quietly if it has been a while and nothing is unsaved.
   document.addEventListener('visibilitychange', function(){
-    if(document.visibilityState==='visible' && me && !inflight && !buildChanges() && Date.now()-lastLoadAt > 120000) loadFromBackend({quiet:true});
+    if(document.visibilityState === 'hidden'){ if(debounceTimer) flushSync(); return; }   // leaving the tab: send what is waiting right now
+    lastActivity = Date.now();                                                              // coming back counts as being there
+    if(pollPaused) resumePolling();
+    else if(me && !inflight && !buildChanges() && Date.now()-lastLoadAt > 120000) loadFromBackend({quiet:true});
   });
   // ---- polling: pick up other people's changes every 20 s, without a full reload ----
   // Paused while a modal is open (nothing should shift under you mid-edit) or while your own save is in flight.
   var pollCursor = 0, pollTimer = null, syncGen = 0;
+  // A tab nobody is using must not keep asking the server every 20 s (and keep the session alive forever): after IDLE_MS without
+  // mouse / keyboard / touch / scroll — or as soon as the tab is hidden — polling stops. Any activity restarts it with an
+  // immediate catch-up; after a long absence the whole board is reloaded instead. Saving is never paused: an edit IS activity.
+  var IDLE_MS = 5 * 60 * 1000, RELOAD_AFTER_MS = 10 * 60 * 1000, lastActivity = Date.now(), lastContactAt = Date.now(), pollPaused = false;
+  function idleLimit(){ return window.__idleMs !== undefined ? window.__idleMs : IDLE_MS; }
+  function markActive(){
+    var n = Date.now(); if(n - lastActivity < 1000 && !pollPaused) return;
+    lastActivity = n; if(pollPaused) resumePolling();
+  }
+  ['mousemove', 'mousedown', 'keydown', 'touchstart', 'wheel', 'scroll'].forEach(function(ev){ window.addEventListener(ev, markActive, {passive:true, capture:true}); });
+  function resumePolling(){
+    pollPaused = false;
+    if(!session || !me || outdated) return;
+    if(Date.now() - lastContactAt > (window.__reloadMs || RELOAD_AFTER_MS) && !inflight && !buildChanges()) loadFromBackend({quiet:true}).then(schedulePoll);
+    else doPoll();
+  }
   function anyModalOpen(){ return !overlay.hidden || !blockOverlay.hidden || !document.getElementById('teamEditOverlay').hidden || !confirmOverlay.hidden; }
-  function schedulePoll(){ clearTimeout(pollTimer); pollTimer = setTimeout(doPoll, 20000); }
+  function schedulePoll(){ clearTimeout(pollTimer); pollTimer = setTimeout(doPoll, window.__pollMs || 20000); }
   function doPoll(){
-    if(!session || document.visibilityState !== 'visible' || inflight || anyModalOpen()){ schedulePoll(); return; }
+    if(outdated) return;
+    if(!session){ schedulePoll(); return; }
+    if(document.visibilityState !== 'visible' || Date.now() - lastActivity > idleLimit()){ pollPaused = true; return; }   // nobody is looking: stop (resumePolling restarts it)
+    if(inflight || buildChanges() || anyModalOpen()){ schedulePoll(); return; }
     var t0 = Date.now(), gen = syncGen;
     safePost({op:'poll', since:pollCursor}).then(function(d){
       var ms = ((Date.now() - t0) / 1000).toFixed(1);
       if(!d || !d.ok){ console.log('poll: zlyhalo ('+ms+' s)'); return; }
+      lastContactAt = Date.now();
       // An edit made while this poll was in the air must not be overwritten by it (the next save would then send the old
       // value back). Drop the whole answer and keep the cursor where it was — the next poll fetches the same lines again.
       // Also dropped when one of your own saves completed while it was in the air: it read the sheet BEFORE that save, so its
@@ -3078,12 +3157,14 @@
       if(d.ok){ applyLoad(d); return true; }
       if(d.error==='denied'){ leave('Tento účet nie je v zozname tímu. Požiadajte administrátora o pridanie.'); return false; }
       if(d.error==='bad_token'){ leave('Prihlásenie vypršalo. Prihláste sa znova.'); return false; }
+      if(d.error==='outdated') return false;
       if(opts.boot) showRetry(); else if(!opts.quiet) toast('Spojenie zlyhalo. Údaje sa nepodarilo obnoviť.');
       return false;
     });
   }
   document.getElementById('refreshBtn').addEventListener('click', function(){ if(inflight || buildChanges()){ toast('Najprv sa dokončí ukladanie.'); return; } loadFromBackend().then(function(ok){ if(ok) toast('Dáta obnovené.'); }); });
   document.getElementById('signOutBtn').addEventListener('click', function(){ leave(''); });
+  document.getElementById('outdatedReload').addEventListener('click', function(){ location.reload(); });
   function initGoogle(){
     if(!(window.google && google.accounts && google.accounts.id)){ setTimeout(initGoogle, 250); return; }
     google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID, auto_select:false, callback:function(r){
@@ -3097,6 +3178,7 @@
       if(d.ok) return applyLoad(d);
       if(d.error==='denied') return leave('Tento účet nie je v zozname tímu. Požiadajte administrátora o pridanie.');
       if(d.error==='bad_token') return leave('Google prihlásenie sa nepodarilo overiť. Skúste to znova.');
+      if(d.error==='outdated') return;
       showGate('Spojenie zlyhalo. Skúste to znova.');
     });
   }
