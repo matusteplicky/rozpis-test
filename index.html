@@ -129,6 +129,9 @@
   .save-status{ font-size:12px; color:var(--ink-dim); min-width:110px; }
   .save-status.saving, .save-status.retrying{ color:var(--warning); }
   .save-status.saved{ color:var(--success); }
+  #refreshBtn.spin::before{ content:''; display:inline-block; width:10px; height:10px; margin-right:6px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; vertical-align:-1px; animation:rfspin .7s linear infinite; }
+  #refreshBtn:disabled{ opacity:.7; cursor:progress; }
+  @keyframes rfspin{ to{ transform:rotate(360deg); } }
   body.ro .edit-trainer{ pointer-events:none; opacity:0.55; }
   .team-contact{ font-size:11px; color:var(--ink-dim); }
   .outdated-banner{ display:flex; gap:12px; align-items:center; justify-content:space-between; background:var(--warning-soft); border-color:var(--warning); font-weight:600; }
@@ -2676,7 +2679,8 @@
     syncCurrentRoleFromPerson();
     renderRoleBanner();
     document.getElementById('roleBanner').insertAdjacentHTML('beforeend', READ_ONLY ? ' <b>Len na čítanie (testovacia fáza).</b>' : ' <b>Testovací režim: zmeny sa ukladajú do testovacieho zošita.</b>');
-    applyRoleUI(); takeSnapshot(); runAutoComplete();   // baseline FIRST: anything computed after this is compared against what the server just confirmed lastLoadAt = lastContactAt = Date.now(); retryLoadN = 0; clearTimeout(retryLoadTimer);
+    applyRoleUI(); takeSnapshot(); runAutoComplete();   // baseline FIRST: anything computed after this is compared against what the server just confirmed
+    lastLoadAt = lastContactAt = Date.now(); retryLoadN = 0; clearTimeout(retryLoadTimer);
     if(d.logCursor != null) pollCursor = d.logCursor;
     schedulePoll();
     if(!deferRender){ renderCalendar(); if(!views.team.hidden) renderTeam(); if(!views.reports.hidden) renderReports(); }
@@ -2831,8 +2835,8 @@
         return;
       }
       if(pendingReq === reqNow){ pendingReq = null; pendingSent = null; syncRetries = 0; pendingCount = 0; }   // a real refusal (rule, conflict, invalid): show why, then the sheet's truth
-      setStatus('', ''); toast(d.message || 'Zmenu sa nepodarilo uložiť.');
-      return loadFromBackend().then(finishSync);
+      setStatus('saving', 'Načítavajú sa aktuálne údaje…'); toast(d.message || 'Zmenu sa nepodarilo uložiť.');
+      return loadFromBackend().then(function(ok){ setStatus(ok ? 'saved' : '', ok ? 'Údaje sú aktuálne ✓' : ''); return finishSync(); });
     });
   }
   // Safety net: if the change the server just confirmed comes straight back out of the diff, the page's baseline is out of
@@ -3162,7 +3166,18 @@
       return false;
     });
   }
-  document.getElementById('refreshBtn').addEventListener('click', function(){ if(inflight || buildChanges()){ toast('Najprv sa dokončí ukladanie.'); return; } loadFromBackend().then(function(ok){ if(ok) toast('Dáta obnovené.'); }); });
+  // The button answers the click at once (spinner, disabled, status line) and ignores a second click while the load is running.
+  var refreshBtn = document.getElementById('refreshBtn'), refreshing = false;
+  refreshBtn.addEventListener('click', function(){
+    if(refreshing) return;
+    if(inflight || buildChanges()){ toast('Najprv sa dokončí ukladanie.'); return; }
+    refreshing = true; refreshBtn.disabled = true; refreshBtn.classList.add('spin'); refreshBtn.textContent = 'Obnovuje sa…';
+    setStatus('saving', 'Načítavajú sa aktuálne údaje…');
+    loadFromBackend().then(function(ok){
+      refreshing = false; refreshBtn.disabled = false; refreshBtn.classList.remove('spin'); refreshBtn.textContent = 'Obnoviť dáta';
+      if(ok){ setStatus('saved', 'Údaje sú aktuálne ✓'); toast('Dáta obnovené.'); } else setStatus('', '');
+    });
+  });
   document.getElementById('signOutBtn').addEventListener('click', function(){ leave(''); });
   document.getElementById('outdatedReload').addEventListener('click', function(){ location.reload(); });
   function initGoogle(){
