@@ -712,7 +712,7 @@
         changed = true;
       }
     });
-    if(changed && !READ_ONLY) saveState();
+    // live: the server derives "completed"; nothing to save
   }
   runAutoComplete();
 
@@ -791,7 +791,7 @@
   }
 
   function trainingEditMode(s){
-    if(READ_ONLY) return 'locked';
+    if(READ_ONLY || (s && s._archived)) return 'locked';   // archived trainings are read-only
     if(!isTrainerRole()) return 'full';
     if(!s) return 'full'; // new training: allowed, must include themselves (checklist) and not be back-dated past the limit
     if(isAssigned(s)){
@@ -1179,6 +1179,7 @@
   }
 
   function renderCalendar(){
+    archiveForCalendar();
     hidePreview();
     runAutoComplete();
     applyRoleUI();
@@ -1658,7 +1659,7 @@
     editArea.innerHTML = '';
     document.getElementById('scopeChooser').hidden = true;
     document.getElementById('saveBtn').hidden = false;
-    if(s && !READ_ONLY && (!isTrainerRole() || canTrainerToggleCancel(s))){
+    if(s && !READ_ONLY && !s._archived && (!isTrainerRole() || canTrainerToggleCancel(s))){
       var cancelBtn = document.createElement('button');
       cancelBtn.className = 'btn btn-sm'; cancelBtn.textContent = s.status==='cancelled' ? 'Obnoviť tréning' : 'Zrušiť tréning';
       cancelBtn.addEventListener('click', function(){
@@ -2100,6 +2101,7 @@
   function allMonths(){
     var set = {};
     sessions.forEach(function(s){ set[ym(s.date)] = true; });
+    archivedMonths().forEach(function(m){ set[m] = true; });
     return Object.keys(set).sort();
   }
 
@@ -2178,7 +2180,7 @@
     });
   }
 
-  function drawAll(){ drawSummary(); drawMissing(); drawByTrainer(); drawConflicts(); drawPrivate(); drawVertigo(); drawActivity(); drawLoad(); }
+  function drawAll(){ if(archiveForReports()) return; drawSummary(); drawMissing(); drawByTrainer(); drawConflicts(); drawPrivate(); drawVertigo(); drawActivity(); drawLoad(); }
 
   // A cell starting with = + - @ is executed as a formula when the CSV is opened in Excel/Sheets — prefix it so it stays plain text.
   function csvEscape(v){ v=String(v==null?'':v); if(/^[=+\-@\t\r]/.test(v)) v = "'"+v; return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }
@@ -2460,7 +2462,7 @@
         if(!isOwnerRole()) return;
         var id = btn.dataset.trainer;
         var marked = [];
-        byTrainer[id].filter(function(s){ return s.status==='completed' && !s.paid; }).forEach(function(s){
+        byTrainer[id].filter(function(s){ return s.status==='completed' && !s.paid && !s._archived; }).forEach(function(s){
           var wasPaid = s.paid;
           s.paid = true;
           stampPaid(s, wasPaid);
@@ -2621,6 +2623,7 @@
   function applyLoad(d, deferRender){
     me = d.me; trainers = d.trainers; blocks = d.blocks;
     changeLog = []; logLoaded = false; logTriedAt = 0;   // the log is fetched only when Activity is opened (see ensureLog)
+    archiveInfo = d.archive || null; archiveLoaded = {}; archiveFailed = {};   // a full load drops archived rows, so they are fetched again on demand
     syncGen++;
     sessions = d.sessions.map(fixColor);
     currentTrainerId = me.id;
@@ -2630,7 +2633,7 @@
     syncCurrentRoleFromPerson();
     renderRoleBanner();
     document.getElementById('roleBanner').insertAdjacentHTML('beforeend', READ_ONLY ? ' <b>Len na čítanie (testovacia fáza).</b>' : ' <b>Testovací režim: zmeny sa ukladajú do testovacieho zošita.</b>');
-    applyRoleUI(); runAutoComplete(); takeSnapshot(); lastLoadAt = Date.now(); retryLoadN = 0; clearTimeout(retryLoadTimer);
+    applyRoleUI(); takeSnapshot(); runAutoComplete();   // baseline FIRST: anything computed after this is compared against what the server just confirmed lastLoadAt = Date.now(); retryLoadN = 0; clearTimeout(retryLoadTimer);
     if(d.logCursor != null) pollCursor = d.logCursor;
     schedulePoll();
     if(!deferRender){ renderCalendar(); if(!views.team.hidden) renderTeam(); if(!views.reports.hidden) renderReports(); }
@@ -2654,7 +2657,7 @@
     var ch = {sessions:[], delSessions:[], blocks:[], delBlocks:[], trainers:[], log:[]}, seen = {};
     sessions.forEach(function(s){
       seen[s.id] = 1; var old = snap.sessions[s.id];
-      if(old && old.key===sKey(s)) return;
+      if(s._archived || (old && old.key===sKey(s))) return;   // archived rows are read-only: never sent
       ch.sessions.push({_new:!old, _base:old?old.version:0, id:s.id, seriesId:s.seriesId||'', date:s.date, start:s.start, durationMin:s.durationMin, type:s.type, tag:s.tag||'', color:s.color||'',
         clientName:s.clientName||'', phone:s.phone||'', people:s.people==null?null:s.people, requiredTrainers:s.requiredTrainers, trainerIds:s.trainerIds, status:(old ? derived(s) : s.status), notes:s.notes||'', paid:!!s.paid});
     });
@@ -2827,6 +2830,47 @@
       (d.deletedSessions || []).forEach(function(id){ delete snap.sessions[id]; });
       renderCalendar(); if(!views.team.hidden) renderTeam(); if(!views.reports.hidden) renderReports();
     }).then(schedulePoll, schedulePoll);
+  }
+
+  // ---- archive: months moved to the Archive tab are fetched when opened (Reports, or the calendar navigated back) ----
+  // Fetched rows join `sessions` (so every report and the calendar just work) and the baseline (so they are never sent back as
+  // "new"); they are flagged _archived: read-only, and skipped when the diff is built.
+  var archiveInfo = null, archiveLoaded = {}, archiveLoading = {}, archiveFailed = {};
+  function archivedMonths(){
+    if(!archiveInfo) return [];
+    var out = [], y = +archiveInfo.from.slice(0, 4), m = +archiveInfo.from.slice(5, 7), to = archiveInfo.to;
+    for(;;){ var k = y + '-' + ('0' + m).slice(-2); if(k > to) break; out.push(k); if(++m > 12){ m = 1; y++; } }
+    return out;
+  }
+  function loadArchiveMonths(months, done){
+    if(!archiveInfo) return false;
+    var inRange = archivedMonths(), want = months.filter(function(m, i){
+      return months.indexOf(m) === i && inRange.indexOf(m) >= 0 && !archiveLoaded[m] && !archiveLoading[m] && !(archiveFailed[m] && Date.now() - archiveFailed[m] < 15000);
+    }).slice(0, 12);
+    if(!want.length) return false;
+    want.forEach(function(m){ archiveLoading[m] = true; });
+    toast('Načítava sa archív…');
+    safePost({op:'archive', months:want}).then(function(d){
+      want.forEach(function(m){ delete archiveLoading[m]; });
+      if(!d || !d.ok){ want.forEach(function(m){ archiveFailed[m] = Date.now(); }); toast('Archív sa nepodarilo načítať.'); return; }
+      var have = {}; sessions.forEach(function(s){ have[s.id] = 1; });
+      (d.sessions || []).map(fixColor).forEach(function(s){
+        if(have[s.id]) return;
+        s._archived = true; sessions.push(s); snap.sessions[s.id] = {key:sKey(s), version:s.version};
+      });
+      want.forEach(function(m){ archiveLoaded[m] = true; });
+      if(done) done();
+    });
+    return true;
+  }
+  function archiveForReports(){
+    var picked = Array.from(document.getElementById('reportMonth').selectedOptions).map(function(o){ return o.value; });
+    return loadArchiveMonths(picked, function(){ drawAll(); });
+  }
+  function archiveForCalendar(){
+    if(!archiveInfo) return;
+    var days = viewMode === 'day' ? [selectedDate] : (function(){ var a = [], st = startOfWeek(selectedDate); for(var i = 0; i < 7; i++) a.push(isoOf(new Date(st.getFullYear(), st.getMonth(), st.getDate() + i))); return a; })();
+    loadArchiveMonths(days.map(ym), function(){ renderCalendar(); });
   }
 
   // ---- change log: loaded on demand (only admins/owner see Activity), so sign-in and refresh skip one Sheets read ----
