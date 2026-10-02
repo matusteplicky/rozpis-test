@@ -148,6 +148,8 @@
   .session-block.busy{ background:var(--surface-2); border:1px solid var(--border); color:var(--ink-dim); cursor:default; }
   .session-block.busy:hover{ filter:none; }
   .hover-preview{ position:fixed; z-index:220; background:var(--surface); border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow); padding:11px 13px; font-size:12.5px; line-height:1.45; max-width:260px; pointer-events:none; }
+  .hover-preview.touch{ pointer-events:auto; box-shadow:var(--shadow), 0 0 0 1px var(--border); }
+  .hp-open{ margin-top:10px; width:100%; min-height:40px; font-size:14px; }
   .hp-title{ font-weight:700; font-size:13px; margin-bottom:2px; }
   .hp-sub{ color:var(--ink-dim); font-size:11.5px; margin-bottom:6px; }
   .hp-row{ margin-top:3px; } .hp-row b{ font-weight:700; }
@@ -987,16 +989,29 @@
     var top = r.top; if(top + ph > innerHeight - 8) top = innerHeight - ph - 8; if(top < 8) top = 8;
     hoverPreview.style.left = left+'px'; hoverPreview.style.top = top+'px';
   }
-  function showPreview(el, s){
+  // Touch (finger or pen) has no hover: a tap on a training shows this same card with an "Otvoriť" button instead, and the
+  // training opens from that button. Mouse and trackpad — including on a tablet — keep hover to preview, click to open.
+  var lastPointerType = 'mouse', previewForId = null;
+  document.addEventListener('pointerdown', function(e){
+    lastPointerType = e.pointerType || 'mouse';
+    if(!hoverPreview.hidden && hoverPreview.classList.contains('touch') && !hoverPreview.contains(e.target) && !(e.target.closest && e.target.closest('.session-block'))) hidePreview();
+  }, true);
+  window.addEventListener('scroll', function(){ if(!hoverPreview.hidden && hoverPreview.classList.contains('touch')) hidePreview(); }, {passive:true, capture:true});
+  function isTouchTap(){ return lastPointerType === 'touch' || lastPointerType === 'pen'; }
+  function showPreview(el, s, touch){
     var trNames = s.trainerIds.map(trainerNameH).join(', ') || (s.requiredTrainers===0 ? 'Netreba trénera' : 'zatiaľ nikto');
     hoverPreview.innerHTML = '<div class="hp-title">'+esc(displayClient(s))+'</div>'+
       '<div class="hp-sub">'+fmtReportDate(s.date)+' &middot; '+s.start+'–'+s.end+'</div>'+
       hpRow('Tréneri', trNames) + hpRow('Telefón', s.phone) +
-      (s.notes ? '<div class="hp-notes">'+esc(s.notes)+'</div>' : '');
+      (s.notes ? '<div class="hp-notes">'+esc(s.notes)+'</div>' : '') +
+      (touch ? '<button type="button" class="btn btn-primary hp-open">Otvoriť</button>' : '');
+    hoverPreview.classList.toggle('touch', !!touch);
+    previewForId = touch ? s.id : null;
     hoverPreview.hidden = false;
+    if(touch) hoverPreview.querySelector('.hp-open').addEventListener('click', function(){ hidePreview(); openModal(s.id); });
     positionPreview(el);
   }
-  function hidePreview(){ hoverPreview.hidden = true; }
+  function hidePreview(){ hoverPreview.hidden = true; hoverPreview.classList.remove('touch'); previewForId = null; }
   function colorVar(id){ return 'var(--swatch-'+(id||'blue')+')'; }
   function allTags(){
     var set={};
@@ -1307,9 +1322,13 @@
           el.innerHTML = '<div class="sb-type"><span class="sb-time">'+s.start+'–'+s.end+'</span> &middot; '+esc(s.clientName||s.type)+'</div>'+
             (badges.length ? '<div class="sb-badges">'+badges.join(' &middot; ')+'</div>' : '')+
             '<div class="sb-trainers">'+[s.tag?esc(s.tag):'', trNames].filter(Boolean).join(' &middot; ')+'</div>';
-          el.addEventListener('click', function(s){ return function(e){ e.stopPropagation(); hidePreview(); openModal(s.id); }; }(s));
-          el.addEventListener('mouseenter', function(s){ return function(){ showPreview(this, s); }; }(s));
-          el.addEventListener('mouseleave', hidePreview);
+          el.addEventListener('click', function(s){ return function(e){
+            e.stopPropagation();
+            if(isTouchTap()){ if(previewForId === s.id) hidePreview(); else showPreview(this, s, true); return; }   // touch: preview first, the button opens
+            hidePreview(); openModal(s.id);
+          }; }(s));
+          el.addEventListener('mouseenter', function(s){ return function(){ if(!isTouchTap()) showPreview(this, s); }; }(s));
+          el.addEventListener('mouseleave', function(){ if(!isTouchTap()) hidePreview(); });
           body.appendChild(el);
         });
       });
