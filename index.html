@@ -999,9 +999,15 @@
   // Touch (finger or pen) has no hover: a tap on a training shows this same card with an "Otvoriť" button instead, and the
   // training opens from that button. Mouse and trackpad — including on a tablet — keep hover to preview, click to open.
   var lastPointerType = 'mouse', previewForId = null;
+  // A tap outside the card only CLOSES it: the click that follows the same tap must not also reach whatever is underneath (an empty
+  // stretch of the calendar opens a new-training form), so that one click is swallowed.
+  var swallowClickUntil = 0;
   document.addEventListener('pointerdown', function(e){
     lastPointerType = e.pointerType || 'mouse';
-    if(!hoverPreview.hidden && hoverPreview.classList.contains('touch') && !hoverPreview.contains(e.target) && !(e.target.closest && e.target.closest('.session-block'))) hidePreview();
+    if(!hoverPreview.hidden && hoverPreview.classList.contains('touch') && !hoverPreview.contains(e.target) && !(e.target.closest && e.target.closest('.session-block'))){ hidePreview(); swallowClickUntil = Date.now() + 700; }
+  }, true);
+  document.addEventListener('click', function(e){
+    if(Date.now() < swallowClickUntil){ swallowClickUntil = 0; e.stopPropagation(); e.preventDefault(); }
   }, true);
   window.addEventListener('scroll', function(){ if(!hoverPreview.hidden && hoverPreview.classList.contains('touch')) hidePreview(); }, {passive:true, capture:true});
   function isTouchTap(){ return lastPointerType === 'touch' || lastPointerType === 'pen'; }
@@ -2753,6 +2759,9 @@
     return any ? ch : null;
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
+  // Which page and which server code are running: hover over "Obnoviť dáta". (The server's build is also what its web address shows when opened.)
+  var PAGE_BUILD = '2026-10-02-guard-1', serverBuild = '?';
+  function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
     if(!body.idToken) body.session = session;
@@ -2779,7 +2788,7 @@
           return d;
         });
       }, function(e){ clearTimeout(timer); throw e; })
-      .then(function(d){ if(d && d.error === 'outdated') pageOutdated(d); if(d && d.session) storeSession(d.session); return d; });   // the server hands out a fresh token now and then (sliding 30 days)
+      .then(function(d){ if(d && d.error === 'outdated') pageOutdated(d); if(d && d.session) storeSession(d.session); if(d && d.build) setBuildInfo(d.build); return d; });   // the server hands out a fresh token now and then (sliding 30 days)
   }
   // The server says this page is older than it can safely work with. Stop everything (no polling, no saving) and say so loudly;
   // unsaved edits stay on screen (and the browser still warns before the tab is closed) — they cannot be saved from here.
