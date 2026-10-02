@@ -2863,7 +2863,7 @@
         // of leaving inflight stuck true forever (which would also silently stop polling — see doPoll()).
         try{
           rebase(d, sentNow, reqNow.changes); lastConfirmed = JSON.stringify(reqNow.changes); lastContactAt = Date.now();
-          setStatus('saved', 'Uložené ✓ — ' + changeWord(countNow) + ' (' + total + ' s)', 'Server ' + srv + ' s, celkom ' + total + ' s'); console.log('sync: server '+srv+' s, celkom '+total+' s');
+          setStatus('saved', 'Uložené ✓ — ' + changeWord(countNow) + ' (' + total + ' s)', 'Server ' + srv + ' s, celkom ' + total + ' s'); console.log('sync: server '+srv+' s, celkom '+total+' s' + (d.ph ? ' — zámok ' + d.ph.lock + ', čítanie ' + d.ph.read + ', kontrola ' + d.ph.check + ', zápis ' + d.ph.write + ', flush ' + d.ph.flush + ' ms' : ''));
           return finishSync();
         }catch(e){
           console.log('sync: uložené na serveri, ale spracovanie odpovede zlyhalo (' + (e && e.message || e) + ') — načítavam znova.');
