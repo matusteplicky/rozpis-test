@@ -136,6 +136,13 @@
   .team-contact{ font-size:11px; color:var(--ink-dim); }
   .outdated-banner{ display:flex; gap:12px; align-items:center; justify-content:space-between; background:var(--warning-soft); border-color:var(--warning); font-weight:600; }
   .outdated-banner[hidden]{ display:none; }
+  .busy-overlay{ position:fixed; inset:0; z-index:600; background:rgba(20,24,28,0.35); display:flex; align-items:center; justify-content:center; padding:16px; }
+  .busy-card{ background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); padding:18px 20px; max-width:360px; text-align:center; font-size:14px; line-height:1.45; }
+  .busy-card .bc-spin{ display:inline-block; width:18px; height:18px; border:3px solid var(--accent); border-right-color:transparent; border-radius:50%; animation:rfspin .8s linear infinite; margin-bottom:8px; }
+  .busy-card .bc-sub{ font-size:12px; color:var(--ink-dim); margin-top:4px; }
+  .busy-card button{ margin-top:12px; }
+  .err-banner{ position:fixed; left:12px; right:12px; bottom:12px; z-index:650; display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; background:var(--surface); border:1px solid var(--danger, #b3261e); border-radius:10px; box-shadow:var(--shadow); padding:10px 12px; font-size:12.5px; }
+  .err-banner .eb-text{ flex:1 1 220px; word-break:break-word; }
   .arch-card{ border:1px solid var(--border-soft); border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
   .arch-card h3{ font-size:13.5px; margin:0; }
   .arch-help{ font-size:12px; color:var(--ink-dim); margin:0; line-height:1.5; }
@@ -2745,7 +2752,7 @@
     var any = ch.sessions.length || ch.delSessions.length || ch.blocks.length || ch.delBlocks.length || ch.trainers.length || ch.log.length;
     return any ? ch : null;
   }
-  var lastCtl = null;
+  var syncCtls = [], pollCtl = null, pollAborted = false;
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
     if(!body.idToken) body.session = session;
@@ -2755,10 +2762,16 @@
     // The attempt is abandoned and the caller repeats it (saves carry an id, so a repeat is never applied twice).
     // Sync gets the longest leash: a save that is merely slow (not dead) should get the chance to finish on its
     // own rather than being given up on and repeated while it is still genuinely working.
-    var ctl = new AbortController(), ms = window.__reqTimeout || (body.op==='poll' ? 10000 : (body.op==='load' ? 30000 : 60000)), timer = setTimeout(function(){ ctl.abort(); }, ms);
-    if(body.op === 'sync') lastCtl = ctl;   // the status pill's "try again" aborts the save in flight, never a poll/log request
+    var ctl = new AbortController(), ms = window.__reqTimeout || (body.op==='poll' ? 25000 : (body.op==='load' ? 30000 : 60000)), timer = setTimeout(function(){ ctl.abort(); }, ms);
+    if(body.op === 'sync') syncCtls.push(ctl);   // the status pill's "try again" aborts the save(s) in flight (original + hedged copy), never a poll/log request
+    if(body.op === 'poll') pollCtl = ctl;
     return fetch(BACKEND_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(body), signal:ctl.signal, cache:'no-store'})
-      .then(function(r){ clearTimeout(timer); return r.json(); }, function(e){ clearTimeout(timer); throw e; })
+      .then(function(r){
+        clearTimeout(timer);
+        // Google sometimes answers with its own HTML error page ("Stránka nebola nájdená", HTTP 404 from script.googleusercontent.com/macros/echo)
+        // AFTER the script ran fine — the work is done, only the answer was lost. That is a different thing from a dead connection.
+        return r.text().then(function(t){ try{ return JSON.parse(t); }catch(x){ var er = new Error('unreadable reply'); er.unreadable = true; throw er; } });
+      }, function(e){ clearTimeout(timer); throw e; })
       .then(function(d){ if(d && d.error === 'outdated') pageOutdated(d); if(d && d.session) storeSession(d.session); return d; });   // the server hands out a fresh token now and then (sliding 30 days)
   }
   // The server says this page is older than it can safely work with. Stop everything (no polling, no saving) and say so loudly;
@@ -2797,8 +2810,22 @@
   // it twice. Content that has never been sent gets a fresh id instead, since it is not a repeat of anything.
   function isAuthError(d){ return d && d.ok===false && (d.error==='bad_token' || d.error==='denied'); }
   function isHiccup(d){ return !d || (d.ok===false && (d.error==='network' || d.error==='server')); }
-  function safePost(body){ return post(body).catch(function(){ return {ok:false, error:'network'}; }); }
+  function safePost(body){ return post(body).catch(function(e){ return e && e.unreadable ? {ok:false, error:'server', unreadable:true} : {ok:false, error:'network'}; }); }
+  // A save that has not been answered after HEDGE_MS gets a second copy sent (same request id). The server recognises the repeat and
+  // answers it from its cache, never applying it twice — so whichever answer arrives first (and is readable) settles the save, and one
+  // lost or very slow reply no longer decides how long the person waits.
+  var HEDGE_MS = 8000;
+  function hedgedPost(body){
+    return new Promise(function(resolve){
+      var done = false, sent = 1, back = 0, timer = null;
+      function settle(d){ if(done) return; done = true; clearTimeout(timer); resolve(d); }
+      function fire(){ safePost(body).then(function(d){ back++; if(!isHiccup(d) || back >= sent) settle(d); }); }
+      timer = setTimeout(function(){ if(!done){ sent = 2; fire(); } }, window.__hedgeMs !== undefined ? window.__hedgeMs : HEDGE_MS);
+      fire();
+    });
+  }
   function syncChanges(){
+    if(reconciling) return;   // the page is being matched to the sheet again: nothing new goes out until that is done
     var ch = buildChanges();
     if(!ch && !unsure){ clearTimeout(syncTimer); syncTimer = null; pendingReq = null; pendingSent = null; syncRetries = 0; inflight = false; pendingCount = 0; setStatus('', ''); return; }
     inflight = true; pendingCount = ch ? changeCount(ch) : changeCount(unsure.req.changes);   // kept current on every call, so the count never goes stale
@@ -2808,7 +2835,8 @@
     if(fetchBusy){ setStatus('saving', 'Ukladá sa (' + changeWord(pendingCount) + ')…'); return; }   // already sending; whatever is newer goes out when that resolves
     clearTimeout(syncTimer); syncTimer = null;
     clearTimeout(debounceTimer); debounceTimer = null; firstDirtyAt = 0;   // whatever was waiting goes out now
-    fetchBusy = true;
+    fetchBusy = true; syncCtls = [];
+    if(pollCtl){ pollAborted = true; try{ pollCtl.abort(); }catch(e){} pollCtl = null; }   // one request at a time: a quiet poll is not worth competing with a save
     // A request whose outcome is unknown (timed out, lost reply) goes again EXACTLY as it was — same rid, same content —
     // before anything newer. The server answers a repeat from cache, so it is never applied twice; and only once its
     // answer is in do the rows it touched carry the right version. Sending newer content first instead (a fresh rid that
@@ -2822,7 +2850,7 @@
     // wording only ever claims what is actually known: the outcome of THIS attempt has not been confirmed yet.
     setStatus(syncRetries ? 'retrying' : 'saving', syncRetries ? ('Overuje sa uloženie (' + changeWord(countNow) + ') — môžete pokračovať') : ('Ukladá sa (' + changeWord(countNow) + ')…'));
     clearTimeout(slowTimer); slowTimer = setTimeout(function(){ if(fetchBusy && !syncTimer) setStatus('saving', 'Čaká sa na potvrdenie (' + changeWord(pendingCount) + ') — môžete pokračovať', 'Zmena mohla byť už uložená; čaká sa, kým to server potvrdí. Ďalšie zmeny sa uložia hneď potom. Kliknutím skúsite znova.'); }, window.__slowMs || 15000);
-    safePost({op:reqNow.op, changes:reqNow.changes, rid:reqNow.rid}).then(function(d){
+    hedgedPost({op:reqNow.op, changes:reqNow.changes, rid:reqNow.rid}).then(function(d){
       fetchBusy = false; clearTimeout(slowTimer);
       if(d && d.error === 'outdated') return;   // pageOutdated() has shown the banner; nothing here may drop the person's unsaved edits
       if(!isHiccup(d) && unsure){ unsure = null; syncRetries = 0; }   // any real answer (saved, refused, signed out) settles it
@@ -2839,8 +2867,8 @@
           return finishSync();
         }catch(e){
           console.log('sync: uložené na serveri, ale spracovanie odpovede zlyhalo (' + (e && e.message || e) + ') — načítavam znova.');
-          setStatus('saving', 'Dokončuje sa uloženie…');
-          return loadFromBackend().then(function(ok){ setStatus(ok ? 'saved' : '', ok ? 'Uložené ✓' : ''); return finishSync(); });
+          showErr('Uložené na serveri, ale odpoveď sa nepodarilo spracovať', e, d);
+          return reconcile().then(finishSync);
         }
       }
       if(isAuthError(d)) return leave('Prihlásenie vypršalo. Prihláste sa znova.');
@@ -2848,16 +2876,73 @@
         // The server may or may not have applied it: remember it, and resend this very request (see `unsure` above).
         unsure = {req:reqNow, sent:sentNow, t0:t0Now};
         syncRetries++;
-        var delay = retryNow ? 0 : Math.min(30000, 2000 * Math.pow(2, Math.min(syncRetries, 4))); retryNow = false;
+        var quick = d && d.unreadable && syncRetries <= 2;   // the server already did the work and a resend is answered from its cache: no reason to wait
+        var delay = (retryNow || quick) ? 0 : Math.min(30000, 2000 * Math.pow(2, Math.min(syncRetries, 4))); retryNow = false;
         syncTimer = setTimeout(syncChanges, delay);
         setStatus('retrying', 'Overuje sa uloženie (' + changeWord(pendingCount) + ') — môžete pokračovať', 'Ďalšie zmeny sa uložia hneď potom. Kliknutím skúsite znova hneď.');
         return;
       }
       if(pendingReq === reqNow){ pendingReq = null; pendingSent = null; syncRetries = 0; pendingCount = 0; }   // a real refusal (rule, conflict, invalid): show why, then the sheet's truth
       setStatus('saving', 'Načítavajú sa aktuálne údaje…'); toast(d.message || 'Zmenu sa nepodarilo uložiť.');
-      return loadFromBackend().then(function(ok){ setStatus(ok ? 'saved' : '', ok ? 'Údaje sú aktuálne ✓' : ''); return finishSync(); });
+      return reconcile().then(finishSync);
     });
   }
+  // ---- getting back in step with the sheet ----
+  // After a refused save, or a reply the page could not apply, the page's copy and its baseline can no longer be trusted: the
+  // only safe move is to load the sheet's truth. That load must not be able to fail quietly — a failed or slow reload used to
+  // leave the page holding a stale baseline, so its NEXT save clashed with its own earlier one and was thrown away. So: it is
+  // retried until it succeeds, nothing new is sent meanwhile (syncChanges stands still), and a short-lived overlay says what is
+  // happening and blocks edits that would otherwise be discarded by the reload.
+  var reconciling = false, reconcilePromise = null, busyOv = null;
+  function busyOverlay(){
+    if(busyOv) return busyOv;
+    busyOv = document.createElement('div'); busyOv.className = 'busy-overlay'; busyOv.hidden = true;
+    busyOv.innerHTML = '<div class="busy-card"><div class="bc-spin"></div><div class="bc-main">Načítavajú sa aktuálne údaje…</div><div class="bc-sub"></div><button type="button" class="btn btn-sm" hidden>Obnoviť stránku</button></div>';
+    busyOv.querySelector('button').addEventListener('click', function(){ location.reload(); });
+    document.body.appendChild(busyOv); return busyOv;
+  }
+  function reconcile(){
+    if(reconciling) return reconcilePromise;
+    reconciling = true; inflight = true;
+    var tries = 0, ov = busyOverlay(), sub = ov.querySelector('.bc-sub'), btn = ov.querySelector('button');
+    sub.textContent = ''; btn.hidden = true;
+    var showT = setTimeout(function(){ ov.hidden = false; }, window.__overlayMs !== undefined ? window.__overlayMs : 600);   // a quick reload should not flash a dialog
+    setStatus('saving', 'Načítavajú sa aktuálne údaje…');
+    reconcilePromise = new Promise(function(done){
+      (function attempt(){
+        tries++;
+        loadFromBackend({quiet:true, strict:true}).catch(function(){ return false; }).then(function(ok){
+          if(ok || !session || outdated){
+            clearTimeout(showT); ov.hidden = true; reconciling = false; reconcilePromise = null;
+            if(ok) setStatus('saved', 'Údaje sú aktuálne ✓'); else setStatus('', '');
+            done(ok); return;
+          }
+          sub.textContent = 'Server odpovedá pomaly — skúšam znova (pokus ' + (tries + 1) + ').'; if(tries >= 3) btn.hidden = false;
+          setStatus('saving', 'Načítavajú sa aktuálne údaje…');
+          setTimeout(attempt, window.__reconcileMs !== undefined ? window.__reconcileMs : Math.min(15000, 2000 * tries));
+        });
+      })();
+    });
+    return reconcilePromise;
+  }
+  // Something unexpected went wrong inside the page. There is no console on a tablet, so say so on screen, with the technical detail
+  // a person can read out or screenshot — instead of a page that silently stops responding.
+  var errBanner = null;
+  function showErr(what, e, d){
+    var msg = (e && (e.message || String(e))) || '';
+    if(/ResizeObserver|^Script error/i.test(msg)) return;
+    var shape = d && typeof d === 'object' ? ' [odpoveď: ' + Object.keys(d).slice(0, 12).join(',') + ']' : '';
+    if(!errBanner){
+      errBanner = document.createElement('div'); errBanner.className = 'err-banner'; errBanner.hidden = true;
+      errBanner.innerHTML = '<div class="eb-text"></div><div style="display:flex;gap:6px;"><button type="button" class="btn btn-sm btn-primary" data-a="r">Obnoviť stránku</button><button type="button" class="btn btn-sm" data-a="x">Zavrieť</button></div>';
+      errBanner.addEventListener('click', function(ev){ var a = ev.target.getAttribute && ev.target.getAttribute('data-a'); if(a === 'r') location.reload(); if(a === 'x') errBanner.hidden = true; });
+      document.body.appendChild(errBanner);
+    }
+    errBanner.querySelector('.eb-text').textContent = what + (msg ? ': ' + msg : '') + shape;
+    errBanner.hidden = false; console.log('chyba: ' + what + ' — ' + msg + shape);
+  }
+  window.addEventListener('error', function(ev){ showErr('Chyba v aplikácii', ev && (ev.error || ev.message)); });
+  window.addEventListener('unhandledrejection', function(ev){ showErr('Chyba v aplikácii', ev && ev.reason); });
   // Safety net: if the change the server just confirmed comes straight back out of the diff, the page's baseline is out of
   // step with the sheet (a reconciliation bug) — resending it would loop forever and hammer the server. Reload the truth instead.
   var lastConfirmed = null;
@@ -2881,14 +2966,14 @@
     inflight = false;
     var ch = buildChanges(), again = ch && lastConfirmed && JSON.stringify(ch) === lastConfirmed;
     lastConfirmed = null;
-    if(again){ console.log('sync: potvrdená zmena by sa posielala znova — načítavam stav zo servera'); return loadFromBackend({quiet:true}); }
+    if(again){ console.log('sync: potvrdená zmena by sa posielala znova — načítavam stav zo servera'); return loadFromBackend({quiet:true, strict:true}); }
     if(ch) syncChanges();
   }
   // Click while waiting: always forces a fresh attempt now, whatever state things are actually in — never conditional
   // on which CSS class happens to be showing, since a stuck/inconsistent state is exactly when this matters most.
   var retryNow = false;
   statusEl.addEventListener('click', function(){
-    if(fetchBusy && lastCtl){ retryNow = true; lastCtl.abort(); }   // a request is genuinely in flight: give up on it now, it is repeated at once (no backoff)
+    if(fetchBusy && syncCtls.length){ retryNow = true; syncCtls.forEach(function(c){ try{ c.abort(); }catch(e){} }); syncCtls = []; }   // a request is genuinely in flight: give up on it now, it is repeated at once (no backoff)
     clearTimeout(syncTimer); syncTimer = null;
     flushSync();
   });
@@ -2927,9 +3012,10 @@
     if(document.visibilityState !== 'visible' || Date.now() - lastActivity > idleLimit()){ pollPaused = true; return; }   // nobody is looking: stop (resumePolling restarts it)
     if(inflight || buildChanges() || anyModalOpen()){ schedulePoll(); return; }
     var t0 = Date.now(), gen = syncGen;
+    pollAborted = false;
     safePost({op:'poll', since:pollCursor}).then(function(d){
       var ms = ((Date.now() - t0) / 1000).toFixed(1);
-      if(!d || !d.ok){ console.log('poll: zlyhalo ('+ms+' s)'); return; }
+      if(!d || !d.ok){ if(!pollAborted) console.log('poll: zlyhalo ('+ms+' s)'); pollAborted = false; return; }
       lastContactAt = Date.now();
       // An edit made while this poll was in the air must not be overwritten by it (the next save would then send the old
       // value back). Drop the whole answer and keep the cursor where it was — the next poll fetches the same lines again.
@@ -2941,7 +3027,7 @@
       var n = (d.sessions ? d.sessions.length : 0) + (d.blocks ? d.blocks.length : 0) + (d.trainers ? d.trainers.length : 0) + (d.deletedSessions ? d.deletedSessions.length : 0);
       console.log('poll: ' + (n ? (n + ' zmien (' + ms + ' s)') : ('nič nové (' + ms + ' s)')));
       if(!n) return;
-      var landed = (d.sessions || []).map(fixColor);
+      var landed = (d.sessions || []).filter(function(x){ return x && x.id != null; }).map(fixColor);
       upsert(sessions, landed, null); upsert(blocks, d.blocks || [], null); upsert(trainers, d.trainers || [], null);
       (d.deletedSessions || []).forEach(function(id){ for(var i = sessions.length - 1; i >= 0; i--) if(sessions[i].id === id) sessions.splice(i, 1); });
       landed.forEach(function(s){ snap.sessions[s.id] = {key:sKey(s), version:s.version}; });
@@ -3125,7 +3211,7 @@
   function upsert(list, rows, tempMap){
     if(tempMap) Object.keys(tempMap).forEach(function(tid){ for(var i = list.length - 1; i >= 0; i--) if(list[i].id === tid) list.splice(i, 1); });   // a created row's temp id is superseded by its real one below
     var at = {}; list.forEach(function(x, i){ at[x.id] = i; });
-    rows.forEach(function(row){ var i = at[row.id]; if(i === undefined){ list.push(row); at[row.id] = list.length - 1; } else list[i] = row; });
+    rows.forEach(function(row){ if(!row || row.id == null) return; var i = at[row.id]; if(i === undefined){ list.push(row); at[row.id] = list.length - 1; } else list[i] = row; });
   }
   function rebase(d, sent, req){
     req = req || {};
@@ -3149,8 +3235,8 @@
     var oldEditing = editingId, oldBlock = editingBlockId;
     // pollCursor is deliberately NOT moved to this save's cursor: other people's changes logged since the last poll sit
     // before it and would be skipped for good. The next poll re-fetches this save's own rows too — harmless, they match.
-    me = d.me; currentTrainerId = me.id; syncCurrentRoleFromPerson(); renderRoleBanner();   // rare, but your own role/name could have changed elsewhere
-    var landedSessions = (d.sessions || []).map(fixColor);
+    if(d.me){ me = d.me; currentTrainerId = me.id; syncCurrentRoleFromPerson(); renderRoleBanner(); }   // rare, but your own role/name could have changed elsewhere — and a reply without it must not stop the rest from being applied
+    var landedSessions = (d.sessions || []).filter(function(x){ return x && x.id != null; }).map(fixColor);
     upsert(sessions, landedSessions, mS);
     upsert(blocks, d.blocks || [], mB);
     upsert(trainers, d.trainers || [], mT);
@@ -3176,8 +3262,8 @@
   function loadFromBackend(opts){
     opts = opts || {};
     if(!session) return Promise.resolve(false);
-    return safePost({op:'load'}).then(function(d){
-      if(d.ok){ applyLoad(d); return true; }
+    return safePost({op:'load', strict:!!opts.strict}).then(function(d){
+      if(d.ok){ try{ applyLoad(d); return true; }catch(e){ showErr('Údaje zo servera sa nepodarilo spracovať', e, d); return false; } }
       if(d.error==='denied'){ leave('Tento účet nie je v zozname tímu. Požiadajte administrátora o pridanie.'); return false; }
       if(d.error==='bad_token'){ leave('Prihlásenie vypršalo. Prihláste sa znova.'); return false; }
       if(d.error==='outdated') return false;
@@ -3192,7 +3278,7 @@
     if(inflight || buildChanges()){ toast('Najprv sa dokončí ukladanie.'); return; }
     refreshing = true; refreshBtn.disabled = true; refreshBtn.classList.add('spin'); refreshBtn.textContent = 'Obnovuje sa…';
     setStatus('saving', 'Načítavajú sa aktuálne údaje…');
-    loadFromBackend().then(function(ok){
+    loadFromBackend({strict:true}).then(function(ok){
       refreshing = false; refreshBtn.disabled = false; refreshBtn.classList.remove('spin'); refreshBtn.textContent = 'Obnoviť dáta';
       if(ok){ setStatus('saved', 'Údaje sú aktuálne ✓'); toast('Dáta obnovené.'); } else setStatus('', '');
     });
