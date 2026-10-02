@@ -2770,7 +2770,14 @@
         clearTimeout(timer);
         // Google sometimes answers with its own HTML error page ("Stránka nebola nájdená", HTTP 404 from script.googleusercontent.com/macros/echo)
         // AFTER the script ran fine — the work is done, only the answer was lost. That is a different thing from a dead connection.
-        return r.text().then(function(t){ try{ return JSON.parse(t); }catch(x){ var er = new Error('unreadable reply'); er.unreadable = true; throw er; } });
+        // The same goes for an answer that is valid JSON but not OURS: a save/load/login reply always carries `me`. Google was seen to answer a
+        // save with the server's "is it alive" ping ({ok:true, service:…}) — "ok", but nothing about the save. Taking that for success made
+        // the page crash on the missing `me`; it is treated as a lost answer instead, so the save is repeated (the server answers from its cache).
+        return r.text().then(function(t){
+          var d = null; try{ d = JSON.parse(t); }catch(x){}
+          if(d === null || (d.ok === true && (body.op === 'sync' || body.op === 'load' || body.op === 'login') && !d.me)){ var er = new Error('unreadable reply'); er.unreadable = true; throw er; }
+          return d;
+        });
       }, function(e){ clearTimeout(timer); throw e; })
       .then(function(d){ if(d && d.error === 'outdated') pageOutdated(d); if(d && d.session) storeSession(d.session); return d; });   // the server hands out a fresh token now and then (sliding 30 days)
   }
