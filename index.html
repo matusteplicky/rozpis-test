@@ -2312,7 +2312,7 @@
       // (Slovak settings) read Hodiny as a real number (sum, average, pivot) instead of text or a date like "1. máj".
       var lines = ['Dátum;Začiatok;Koniec;Hodiny;Typ;Značka;Tréner;Klient;Počet osôb;Stav;Zaplatené'];
       rows.forEach(function(s){
-        var hours = String(Math.round((toMin(s.end)-toMin(s.start))/60*100)/100).replace('.', ',');   // 1,5 · 1,25 · 2
+        var hours = String(Math.round((toMin(s.end)-toMin(s.start))/60*100)/100);   // international number format, decimal POINT: 1.5 · 1.25 · 2 (fields stay ';'-separated)
         var ids = s.trainerIds.length ? s.trainerIds : [''];   // still exported even if nobody is assigned yet
         ids.forEach(function(id){
           lines.push([s.date, s.start, s.end, hours, s.type, s.tag||'', id?trainerName(id):'', s.clientName||'', (s.people==null?'':s.people), STATUS_LABEL[s.status]||s.status, (paidVisible(s)?(s.paid?'áno':'nie'):'')].map(csvEscape).join(';'));
@@ -2672,7 +2672,9 @@
   // ---------- live mode: Google sign-in, data from the backend ----------
   function toast(msg){
     var t = document.createElement('div'); t.textContent = msg;
-    t.style.cssText = 'position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:9px 14px; border-radius:8px; font-size:13px; z-index:2000;';
+    // Inverted from the page: dark box with light text in the light theme, light box with dark text in the dark theme (white text on --ink
+    // is unreadable in dark mode, where --ink is itself nearly white). Long messages wrap instead of running off-screen.
+    t.style.cssText = 'position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:var(--ink); color:var(--bg); border:1px solid var(--border); box-shadow:var(--shadow); padding:10px 16px; border-radius:8px; font-size:13px; line-height:1.4; font-weight:500; text-align:center; max-width:min(92vw, 520px); z-index:2000;';
     document.body.appendChild(t); setTimeout(function(){ t.remove(); }, 3500);
   }
   var gate = document.getElementById('authGate'), gateMsg = document.getElementById('gateMsg');
