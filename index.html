@@ -136,6 +136,12 @@
   .team-contact{ font-size:11px; color:var(--ink-dim); }
   .outdated-banner{ display:flex; gap:12px; align-items:center; justify-content:space-between; background:var(--warning-soft); border-color:var(--warning); font-weight:600; }
   .outdated-banner[hidden]{ display:none; }
+  #calOverlay .modal{ width:min(520px, 100%); }
+  .cal-url{ width:100%; font-size:12px; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface-2); color:var(--ink); }
+  .cal-row{ display:flex; gap:8px; flex-wrap:wrap; }
+  .cal-help{ font-size:12.5px; color:var(--ink-dim); line-height:1.5; }
+  .cal-help summary{ cursor:pointer; color:var(--ink); font-weight:600; }
+  .cal-warn{ font-size:12px; color:var(--ink-dim); background:var(--warning-soft); border-left:3px solid var(--warning); border-radius:6px; padding:7px 10px; }
   .busy-overlay{ position:fixed; inset:0; z-index:600; background:rgba(20,24,28,0.35); display:flex; align-items:center; justify-content:center; padding:16px; }
   .busy-card{ background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); padding:18px 20px; max-width:360px; text-align:center; font-size:14px; line-height:1.45; }
   .busy-card .bc-spin{ display:inline-block; width:18px; height:18px; border:3px solid var(--accent); border-right-color:transparent; border-radius:50%; animation:rfspin .8s linear infinite; margin-bottom:8px; }
@@ -317,6 +323,7 @@
     </div>
     <button class="btn btn-ghost btn-sm" id="resetBtn">Obnoviť vzorové dáta</button>
     <button class="btn btn-sm" id="refreshBtn">Obnoviť dáta</button>
+    <button class="btn btn-sm" id="calBtn">Môj kalendár</button>
     <span class="save-status" id="saveStatus" aria-live="polite"></span>
     <button class="btn btn-ghost btn-sm" id="signOutBtn">Odhlásiť</button>
     <button class="btn btn-ghost btn-sm" id="signOutAllBtn" title="Odhlási vás na všetkých zariadeniach">Odhlásiť všade</button>
@@ -2762,7 +2769,7 @@
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
   // Which page and which server code are running: hover over "Obnoviť dáta". (The server's build is also what its web address shows when opened.)
-  var PAGE_BUILD = '2026-10-02-guard-1', serverBuild = '?';
+  var PAGE_BUILD = '2026-10-09-cal-1', serverBuild = '?';
   function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
@@ -3289,6 +3296,59 @@
       return false;
     });
   }
+
+  // ---- "Môj kalendár": the person's private calendar-subscription address (the server builds the feed; see calFeed in the backend) ----
+  var calOv = null, calUrl = '';
+  function webcalOf(u){ return u.replace(/^https?:/, 'webcal:'); }
+  function calDialog(){
+    if(calOv) return calOv;
+    calOv = document.createElement('div'); calOv.className = 'modal-overlay'; calOv.id = 'calOverlay'; calOv.hidden = true;
+    calOv.innerHTML =
+      '<div class="modal" role="dialog" aria-modal="true" aria-label="Môj kalendár">' +
+        '<div class="modal-head"><h3 style="font-size:15px;">Moje tréningy v kalendári</h3><button class="btn btn-ghost btn-sm" type="button" data-cal="close" aria-label="Zavrieť">✕</button></div>' +
+        '<div class="modal-body">' +
+          '<div>Tréningy, na ktorých ste priradený(á), sa zobrazia vo vašom kalendári a budú sa aktualizovať automaticky. ' +
+          'Zrušený tréning ostane v kalendári, označený <b>„ZRUŠENÉ“</b> a prečiarknutý.</div>' +
+          '<div id="calState" class="cal-help">Načítava sa…</div>' +
+          '<div id="calReady" hidden>' +
+            '<div class="cal-row"><a class="btn btn-primary" id="calGoogle" target="_blank" rel="noopener">Pridať do Google Kalendára</a><a class="btn" id="calApple">Pridať do Apple Kalendára</a></div>' +
+            '<div><div class="cal-help" style="margin:2px 0 4px;">Alebo vložte tento odkaz do svojho kalendára:</div>' +
+            '<div class="cal-row" style="flex-wrap:nowrap;"><input class="cal-url" id="calUrlBox" type="text" readonly><button class="btn" type="button" data-cal="copy">Kopírovať</button></div></div>' +
+            '<details class="cal-help"><summary>Ako to pridať ručne</summary>' +
+              '<p><b>Google Kalendár (počítač):</b> vľavo pri „Ďalšie kalendáre“ kliknite na + → „Z adresy URL“ → vložte odkaz. Zmeny sa v Google Kalendári zobrazia až po niekoľkých hodinách.</p>' +
+              '<p><b>iPhone / iPad:</b> Nastavenia → Kalendár → Účty → Pridať účet → Iné → „Pridať predplatený kalendár“ → vložte odkaz.</p>' +
+              '<p>Upozornenie 60 minút pred tréningom pridá Apple Kalendár. V Google Kalendári platia vaše vlastné nastavenia upozornení.</p>' +
+            '</details>' +
+            '<div class="cal-warn">Odkaz je súkromný — nezdieľajte ho. Ak ho niekto získal, vygenerujte nový; starý prestane fungovať.</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="modal-foot"><button class="btn btn-ghost btn-sm" type="button" data-cal="rotate" id="calRotate" hidden>Vygenerovať nový odkaz</button><button class="btn" type="button" data-cal="close">Zavrieť</button></div>' +
+      '</div>';
+    document.body.appendChild(calOv);
+    calOv.querySelector('#calRotate').addEventListener('click', armButtonFactory(function(){ loadCal(true); }, 'Vygenerovať nový odkaz'));   // first click arms ("click again"), second one does it
+    calOv.addEventListener('click', function(ev){
+      var t = ev.target, a = t.getAttribute && t.getAttribute('data-cal');
+      if(t === calOv || a === 'close'){ calOv.hidden = true; return; }
+      if(a === 'copy'){ var box = calOv.querySelector('#calUrlBox'); box.select(); try{ navigator.clipboard.writeText(calUrl).then(function(){ toast('Odkaz skopírovaný.'); }, function(){ document.execCommand('copy'); toast('Odkaz skopírovaný.'); }); }catch(e){ try{ document.execCommand('copy'); toast('Odkaz skopírovaný.'); }catch(e2){ toast('Označte odkaz a skopírujte ho.'); } } }
+    });
+    document.addEventListener('keydown', function(ev){ if(ev.key === 'Escape' && !calOv.hidden) calOv.hidden = true; });
+    return calOv;
+  }
+  function loadCal(rotate){
+    var ov = calDialog(), state = ov.querySelector('#calState'), ready = ov.querySelector('#calReady'), rot = ov.querySelector('#calRotate');
+    state.hidden = false; state.textContent = rotate ? 'Vytvára sa nový odkaz…' : 'Načítava sa…'; ready.hidden = true; rot.hidden = true;
+    safePost({op:'calfeed', rotate:!!rotate}).then(function(d){
+      if(d && d.ok && d.url){
+        calUrl = d.url; ov.querySelector('#calUrlBox').value = calUrl;
+        ov.querySelector('#calGoogle').href = 'https://calendar.google.com/calendar/r?cid=' + encodeURIComponent(webcalOf(calUrl));
+        ov.querySelector('#calApple').href = webcalOf(calUrl);
+        state.hidden = true; ready.hidden = false; rot.hidden = false;
+        if(rotate) toast('Nový odkaz je pripravený. Starý už nefunguje.');
+      } else if(d && d.error === 'bad_op'){ state.textContent = 'Táto funkcia ešte nie je na serveri dostupná. Skúste to neskôr.'; }
+      else { state.textContent = 'Odkaz sa nepodarilo načítať. Skúste to znova o chvíľu.'; }
+    });
+  }
+  document.getElementById('calBtn').addEventListener('click', function(){ calDialog().hidden = false; loadCal(false); });
   // The button answers the click at once (spinner, disabled, status line) and ignores a second click while the load is running.
   var refreshBtn = document.getElementById('refreshBtn'), refreshing = false;
   refreshBtn.addEventListener('click', function(){
