@@ -126,7 +126,18 @@
   .cal-dayrow .hrow-label{ position:sticky; left:0; z-index:5; }
   .hrow{ display:flex; border-top:1px solid var(--border-soft); }
   .hrow:first-child{ border-top:none; }
-  .hrow-ruler{ position:sticky; top:var(--cal-sticky-h, 0px); z-index:4; background:var(--surface); box-shadow:0 1px 0 var(--border-soft); }
+  /* The sideways scrollbar sits ABOVE the hours (so it is always at hand, however long the week is) and pins with the ruler. The real scroller's own
+     bar is hidden; the two stay in step. */
+  .cal-head{ position:sticky; top:var(--cal-sticky-h, 0px); z-index:4; background:var(--surface); box-shadow:0 1px 0 var(--border-soft); }
+  .cal-topbar{ display:flex; border-bottom:1px solid var(--border-soft); }
+  .cal-topbar-gap{ flex:0 0 76px; }
+  .cal-topscroll{ flex:1 1 0; overflow-x:auto; overflow-y:hidden; height:15px; scrollbar-width:thin; scrollbar-color:var(--ink-faint) var(--surface-2); }
+  .cal-topscroll::-webkit-scrollbar{ height:12px; }
+  .cal-topscroll::-webkit-scrollbar-track{ background:var(--surface-2); }
+  .cal-topscroll::-webkit-scrollbar-thumb{ background:var(--ink-faint); border-radius:6px; border:2px solid var(--surface-2); }
+  .cal-topscroll::-webkit-scrollbar-thumb:hover{ background:var(--ink-dim); }
+  .cal-scroll{ scrollbar-width:none; }
+  .cal-scroll::-webkit-scrollbar{ display:none; }
   /* Navigation (arrows, week/day, add buttons, scope, day strip) stays pinned while the week scrolls; the hour row pins right below it.
      Desktop only: under 820px the grid is replaced by the agenda list, and on very short windows pinning would eat the screen. */
   .cal-sticky{ display:flex; flex-direction:column; gap:10px; }
@@ -135,7 +146,7 @@
   @media (min-width:821px) and (min-height:561px){
     .cal-sticky{ position:sticky; top:0; z-index:6; background:var(--surface); padding:8px 0 10px; box-shadow:0 1px 0 var(--border-soft); }
   }
-  @media (max-width:820px), (max-height:560px){ .hrow-ruler{ top:0; } }
+  @media (max-width:820px), (max-height:560px){ .cal-head{ top:0; } }
   .hrow-label{ flex:0 0 76px; min-width:76px; display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:0; padding:6px 10px; font-size:12px; font-weight:700; border-right:1px solid var(--border-soft); background:var(--surface); }
   .hrow-label .hrl-dow{ font-size:10px; color:var(--ink-dim); font-weight:600; text-transform:uppercase; letter-spacing:0.04em; }
   .hrow-body{ position:relative; flex:0 0 auto; width:var(--body-w, 100%); min-height:54px; background-image:linear-gradient(to right, var(--border-soft) 0, var(--border-soft) 1px, transparent 1px); background-size:var(--hour-px, 120px) 100%; background-position:var(--grid-off, 0px) 0; background-repeat:repeat-x; cursor:copy; }
@@ -406,7 +417,10 @@
       </div>
       <div class="legend" id="legend"></div>
       <div class="cal-grid-wrap" id="calGridWrap">
-        <div class="hrow hrow-ruler"><div class="hrow-label"></div><div class="ruler-clip"><div class="hrow-body" id="timeGutter"></div></div></div>
+        <div class="cal-head" id="calHead">
+          <div class="cal-topbar" id="calTopBar" hidden><div class="cal-topbar-gap"></div><div class="cal-topscroll" id="calTopScroll"><div id="calTopSpacer" style="height:1px;"></div></div></div>
+          <div class="hrow hrow-ruler"><div class="hrow-label"></div><div class="ruler-clip"><div class="hrow-body" id="timeGutter"></div></div></div>
+        </div>
         <div class="cal-scroll" id="calScroll"><div class="cal-rows" id="calRows"></div></div>
       </div>
       <div class="agenda-list" id="agendaList"></div>
@@ -737,7 +751,7 @@
     {order:1, name:'Súkromní klienti',      color:'purple', kind:'private'},
     {order:2, name:'Medvedica',             color:'orange', kind:'recurring', tag:'medvedica'},
     {order:3, name:'Individuálne (1 na 1)', color:'pink',   maxPeople:2},
-    {order:4, name:'Vertigo skupiny',       color:'blue',   kind:'recurring'},
+    {order:4, name:'Vertigo skupiny',       color:'blue',   kind:'recurring', top:true},
     {order:5, name:'Ostatné',               color:'green'}
   ];
   var groupRules = GROUP_DEFAULTS.slice(), tagChoices = null;
@@ -745,8 +759,12 @@
     var ids = COLOR_PALETTE.map(function(c){ return c.id; });
     var clean = (Array.isArray(groups) ? groups : []).filter(function(g){ return g && g.name && ids.indexOf(g.color) >= 0; }).map(function(g, i){
       var mp = (g.maxPeople === '' || g.maxPeople == null) ? null : Number(g.maxPeople);
-      return {order:Number(g.order) || (i + 1), name:String(g.name), color:g.color, kind:String(g.kind || ''), tag:String(g.tag || '').trim(), maxPeople:(mp === null || isNaN(mp)) ? null : mp};
+      var tp = g.top;   // null = the sheet has no "top" column yet
+      return {order:Number(g.order) || (i + 1), name:String(g.name), color:g.color, kind:String(g.kind || ''), tag:String(g.tag || '').trim(), maxPeople:(mp === null || isNaN(mp)) ? null : mp,
+        top:(tp === true || /^(1|áno|ano|yes|true)$/i.test(String(tp == null ? '' : tp).trim())), topKnown:tp != null};
     }).sort(function(a, b){ return a.order - b.order; });
+    // Without a "top" column in the sheet, the Vertigo group (blue, "Vertigo skupiny") is the one pinned to the top of each day.
+    if(clean.length && !clean.some(function(g){ return g.topKnown; })) clean.forEach(function(g){ g.top = (g.name === 'Vertigo skupiny'); });
     groupRules = clean.length ? clean : GROUP_DEFAULTS.slice();
     tagChoices = (Array.isArray(tags) && tags.length) ? tags.map(String) : null;
   }
@@ -1326,6 +1344,9 @@
     wrap.style.setProperty('--body-w', bodyW + 'px');
     wrap.style.setProperty('--rows-w', (bodyW + LABEL_W) + 'px');
     wrap.style.setProperty('--grid-off', (((60 - (viewStart % 60)) % 60) / 60 * pxPerHour) + 'px');
+    var tb = document.getElementById('calTopBar');
+    document.getElementById('calTopSpacer').style.width = bodyW + 'px';
+    tb.hidden = !(bodyW > avail + 1);   // nothing to scroll: no bar
   }
   function xOf(min){ return (min - viewStart) / 60 * pxPerHour; }
   function renderRuler(){
@@ -1341,7 +1362,13 @@
   }
   (function(){
     var sc = document.getElementById('calScroll'), wrap = document.getElementById('calGridWrap');
-    sc.addEventListener('scroll', function(){ wrap.style.setProperty('--scroll-x', (-sc.scrollLeft) + 'px'); }, {passive:true});
+    // the two scrollers follow each other; a difference of a pixel or less is ignored (browsers round scroll positions, which could otherwise ping-pong)
+    var topBar = document.getElementById('calTopScroll');
+    sc.addEventListener('scroll', function(){
+      wrap.style.setProperty('--scroll-x', (-sc.scrollLeft) + 'px');
+      if(Math.abs(topBar.scrollLeft - sc.scrollLeft) > 1) topBar.scrollLeft = sc.scrollLeft;
+    }, {passive:true});
+    topBar.addEventListener('scroll', function(){ if(Math.abs(sc.scrollLeft - topBar.scrollLeft) > 1) sc.scrollLeft = topBar.scrollLeft; }, {passive:true});
     var zt = document.getElementById('zoomToggle');
     function syncZoom(){ zt.querySelectorAll('.subtab').forEach(function(b){ b.classList.toggle('active', Number(b.dataset.px) === hourPx); }); document.getElementById('fullDayBtn').classList.toggle('btn-primary', fullDay); }
     zt.addEventListener('click', function(e){
@@ -1448,16 +1475,21 @@
       });
 
       var daySessions = visibleSessionsOnDate(date);
-      var clusters = buildClusters(daySessions);
       // Duration now drives width, not height — every session block gets the same
       // readable lane height regardless of how long it runs, and a day with several
       // overlapping trainings simply grows the row downward (more lanes) instead of
       // squeezing each one into a narrower sliver like the old side-by-side columns did.
-      var packed = clusters.map(packLanes);
-      var maxLanes = packed.reduce(function(m,c){ return Math.max(m, c.length); }, 1);
-      body.style.height = (maxLanes*LANE_PX + LANE_PAD)+'px';
-      packed.forEach(function(lanes){
-       lanes.forEach(function(lane, idx){
+      // Two bands: the group(s) marked "top" in the Skupiny tab (the blue Vertigo group) always sit on top of the day; every other training is packed
+      // below them. Each band packs its own lines, so nothing else takes a line inside the top band.
+      var topPacked = buildClusters(daySessions.filter(function(s){ return groupOf(s).top; })).map(packLanes);
+      var restPacked = buildClusters(daySessions.filter(function(s){ return !groupOf(s).top; })).map(packLanes);
+      var topLanes = topPacked.reduce(function(m,c){ return Math.max(m, c.length); }, 0);
+      var restLanes = restPacked.reduce(function(m,c){ return Math.max(m, c.length); }, 0);
+      body.style.height = (Math.max(1, topLanes + restLanes)*LANE_PX + LANE_PAD)+'px';
+      var bands = topPacked.map(function(l){ return {lanes:l, off:0}; }).concat(restPacked.map(function(l){ return {lanes:l, off:topLanes}; }));
+      bands.forEach(function(band){
+       band.lanes.forEach(function(lane, li){
+        var idx = band.off + li;
         lane.forEach(function(s){
           var gid = displayColor(s);
           var el = document.createElement('div');
@@ -2927,7 +2959,7 @@
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
   // Which page and which server code are running: hover over "Obnoviť dáta". (The server's build is also what its web address shows when opened.)
-  var PAGE_BUILD = '2026-10-17-update-1', serverBuild = '?';
+  var PAGE_BUILD = '2026-10-19-bands-2', serverBuild = '?';
   function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
