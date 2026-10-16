@@ -15,8 +15,11 @@
     --success:#3F8F5F; --success-soft:#E4F1E8;
     --warning:#B9791E; --warning-soft:#FBF0DD;
     --danger:#C74B3F; --danger-soft:#FAE7E4;
-    --swatch-blue:#0072B2; --swatch-orange:#E69F00; --swatch-green:#009E73;
-    --swatch-yellow:#F0E442; --swatch-red:#D55E00; --swatch-purple:#CC79A7;
+    --swatch-blue:#1D4ED8; --swatch-orange:#F59E0B; --swatch-green:#15803D;
+    --swatch-yellow:#FACC15; --swatch-red:#DC2626; --swatch-purple:#7E22CE;
+    --swatch-teal:#0F766E; --swatch-pink:#DB2777;
+    --swatch-blue-ink:#FFFFFF; --swatch-orange-ink:#1A1200; --swatch-green-ink:#FFFFFF; --swatch-yellow-ink:#1A1500;
+    --swatch-red-ink:#FFFFFF; --swatch-purple-ink:#FFFFFF; --swatch-teal-ink:#FFFFFF; --swatch-pink-ink:#FFFFFF;
     --shadow: 0 8px 28px rgba(21,27,26,0.14);
     --radius: 10px;
   }
@@ -29,8 +32,11 @@
       --success:#6FCB92; --success-soft:#173324;
       --warning:#E3AA55; --warning-soft:#382A12;
       --danger:#E58176; --danger-soft:#3A1E1B;
-      --swatch-blue:#0072B2; --swatch-orange:#E69F00; --swatch-green:#009E73;
-      --swatch-yellow:#F0E442; --swatch-red:#D55E00; --swatch-purple:#CC79A7;
+      --swatch-blue:#1D4ED8; --swatch-orange:#F59E0B; --swatch-green:#15803D;
+    --swatch-yellow:#FACC15; --swatch-red:#DC2626; --swatch-purple:#7E22CE;
+    --swatch-teal:#0F766E; --swatch-pink:#DB2777;
+    --swatch-blue-ink:#FFFFFF; --swatch-orange-ink:#1A1200; --swatch-green-ink:#FFFFFF; --swatch-yellow-ink:#1A1500;
+    --swatch-red-ink:#FFFFFF; --swatch-purple-ink:#FFFFFF; --swatch-teal-ink:#FFFFFF; --swatch-pink-ink:#FFFFFF;
       --shadow: 0 8px 28px rgba(0,0,0,0.45);
     }
   }
@@ -42,8 +48,11 @@
     --success:#6FCB92; --success-soft:#173324;
     --warning:#E3AA55; --warning-soft:#382A12;
     --danger:#E58176; --danger-soft:#3A1E1B;
-    --swatch-blue:#0072B2; --swatch-orange:#E69F00; --swatch-green:#009E73;
-    --swatch-yellow:#F0E442; --swatch-red:#D55E00; --swatch-purple:#CC79A7;
+    --swatch-blue:#1D4ED8; --swatch-orange:#F59E0B; --swatch-green:#15803D;
+    --swatch-yellow:#FACC15; --swatch-red:#DC2626; --swatch-purple:#7E22CE;
+    --swatch-teal:#0F766E; --swatch-pink:#DB2777;
+    --swatch-blue-ink:#FFFFFF; --swatch-orange-ink:#1A1200; --swatch-green-ink:#FFFFFF; --swatch-yellow-ink:#1A1500;
+    --swatch-red-ink:#FFFFFF; --swatch-purple-ink:#FFFFFF; --swatch-teal-ink:#FFFFFF; --swatch-pink-ink:#FFFFFF;
     --shadow: 0 8px 28px rgba(0,0,0,0.45);
   }
 
@@ -97,12 +106,23 @@
   .day-btn .dot{ width:4px; height:4px; border-radius:50%; background:var(--accent); }
   .day-btn.active .dot{ background:var(--accent-ink); }
 
-  .legend{ display:none; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--ink-dim); }
+  .legend{ display:flex; gap:8px; flex-wrap:wrap; font-size:12px; color:var(--ink-dim); align-items:center; }
   .legend span{ display:inline-flex; align-items:center; gap:6px; }
-  .legend i{ width:9px; height:9px; border-radius:3px; display:inline-block; }
+  .legend i{ width:12px; height:12px; border-radius:3px; display:inline-block; flex:none; }
+  .legend .lg{ display:inline-flex; align-items:center; gap:7px; border:1px solid var(--border); background:var(--surface); color:var(--ink); border-radius:999px; padding:3px 11px 3px 8px; font:inherit; font-size:12px; cursor:pointer; }
+  .legend .lg.active{ outline:2px solid var(--ink); }
+  .legend .lg b{ font-weight:600; color:var(--ink-dim); }
+  .cal-view-opts{ display:flex; gap:8px; align-items:center; margin-left:auto; flex-wrap:wrap; }
 
   .cal-grid-wrap{ display:flex; flex-direction:column; overflow-x:clip; border:1px solid var(--border-soft); border-radius:var(--radius); background:var(--surface); }
-  .hrow{ display:flex; min-width:680px; border-top:1px solid var(--border-soft); }
+  /* The hour ruler stays outside the horizontal scroller (so it can keep pinning under the navigation while the page scrolls) and is
+     moved sideways in step with it; the day labels pin to the left edge of the scroller. */
+  .cal-scroll{ overflow-x:auto; }
+  .cal-rows{ width:var(--rows-w, 100%); min-width:100%; }
+  .ruler-clip{ flex:1 1 0; overflow:hidden; position:relative; min-height:26px; }
+  .ruler-clip #timeGutter{ width:var(--body-w, 100%); transform:translateX(var(--scroll-x, 0px)); }
+  .cal-dayrow .hrow-label{ position:sticky; left:0; z-index:5; }
+  .hrow{ display:flex; border-top:1px solid var(--border-soft); }
   .hrow:first-child{ border-top:none; }
   .hrow-ruler{ position:sticky; top:var(--cal-sticky-h, 0px); z-index:4; background:var(--surface); box-shadow:0 1px 0 var(--border-soft); }
   /* Navigation (arrows, week/day, add buttons, scope, day strip) stays pinned while the week scrolls; the hour row pins right below it.
@@ -116,12 +136,14 @@
   @media (max-width:820px), (max-height:560px){ .hrow-ruler{ top:0; } }
   .hrow-label{ flex:0 0 76px; min-width:76px; display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:0; padding:6px 10px; font-size:12px; font-weight:700; border-right:1px solid var(--border-soft); background:var(--surface); }
   .hrow-label .hrl-dow{ font-size:10px; color:var(--ink-dim); font-weight:600; text-transform:uppercase; letter-spacing:0.04em; }
-  .hrow-body{ position:relative; flex:1 1 0; min-height:54px; background-image: repeating-linear-gradient(to right, var(--border-soft) 0, var(--border-soft) 1px, transparent 1px, transparent calc(100%/var(--hours-count,13))); cursor:copy; }
-  .hrow-ruler .hrow-body{ min-height:26px; cursor:default; background-image:none; }
+  .hrow-body{ position:relative; flex:0 0 auto; width:var(--body-w, 100%); min-height:54px; background-image:linear-gradient(to right, var(--border-soft) 0, var(--border-soft) 1px, transparent 1px); background-size:var(--hour-px, 120px) 100%; background-position:var(--grid-off, 0px) 0; background-repeat:repeat-x; cursor:copy; }
+  .hrow-ruler .hrow-body{ min-height:26px; cursor:default; background-image:none; width:var(--body-w, 100%); }
   .hrow.day-alt .hrow-label, .hrow.day-alt .hrow-body{ background-color:color-mix(in srgb, var(--accent) 7%, var(--surface)); }
   .hour-label{ position:absolute; top:50%; left:0; transform:translateY(-50%); font-size:10.5px; color:var(--ink-faint); font-family:'IBM Plex Mono'; padding-left:3px; }
-  .session-block{ position:absolute; min-width:64px; border-radius:7px; padding:2px 6px; overflow:hidden; cursor:pointer; border:1px solid transparent; box-shadow:0 1px 2px rgba(0,0,0,0.08); line-height:1.25; z-index:1; }
-  .session-block:hover{ filter:brightness(0.97); z-index:3; }
+  /* Full fills: the colour comes from the training's group (inline), and its readable ink with it. */
+  .session-block{ position:absolute; min-width:64px; border-radius:7px; padding:3px 7px; overflow:hidden; cursor:pointer; border:1px solid rgba(0,0,0,0.28); box-shadow:0 1px 2px rgba(0,0,0,0.18); line-height:1.25; z-index:1; }
+  .session-block:hover{ filter:brightness(1.08); z-index:3; }
+  .session-block.dim{ opacity:0.2; filter:saturate(0.3); }
   #authGate{ position:fixed; inset:0; z-index:1000; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:16px; }
   #resetBtn{ display:none !important; }
   body.ro #addSessionBtn, body.ro #addBlockBtn, body.ro .trainer-add{ display:none !important; }
@@ -168,13 +190,13 @@
   .hp-row{ margin-top:3px; } .hp-row b{ font-weight:700; }
   .hp-notes{ margin-top:6px; padding-top:6px; border-top:1px solid var(--border-soft); white-space:pre-wrap; }
   .session-block .sb-time{ font-family:'IBM Plex Mono'; font-size:9.5px; font-weight:600; opacity:0.85; white-space:nowrap; }
-  .session-block .sb-type{ font-size:11px; font-weight:700; margin-bottom:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .session-block .sb-type{ font-size:11.5px; font-weight:700; margin-bottom:1px; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; word-break:break-word; }
   .session-block .sb-trainers{ font-size:9.5px; opacity:0.85; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .session-block .sb-badges{ font-size:9.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .session-block .sb-missing{ color:var(--warning); }
-  .session-block.status-tentative{ border-style:dashed; }
-  .session-block.status-completed{ opacity:0.8; }
-  .session-block .sb-done{ color:var(--success); }
+  .session-block .sb-missing{ background:#fff; color:#B00020; padding:0 5px; border-radius:4px; }
+  .session-block.status-tentative{ border-style:dashed; border-color:rgba(0,0,0,0.55); background-image:repeating-linear-gradient(45deg, rgba(255,255,255,0.28) 0 6px, transparent 6px 12px); }
+  .session-block.status-completed{ opacity:0.9; }
+  .session-block .sb-done{ color:inherit; }
   .session-block.status-cancelled{ background:var(--surface-2) !important; border:1px dashed var(--border); }
   .session-block.status-cancelled .sb-type{ text-decoration:line-through; color:var(--ink-faint); }
   .session-block.status-cancelled .sb-trainers, .session-block.status-cancelled .sb-time{ color:var(--ink-faint); }
@@ -251,6 +273,7 @@
   .scope-chooser .btn{ flex:1; justify-content:center; }
   .swatch-row{ display:flex; gap:8px; flex-wrap:wrap; }
   .swatch{ width:26px; height:26px; border-radius:7px; cursor:pointer; border:2px solid transparent; }
+  .swatch.auto{ width:auto; padding:0 10px; display:inline-flex; align-items:center; font-size:12px; background:var(--surface-2); border-color:var(--border); }
   .swatch.selected{ border-color:var(--ink); }
   .swatch.locked{ pointer-events:none; opacity:0.4; }
   .field input:disabled, .field select:disabled, .field textarea:disabled{ opacity:0.6; cursor:not-allowed; }
@@ -370,11 +393,18 @@
         <button class="subtab active" data-scope="both">Oboje</button>
       </div>
       <div class="week-strip" id="weekStrip"></div>
+      <div class="cal-view-opts">
+        <div class="subtabs" id="zoomToggle" title="Šírka hodiny v kalendári">
+          <button class="subtab" data-px="110">Úzke</button><button class="subtab active" data-px="150">Bežné</button><button class="subtab" data-px="200">Široké</button>
+        </div>
+        <button class="btn btn-sm" id="fullDayBtn" title="Zobraziť celý deň, nielen hodiny s tréningami">Celý deň</button>
+      </div>
       </div>
       </div>
       <div class="legend" id="legend"></div>
       <div class="cal-grid-wrap" id="calGridWrap">
-        <div class="hrow hrow-ruler"><div class="hrow-label"></div><div class="hrow-body" id="timeGutter"></div></div>
+        <div class="hrow hrow-ruler"><div class="hrow-label"></div><div class="ruler-clip"><div class="hrow-body" id="timeGutter"></div></div></div>
+        <div class="cal-scroll" id="calScroll"><div class="cal-rows" id="calRows"></div></div>
       </div>
       <div class="agenda-list" id="agendaList"></div>
     </div>
@@ -603,7 +633,7 @@
 
       <div class="form-sec"></div>
       <div class="row2">
-        <div class="field"><label for="f-tag">Značka <span>(na filtrovanie v reportoch)</span></label><input id="f-tag" type="text" list="tagDatalist" placeholder="napr. Medvedica"><datalist id="tagDatalist"></datalist></div>
+        <div class="field"><label for="f-tag">Značka <span>(skupina a filtrovanie v reportoch)</span></label><select id="f-tag"></select></div>
         <div class="field"><label>Farba</label><div class="swatch-row" id="colorSwatches"></div></div>
       </div>
       </div></div>
@@ -690,13 +720,51 @@
   var idToken = null, me = null, session = null;   // idToken = Google's proof (login only); session = our own 30-day token
 
   var TODAY = isoOf(new Date());
-  var START_MIN = 8*60, END_MIN = 21*60, SLOT_MIN = 30, LANE_PX = 46, LANE_PAD = 8;
+  var START_MIN = 8*60, END_MIN = 21*60, SLOT_MIN = 30, LANE_PX = 62, LANE_PAD = 8;
   var TYPES = ['Jednorazový','Opakovaný','Vlastný klient'];
   var COLOR_PALETTE = [
-    {id:'blue', label:'Blue'}, {id:'orange', label:'Orange'}, {id:'green', label:'Green'},
-    {id:'yellow', label:'Yellow'}, {id:'red', label:'Red'}, {id:'purple', label:'Purple'}
+    {id:'blue', label:'Modrá'}, {id:'orange', label:'Oranžová'}, {id:'green', label:'Zelená'}, {id:'yellow', label:'Žltá'},
+    {id:'red', label:'Červená'}, {id:'purple', label:'Fialová'}, {id:'teal', label:'Tyrkysová'}, {id:'pink', label:'Ružová'}
   ];
   var TYPE_DEFAULT_COLOR = {'Opakovaný':'blue', 'Jednorazový':'green', 'Vlastný klient':'purple'};
+
+  // ---- groups: a training's colour comes from the first rule it matches (the "Skupiny" tab of the spreadsheet; these are the defaults
+  // used when the tab does not exist yet). A colour chosen by hand on one training is stored as "!colour" and wins over the group. ----
+  var GROUP_DEFAULTS = [
+    {order:1, name:'Súkromní klienti',      color:'purple', kind:'private'},
+    {order:2, name:'Medvedica',             color:'orange', kind:'recurring', tag:'medvedica'},
+    {order:3, name:'Individuálne (1 na 1)', color:'pink',   maxPeople:2},
+    {order:4, name:'Vertigo skupiny',       color:'blue',   kind:'recurring'},
+    {order:5, name:'Ostatné',               color:'green'}
+  ];
+  var groupRules = GROUP_DEFAULTS.slice(), tagChoices = null;
+  function setGroupConfig(groups, tags){
+    var ids = COLOR_PALETTE.map(function(c){ return c.id; });
+    var clean = (Array.isArray(groups) ? groups : []).filter(function(g){ return g && g.name && ids.indexOf(g.color) >= 0; }).map(function(g, i){
+      var mp = (g.maxPeople === '' || g.maxPeople == null) ? null : Number(g.maxPeople);
+      return {order:Number(g.order) || (i + 1), name:String(g.name), color:g.color, kind:String(g.kind || ''), tag:String(g.tag || '').trim(), maxPeople:(mp === null || isNaN(mp)) ? null : mp};
+    }).sort(function(a, b){ return a.order - b.order; });
+    groupRules = clean.length ? clean : GROUP_DEFAULTS.slice();
+    tagChoices = (Array.isArray(tags) && tags.length) ? tags.map(String) : null;
+  }
+  function isRecurringSession(s){ return !!s.seriesId || s.type === 'Opakovaný'; }
+  function groupOf(s){
+    for(var i = 0; i < groupRules.length; i++){
+      var r = groupRules[i];
+      if(r.kind === 'private' && !isPrivateSession(s)) continue;
+      if(r.kind === 'recurring' && !isRecurringSession(s)) continue;
+      if(r.kind === 'oneoff' && isRecurringSession(s)) continue;
+      if(r.tag && String(s.tag || '').trim().toLowerCase() !== r.tag.toLowerCase()) continue;
+      if(r.maxPeople != null){ var n = (s.people == null || s.people === '') ? NaN : Number(s.people); if(!(n <= r.maxPeople)) continue; }   // unknown number of people never counts as 1-on-1
+      return r;
+    }
+    return groupRules[groupRules.length - 1];
+  }
+  function overrideColor(c){ return (typeof c === 'string' && c.charAt(0) === '!') ? c.slice(1) : ''; }
+  function displayColor(s){
+    var o = overrideColor(s.color);
+    return (o && COLOR_PALETTE.some(function(p){ return p.id === o; })) ? o : groupOf(s).color;
+  }
 
   // Gym-run trainings vs the trainer's own clients (trainer collects payment
   // directly and gives the gym a cut) — different accounting, so kept
@@ -1022,7 +1090,7 @@
     var trNames = s.trainerIds.map(trainerNameH).join(', ') || (s.requiredTrainers===0 ? 'Netreba trénera' : 'zatiaľ nikto');
     hoverPreview.innerHTML = '<div class="hp-title">'+esc(displayClient(s))+'</div>'+
       '<div class="hp-sub">'+fmtReportDate(s.date)+' &middot; '+s.start+'–'+s.end+'</div>'+
-      hpRow('Tréneri', trNames) + hpRow('Telefón', s.phone) +
+      hpRow('Tréneri', trNames) + hpRow('Skupina', groupOf(s).name) + hpRow('Telefón', s.phone) +
       (s.notes ? '<div class="hp-notes">'+esc(s.notes)+'</div>' : '') +
       (touch ? '<button type="button" class="btn btn-primary hp-open">Otvoriť</button>' : '');
     hoverPreview.classList.toggle('touch', !!touch);
@@ -1204,7 +1272,6 @@
     renderCalendar();
   });
 
-  document.getElementById('calGridWrap').style.setProperty('--hours-count', (END_MIN-START_MIN)/60);
   // The hour row pins directly below the pinned navigation, so it needs that block's height (it changes when the toolbar wraps).
   (function(){
     var nav = document.getElementById('calSticky'); if(!nav) return;
@@ -1212,15 +1279,63 @@
     if(window.ResizeObserver) new ResizeObserver(sync).observe(nav);
     window.addEventListener('resize', sync); sync();
   })();
-  var gutter = document.getElementById('timeGutter');
-  for(var m=START_MIN; m<=END_MIN; m+=60){
-    var lbl = document.createElement('div');
-    lbl.className = 'hour-label';
-    lbl.style.left = ((m-START_MIN)/(END_MIN-START_MIN)*100)+'%';
-    if(m===END_MIN) lbl.style.transform = 'translate(-100%,-50%)';
-    lbl.textContent = toHHMM(m);
-    gutter.appendChild(lbl);
+  // ---- the visible hours: from half an hour before the first training of the week to half an hour after the last one ----
+  // Each hour has a fixed comfortable width (zoom setting), so names stay readable; when that is wider than the screen the grid scrolls
+  // sideways, with the day labels and the hour ruler staying in place. "Celý deň" shows the whole gym day (08–21) instead.
+  var viewStart = START_MIN, viewEnd = END_MIN, hourPx = 150, fullDay = false, legendFilter = '', pxPerHour = 150, LABEL_W = 76;
+  try{ var zs = Number(localStorage.getItem('rozpis_hourpx')); if(zs === 110 || zs === 150 || zs === 200) hourPx = zs; fullDay = localStorage.getItem('rozpis_fullday') === '1'; }catch(e){}
+  function computeRange(dates){
+    if(fullDay) return {s:START_MIN, e:END_MIN};
+    var lo = null, hi = null;
+    dates.forEach(function(d){
+      visibleSessionsOnDate(d).forEach(function(s){ var a = toMin(s.start), b = toMin(s.end); if(lo === null || a < lo) lo = a; if(hi === null || b > hi) hi = b; });
+      blocksOnDate(d).forEach(function(b){ if(b.allDay) return; var a = toMin(b.start), e = a + (b.durationMin || 0); if(lo === null || a < lo) lo = a; if(hi === null || e > hi) hi = e; });
+    });
+    if(lo === null) return {s:START_MIN, e:END_MIN};
+    var s0 = Math.max(0, Math.floor((lo - 30) / 30) * 30), e0 = Math.min(1440, Math.ceil((hi + 30) / 30) * 30);
+    if(e0 - s0 < 180) e0 = Math.min(1440, s0 + 180);
+    return {s:s0, e:e0};
   }
+  function applyRange(){
+    var wrap = document.getElementById('calGridWrap'), sc = document.getElementById('calScroll');
+    var hours = (viewEnd - viewStart) / 60, avail = Math.max(300, ((sc && sc.clientWidth) || wrap.clientWidth || 900) - LABEL_W);
+    pxPerHour = Math.max(hourPx, avail / hours);
+    var bodyW = Math.round(hours * pxPerHour);
+    wrap.style.setProperty('--hour-px', pxPerHour + 'px');
+    wrap.style.setProperty('--body-w', bodyW + 'px');
+    wrap.style.setProperty('--rows-w', (bodyW + LABEL_W) + 'px');
+    wrap.style.setProperty('--grid-off', (((60 - (viewStart % 60)) % 60) / 60 * pxPerHour) + 'px');
+  }
+  function xOf(min){ return (min - viewStart) / 60 * pxPerHour; }
+  function renderRuler(){
+    var g = document.getElementById('timeGutter'); g.innerHTML = '';
+    for(var m = Math.ceil(viewStart / 60) * 60; m <= viewEnd; m += 60){
+      var lbl = document.createElement('div');
+      lbl.className = 'hour-label';
+      lbl.style.left = xOf(m) + 'px';
+      if(m === viewEnd) lbl.style.transform = 'translate(-100%,-50%)';
+      lbl.textContent = toHHMM(m);
+      g.appendChild(lbl);
+    }
+  }
+  (function(){
+    var sc = document.getElementById('calScroll'), wrap = document.getElementById('calGridWrap');
+    sc.addEventListener('scroll', function(){ wrap.style.setProperty('--scroll-x', (-sc.scrollLeft) + 'px'); }, {passive:true});
+    var zt = document.getElementById('zoomToggle');
+    function syncZoom(){ zt.querySelectorAll('.subtab').forEach(function(b){ b.classList.toggle('active', Number(b.dataset.px) === hourPx); }); document.getElementById('fullDayBtn').classList.toggle('btn-primary', fullDay); }
+    zt.addEventListener('click', function(e){
+      var b = e.target.closest('.subtab'); if(!b) return;
+      hourPx = Number(b.dataset.px); try{ localStorage.setItem('rozpis_hourpx', String(hourPx)); }catch(x){}
+      syncZoom(); renderCalendar();
+    });
+    document.getElementById('fullDayBtn').addEventListener('click', function(){
+      fullDay = !fullDay; try{ localStorage.setItem('rozpis_fullday', fullDay ? '1' : '0'); }catch(x){}
+      syncZoom(); renderCalendar();
+    });
+    var lastW = 0, rt = null;
+    window.addEventListener('resize', function(){ clearTimeout(rt); rt = setTimeout(function(){ var w = sc.clientWidth; if(Math.abs(w - lastW) > 20){ lastW = w; if(me) renderCalendar(); } }, 150); });
+    syncZoom();
+  })();
 
   function renderWeekStrip(){
     var wrap = document.getElementById('weekStrip');
@@ -1238,14 +1353,31 @@
     }
   }
 
-  function renderLegend(){
-    document.getElementById('legend').innerHTML = TYPES.map(function(ty){
-      return '<span><i style="background:'+colorVar(TYPE_DEFAULT_COLOR[ty])+'"></i>'+ty+' (predvolená)</span>';
-    }).join('') + '<span><i style="background:repeating-linear-gradient(45deg, var(--surface-2), var(--surface-2) 2px, var(--ink-faint) 2px, var(--ink-faint) 4px);"></i>Blokované</span>';
+  // The groups present in the visible period, with how many trainings each has. Clicking one highlights it and dims the rest.
+  function renderLegend(dates){
+    var seen = {}, list = [];
+    dates.forEach(function(d){
+      visibleSessionsOnDate(d).forEach(function(s){
+        if(s.status === 'cancelled' || isMaskedForViewer(s)) return;
+        var g = groupOf(s); if(!seen[g.name]){ seen[g.name] = {g:g, n:0}; list.push(seen[g.name]); } seen[g.name].n++;
+      });
+    });
+    list.sort(function(a, b){ return a.g.order - b.g.order; });
+    if(legendFilter && !seen[legendFilter]) legendFilter = '';
+    document.getElementById('legend').innerHTML = list.map(function(x){
+      return '<button type="button" class="lg'+(legendFilter === x.g.name ? ' active' : '')+'" data-g="'+esc(x.g.name)+'"><i style="background:var(--swatch-'+x.g.color+')"></i>'+esc(x.g.name)+' <b>'+x.n+'</b></button>';
+    }).join('') +
+      '<span><i style="background:var(--surface-2); border:1px dashed var(--ink-faint);"></i>Zrušené</span>' +
+      '<span><i style="background:repeating-linear-gradient(45deg, var(--surface-2), var(--surface-2) 2px, var(--ink-faint) 2px, var(--ink-faint) 4px);"></i>Blokované</span>';
   }
+  document.getElementById('legend').addEventListener('click', function(e){
+    var b = e.target.closest('.lg'); if(!b) return;
+    legendFilter = (legendFilter === b.dataset.g) ? '' : b.dataset.g;
+    renderCalendar();
+  });
 
   function buildDayRows(dates){
-    var wrap = document.getElementById('calGridWrap');
+    var wrap = document.getElementById('calRows');
     Array.from(wrap.querySelectorAll('.cal-dayrow')).forEach(function(el){ el.remove(); });
     dates.forEach(function(date, idx){
       var row = document.createElement('div');
@@ -1264,32 +1396,31 @@
     applyRoleUI();
     document.getElementById('calDateLabel').textContent = viewMode==='day' ? fmtDateLabel(selectedDate) : monthLabel(startOfWeek(selectedDate));
     renderWeekStrip();
-    renderLegend();
 
     var dates = viewMode==='day' ? [selectedDate] : (function(){
       var start = startOfWeek(selectedDate), arr=[];
       for(var i=0;i<7;i++) arr.push(isoOf(new Date(start.getFullYear(),start.getMonth(),start.getDate()+i)));
       return arr;
     })();
+    var rg = computeRange(dates); viewStart = rg.s; viewEnd = rg.e; applyRange(); renderRuler();
+    renderLegend(dates);
     buildDayRows(dates);
 
     dates.forEach(function(date){
       var body = document.querySelector('[data-day-body="'+date+'"]');
       body.onclick = function(e){
         var rect = body.getBoundingClientRect();
-        var frac = Math.max(0, Math.min(1, (e.clientX-rect.left)/rect.width));
-        var raw = START_MIN + Math.round(frac*(END_MIN-START_MIN)/SLOT_MIN)*SLOT_MIN;
-        raw = Math.max(START_MIN, Math.min(raw, END_MIN-30));
+        var x = Math.max(0, e.clientX - rect.left);
+        var raw = viewStart + Math.round(x / pxPerHour * 60 / SLOT_MIN) * SLOT_MIN;
+        raw = Math.max(viewStart, Math.min(raw, 1440 - 30));
         openModal(null, {date:date, start:toHHMM(raw), durationMin:60});
       };
 
       blocksOnDate(date).forEach(function(b){
         var el = document.createElement('div');
         el.className = 'block-band';
-        var left = (blockStartMin(b)-START_MIN)/(END_MIN-START_MIN)*100;
-        var width = (blockEndMin(b)-blockStartMin(b))/(END_MIN-START_MIN)*100;
-        el.style.left = left+'%';
-        el.style.width = width+'%';
+        if(b.allDay){ el.style.left = '0px'; el.style.width = '100%'; }
+        else { el.style.left = xOf(toMin(b.start))+'px'; el.style.width = ((b.durationMin||0)/60*pxPerHour)+'px'; }
         el.innerHTML = '<b>🚫 '+esc(b.label)+'</b>'+(b.allDay?'Celý deň':(b.start+'–'+blockEnd(b)));
         el.addEventListener('click', function(e){ e.stopPropagation(); openBlockModal(b.id); });
         body.appendChild(el);
@@ -1304,14 +1435,14 @@
       var maxLanes = clusters.reduce(function(m,c){ return Math.max(m, c.length); }, 1);
       body.style.height = (maxLanes*LANE_PX + LANE_PAD)+'px';
       clusters.forEach(function(cluster){
+        // trainings of the same group sit next to each other (group order, then start time)
+        cluster.sort(function(a, b){ var ga = groupOf(a).order, gb = groupOf(b).order; return (ga - gb) || (toMin(a.start) - toMin(b.start)); });
         cluster.forEach(function(s, idx){
-          var color = colorVar(s.color);
+          var gid = displayColor(s);
           var el = document.createElement('div');
           el.className = 'session-block status-'+s.status;
-          var left = (toMin(s.start)-START_MIN)/(END_MIN-START_MIN)*100;
-          var width = (toMin(s.end)-toMin(s.start))/(END_MIN-START_MIN)*100;
-          el.style.left = left+'%';
-          el.style.width = width+'%';
+          el.style.left = xOf(toMin(s.start))+'px';
+          el.style.width = ((toMin(s.end)-toMin(s.start))/60*pxPerHour)+'px';
           el.style.top = (idx*LANE_PX)+'px';
           el.style.height = (LANE_PX-4)+'px';
           if(isMaskedForViewer(s)){
@@ -1322,13 +1453,10 @@
             return;
           }
           if(s.status!=='cancelled'){
-            el.style.background = 'color-mix(in srgb, '+color+' 18%, var(--surface))';
-            el.style.borderColor = 'color-mix(in srgb, '+color+' 45%, var(--surface))';
-            // Private always gets the same purple accent regardless of the
-            // training's own color, so it reads as "private" at a glance
-            // even mixed in with gym trainings in the "Oboje" view.
-            el.style.borderLeft = isPrivateSession(s) ? '5px solid var(--swatch-purple)' : ('3px solid '+color);
+            el.style.backgroundColor = 'var(--swatch-'+gid+')';
+            el.style.color = 'var(--swatch-'+gid+'-ink)';
           }
+          if(legendFilter && groupOf(s).name !== legendFilter) el.classList.add('dim');
           var trNames = s.trainerIds.map(trainerNameH).join(', ') || (s.requiredTrainers===0 ? 'Netreba trénera' : '');
           var missing = isMissing(s);
           // Time stays inline with the name rather than its own line, and all badges
@@ -1379,7 +1507,7 @@
         return '<div class="agenda-item" style="cursor:default; opacity:0.85;"><span class="dot" style="background:var(--ink-faint)"></span>'+
           '<span class="a-time">'+(dates.length>1?s.date.slice(5)+' ':'')+s.start+'–'+s.end+'</span><span class="a-main"><div class="a-type">'+maskedLabel(s)+'</div></span></div>';
       }
-      var color = isPrivateSession(s) ? colorVar('purple') : colorVar(s.color);
+      var color = colorVar(displayColor(s));
       var trNames = s.trainerIds.map(trainerNameH).join(', ') || (s.requiredTrainers===0 ? 'Netreba trénera' : '');
       var missing = isMissing(s);
       var subParts = [esc(s.type)];
@@ -1409,7 +1537,7 @@
   // ---------- modal ----------
   var overlay = document.getElementById('sessionOverlay');
   var editingId = null, editingOriginalDate = null;
-  var selectedColor = 'blue';
+  var selectedColor = '', colorTouched = false, legacyColor = '';   // '' = automatic (by group); otherwise an override
   var currentModalMode = 'full';
 
   // - / + next to a number: big buttons, clamped to the field's limits, and the form is told the value changed.
@@ -1434,7 +1562,7 @@
   var typeSel = document.getElementById('f-type');
   typeSel.innerHTML = TYPES.map(function(t){ return '<option value="'+esc(t)+'">'+esc(t)+'</option>'; }).join('');
   typeSel.addEventListener('change', function(){
-    selectedColor = TYPE_DEFAULT_COLOR[this.value] || 'blue';
+    selectedColor = ''; colorTouched = true;
     syncSwatchSelection();
     syncRecurringFromType(this.value);
     applyPrivateOnlyToChecklist();
@@ -1444,9 +1572,10 @@
   });
 
   var colorSwatchWrap = document.getElementById('colorSwatches');
-  colorSwatchWrap.innerHTML = COLOR_PALETTE.map(function(c){ return '<div class="swatch" data-color="'+c.id+'" style="background:'+colorVar(c.id)+'" title="'+c.label+'"></div>'; }).join('');
+  colorSwatchWrap.innerHTML = '<div class="swatch auto" data-color="" title="Farba podľa skupiny">Automaticky</div>' +
+    COLOR_PALETTE.map(function(c){ return '<div class="swatch" data-color="'+c.id+'" style="background:'+colorVar(c.id)+'" title="'+c.label+'"></div>'; }).join('');
   colorSwatchWrap.querySelectorAll('.swatch').forEach(function(sw){
-    sw.addEventListener('click', function(){ selectedColor = sw.dataset.color; syncSwatchSelection(); });
+    sw.addEventListener('click', function(){ selectedColor = sw.dataset.color; colorTouched = true; syncSwatchSelection(); });
   });
   function syncSwatchSelection(){
     colorSwatchWrap.querySelectorAll('.swatch').forEach(function(sw){ sw.classList.toggle('selected', sw.dataset.color===selectedColor); });
@@ -1540,7 +1669,7 @@
     return {
       clientName: document.getElementById('f-client').value,
       tag: document.getElementById('f-tag').value.trim(),
-      color: selectedColor,
+      color: colorTouched ? (selectedColor ? '!' + selectedColor : '') : legacyColor,   // untouched: whatever was stored stays (no spurious change)
       date: document.getElementById('f-date').value,
       start: start,
       durationMin: dur,
@@ -1596,12 +1725,19 @@
     });
     document.getElementById('clientDatalist').innerHTML = names.slice(0, 300).map(function(n){ return '<option value="'+esc(n)+'">'; }).join('');
   }
+  // The tag is chosen from the list kept in the spreadsheet's Tags tab (until the server sends it: the tags already in use).
+  function fillTagSelect(cur){
+    var sel = document.getElementById('f-tag'), list = (tagChoices || allTags()).slice();
+    if(cur && list.indexOf(cur) < 0) list.push(cur);   // a tag no longer in the list stays selectable on the trainings that carry it
+    sel.innerHTML = '<option value="">— bez značky —</option>' + list.map(function(t){ return '<option value="'+esc(t)+'">'+esc(t)+'</option>'; }).join('');
+    sel.value = cur || '';
+  }
   document.getElementById('f-client').addEventListener('change', function(){
     if(editingId) return;
     var h = clientHistory[this.value.trim().toLowerCase()]; if(!h) return;
     var ph = document.getElementById('f-phone'), tg = document.getElementById('f-tag'), pe = document.getElementById('f-people'), rq = document.getElementById('f-required'), ty = document.getElementById('f-type');
     if(!ph.value) ph.value = h.phone;
-    if(!tg.value) tg.value = h.tag;
+    if(!tg.value && h.tag){ if(![].some.call(tg.options, function(o){ return o.value === h.tag; })){ var op = document.createElement('option'); op.value = h.tag; op.textContent = h.tag; tg.appendChild(op); } tg.value = h.tag; }
     if(!pe.value && h.people!=null && h.people!=='') pe.value = h.people;
     if(rq.value==='' && h.required!=null) rq.value = h.required;
     if(!ty.disabled && ty.value!==h.type && [].some.call(ty.options, function(o){ return o.value===h.type; })){ ty.value = h.type; ty.dispatchEvent(new Event('change')); }
@@ -1655,8 +1791,7 @@
     var data = s || Object.assign({date:selectedDate, start:'16:00', durationMin:60, type:(isPrivateOnlyViewer() ? TYPE_PRIVATE : TYPES[0]), status:'confirmed', notes:'', clientName:'', tag:'', phone:'', people:(isPrivateOnlyViewer() ? 1 : null), requiredTrainers:1, trainerIds:newDefaultTrainerIds}, prefill||{});
     document.getElementById('f-client').value = data.clientName || '';
     fillClientDatalist();
-    document.getElementById('tagDatalist').innerHTML = allTags().map(function(t){ return '<option value="'+esc(t)+'">'; }).join('');
-    document.getElementById('f-tag').value = data.tag || '';
+    fillTagSelect(data.tag || '');
     document.getElementById('f-date').value = data.date;
     document.getElementById('f-date').min = isTrainerRole() ? earliestTrainerDate() : '';
     document.getElementById('f-start').value = data.start;
@@ -1681,7 +1816,7 @@
     document.getElementById('f-people').value = (data.people===null || data.people===undefined) ? '' : data.people;
     document.getElementById('f-required').value = (data.requiredTrainers===undefined || data.requiredTrainers==='') ? 1 : data.requiredTrainers;
     document.getElementById('f-notes').value = data.notes || '';
-    selectedColor = data.color || TYPE_DEFAULT_COLOR[data.type || TYPES[0]] || 'blue';
+    selectedColor = overrideColor(data.color); legacyColor = data.color || ''; colorTouched = false;
     syncSwatchSelection();
     renderTrainerChecklist(data.trainerIds || [], mode, !s && isTrainerRole(), !!s && isTrainerRole() && mode==='full');
 
@@ -2526,7 +2661,7 @@
       if(shownItems.length===0) return '';
       var itemsHtml = shownItems.map(function(s){
         return '<div class="agenda-item'+(s.status==='cancelled'?' cancelled':'')+'" data-id="'+s.id+'">'+
-          '<span class="dot" style="background:'+colorVar(s.color)+'"></span>'+
+          '<span class="dot" style="background:'+colorVar(displayColor(s))+'"></span>'+
           '<span class="a-time" style="width:220px;">'+fmtReportDate(s.date)+' '+s.start+'–'+s.end+'</span>'+
           '<span class="a-main"><div class="a-type">'+esc(s.clientName||s.type)+paidTagFor(s, !showPay)+(showPay && enteredByTrainer(s,id)?' &middot; <span style="color:var(--warning);">&#9998; zadané trénerom</span>':'')+'</div>'+
           '<div class="a-sub">'+esc(s.type)+(s.tag?' &middot; '+esc(s.tag):'')+'</div></span></div>';
@@ -2600,7 +2735,7 @@
       var withOthers = s.trainerIds.filter(function(id){return id!==tId;}).map(trainerNameH).join(', ');
       var cancelledTag = s.status==='cancelled' ? ' <span style="color:var(--danger); font-weight:600;">&middot; ZRUŠENÉ</span>' : '';
       return '<div class="agenda-item'+(s.status==='cancelled'?' cancelled':'')+'" data-id="'+s.id+'">'+
-        '<span class="dot" style="background:'+colorVar(s.color)+'"></span>'+
+        '<span class="dot" style="background:'+colorVar(displayColor(s))+'"></span>'+
         '<span class="a-time" style="width:220px;">'+fmtReportDate(s.date)+' '+s.start+'–'+s.end+'</span>'+
         '<span class="a-main"><div class="a-type">'+esc(s.clientName||s.type)+cancelledTag+'</div>'+
         '<div class="a-sub">'+esc(s.type)+(s.tag?' &middot; '+esc(s.tag):'')+(withOthers?' &middot; s: '+withOthers:'')+'</div></span></div>';
@@ -2706,9 +2841,10 @@
     try{ google.accounts.id.disableAutoSelect(); }catch(e){}
     location.replace(location.pathname);   // reload without any query string (a test token in the URL must not loop)
   }
-  function fixColor(s){ s.color = s.color || TYPE_DEFAULT_COLOR[s.type] || 'blue'; return s; }
+  function fixColor(s){ s.color = s.color || ''; return s; }   // the displayed colour is computed (displayColor); a stored one is only an override when it starts with "!"
   function applyLoad(d, deferRender){
     me = d.me; trainers = d.trainers; blocks = d.blocks;
+    setGroupConfig(d.groups, d.tags);
     changeLog = []; logLoaded = false; logTriedAt = 0;   // the log is fetched only when Activity is opened (see ensureLog)
     archiveInfo = d.archive || null; archiveLoaded = {}; archiveFailed = {};   // a full load drops archived rows, so they are fetched again on demand
     syncGen++;
@@ -2769,7 +2905,7 @@
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
   // Which page and which server code are running: hover over "Obnoviť dáta". (The server's build is also what its web address shows when opened.)
-  var PAGE_BUILD = '2026-10-09-cal-1', serverBuild = '?';
+  var PAGE_BUILD = '2026-10-14-groups-1', serverBuild = '?';
   function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
