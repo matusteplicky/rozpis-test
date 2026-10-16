@@ -2988,7 +2988,7 @@
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
   // Which page and which server code are running: hover over "Obnoviť dáta". (The server's build is also what its web address shows when opened.)
-  var PAGE_BUILD = '2026-10-20-delseries-1', serverBuild = '?';
+  var PAGE_BUILD = '2026-10-21-readmode-1', serverBuild = '?';
   function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
@@ -3107,7 +3107,7 @@
         // of leaving inflight stuck true forever (which would also silently stop polling — see doPoll()).
         try{
           rebase(d, sentNow, reqNow.changes); lastConfirmed = JSON.stringify(reqNow.changes); lastContactAt = Date.now();
-          setStatus('saved', 'Uložené ✓ — ' + changeWord(countNow) + ' (' + total + ' s)', 'Server ' + srv + ' s, celkom ' + total + ' s'); console.log('sync: server '+srv+' s, celkom '+total+' s' + (d.ph ? ' — zámok ' + d.ph.lock + ', čítanie ' + d.ph.read + ', kontrola ' + d.ph.check + ', zápis ' + d.ph.write + ', flush ' + d.ph.flush + ' ms' : ''));
+          setStatus('saved', 'Uložené ✓ — ' + changeWord(countNow) + ' (' + total + ' s)', 'Server ' + srv + ' s, celkom ' + total + ' s'); console.log('sync: server '+srv+' s, celkom '+total+' s' + (d.ph ? ' — zámok ' + d.ph.lock + ', čítanie ' + d.ph.read + ', kontrola ' + d.ph.check + ', zápis ' + d.ph.write + ', flush ' + d.ph.flush + ' ms' + (d.ph.mode ? ' [čítanie: ' + d.ph.mode + ']' : '') : ''));
           return finishSync();
         }catch(e){
           console.log('sync: uložené na serveri, ale spracovanie odpovede zlyhalo (' + (e && e.message || e) + ') — načítavam znova.');
