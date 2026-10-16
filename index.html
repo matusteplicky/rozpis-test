@@ -67,7 +67,9 @@
   button{ font-family:inherit; }
   :focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
 
-  .app{ max-width:1600px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+  .app{ max-width:none; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+  /* The header and the calendar use the whole window (wider screens simply show more hours); the team and report screens keep a readable column. */
+  .app > #view-team, .app > #view-reports{ width:100%; max-width:1600px; margin-inline:auto; }
 
   .topbar{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
   .brand{ display:flex; align-items:center; gap:10px; margin-right:auto; }
@@ -347,6 +349,7 @@
     <button class="btn btn-ghost btn-sm" id="resetBtn">Obnoviť vzorové dáta</button>
     <button class="btn btn-sm" id="refreshBtn">Obnoviť dáta</button>
     <button class="btn btn-sm" id="calBtn">Môj kalendár</button>
+    <button class="btn btn-sm" id="updateBtn" title="Načítať najnovšiu verziu stránky (obíde pamäť prehliadača)">Nová verzia</button>
     <span class="save-status" id="saveStatus" aria-live="polite"></span>
     <button class="btn btn-ghost btn-sm" id="signOutBtn">Odhlásiť</button>
     <button class="btn btn-ghost btn-sm" id="signOutAllBtn" title="Odhlási vás na všetkých zariadeniach">Odhlásiť všade</button>
@@ -1116,6 +1119,21 @@
     return out;
   }
 
+  // Within a stretch of overlapping trainings: each training goes on the first line where it does not collide, preferring a line whose
+  // previous training belongs to the same group — so same-group trainings that do not overlap (e.g. back to back) share a line, and the
+  // day takes fewer lines. Lines are then ordered by the group of their first training, which keeps groups together.
+  function packLanes(cluster){
+    var sorted = cluster.slice().sort(function(a, b){ return (toMin(a.start) - toMin(b.start)) || (groupOf(a).order - groupOf(b).order); });
+    var lanes = [];
+    sorted.forEach(function(s){
+      var st = toMin(s.start), en = toMin(s.end), go = groupOf(s).order, pick = null;
+      lanes.forEach(function(L){ if(L.end <= st && (!pick || (L.last === go && pick.last !== go))) pick = L; });
+      if(!pick){ pick = {items:[], end:0, first:go, last:go, n:lanes.length}; lanes.push(pick); }
+      pick.items.push(s); pick.end = en; pick.last = go;
+    });
+    lanes.sort(function(a, b){ return (a.first - b.first) || (a.n - b.n); });
+    return lanes.map(function(L){ return L.items; });
+  }
   function buildClusters(list){
     var sorted = list.slice().sort(function(a,b){ return toMin(a.start)-toMin(b.start); });
     var clusters = [];
@@ -1299,6 +1317,9 @@
   function applyRange(){
     var wrap = document.getElementById('calGridWrap'), sc = document.getElementById('calScroll');
     var hours = (viewEnd - viewStart) / 60, avail = Math.max(300, ((sc && sc.clientWidth) || wrap.clientWidth || 900) - LABEL_W);
+    // On a wide screen with few busy hours, show MORE hours (up to midnight) instead of stretching a one-hour block across half the screen.
+    var maxPx = hourPx * 1.5;
+    if(avail / hours > maxPx){ hours = Math.min((1440 - viewStart) / 60, Math.floor(avail / maxPx * 2) / 2); viewEnd = viewStart + hours * 60; }
     pxPerHour = Math.max(hourPx, avail / hours);
     var bodyW = Math.round(hours * pxPerHour);
     wrap.style.setProperty('--hour-px', pxPerHour + 'px');
@@ -1432,12 +1453,12 @@
       // readable lane height regardless of how long it runs, and a day with several
       // overlapping trainings simply grows the row downward (more lanes) instead of
       // squeezing each one into a narrower sliver like the old side-by-side columns did.
-      var maxLanes = clusters.reduce(function(m,c){ return Math.max(m, c.length); }, 1);
+      var packed = clusters.map(packLanes);
+      var maxLanes = packed.reduce(function(m,c){ return Math.max(m, c.length); }, 1);
       body.style.height = (maxLanes*LANE_PX + LANE_PAD)+'px';
-      clusters.forEach(function(cluster){
-        // trainings of the same group sit next to each other (group order, then start time)
-        cluster.sort(function(a, b){ var ga = groupOf(a).order, gb = groupOf(b).order; return (ga - gb) || (toMin(a.start) - toMin(b.start)); });
-        cluster.forEach(function(s, idx){
+      packed.forEach(function(lanes){
+       lanes.forEach(function(lane, idx){
+        lane.forEach(function(s){
           var gid = displayColor(s);
           var el = document.createElement('div');
           el.className = 'session-block status-'+s.status;
@@ -1479,6 +1500,7 @@
           el.addEventListener('mouseleave', function(){ if(!isTouchTap()) hidePreview(); });
           body.appendChild(el);
         });
+       });
       });
     });
 
@@ -2905,7 +2927,7 @@
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
   // Which page and which server code are running: hover over "Obnoviť dáta". (The server's build is also what its web address shows when opened.)
-  var PAGE_BUILD = '2026-10-14-groups-1', serverBuild = '?';
+  var PAGE_BUILD = '2026-10-17-update-1', serverBuild = '?';
   function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
@@ -3140,6 +3162,38 @@
   });
   window.addEventListener('beforeunload', function(e){ if(inflight || buildChanges()){ e.preventDefault(); e.returnValue = ''; } });
   // Coming back to the page (phone unlocked, tab reopened): refresh quietly if it has been a while and nothing is unsaved.
+  // ---- loading the newest version of this page ----
+  // The browser may keep the page for a while (GitHub Pages allows ~10 minutes, Safari sometimes longer). Asking for the page under a unique
+  // address (?v=…) makes the browser fetch it afresh. The button does that on demand; the check below also notices, once the tab is in
+  // view again, that a newer build is published and offers the same reload — nobody has to know a release happened.
+  function reloadFresh(){
+    if(inflight || buildChanges()){ toast('Najprv sa dokončí ukladanie.'); return; }
+    location.href = location.pathname + '?v=' + Date.now();
+  }
+  document.getElementById('updateBtn').addEventListener('click', reloadFresh);
+  var versionBanner = null, lastVersionCheck = 0, versionSnoozeUntil = 0;
+  function checkForNewVersion(){
+    var now = Date.now();
+    if(now - lastVersionCheck < 5 * 60 * 1000 || now < versionSnoozeUntil || !/^https?:$/.test(location.protocol)) return;
+    lastVersionCheck = now;
+    fetch(location.pathname + '?v=' + now, {cache:'no-store'}).then(function(r){ return r.ok ? r.text() : ''; }).then(function(t){
+      var m = String(t).match(/PAGE_BUILD = '([^']+)'/);
+      if(!m || m[1] <= PAGE_BUILD) return;   // builds start with their date, so a plain comparison tells newer from older
+      if(!versionBanner){
+        versionBanner = document.createElement('div'); versionBanner.className = 'notice outdated-banner';
+        versionBanner.innerHTML = '<span>Je dostupná nová verzia stránky.</span><span style="display:flex;gap:8px;"><button class="btn btn-sm btn-primary" type="button" data-v="go">Načítať</button><button class="btn btn-sm" type="button" data-v="later">Neskôr</button></span>';
+        versionBanner.addEventListener('click', function(e){
+          var a = e.target.getAttribute && e.target.getAttribute('data-v');
+          if(a === 'go') reloadFresh();
+          if(a === 'later'){ versionBanner.hidden = true; versionSnoozeUntil = Date.now() + 30 * 60 * 1000; }
+        });
+        var anchor = document.getElementById('outdatedBanner'); anchor.parentNode.insertBefore(versionBanner, anchor);
+      }
+      versionBanner.hidden = false;
+    }).catch(function(){});
+  }
+  setTimeout(checkForNewVersion, 20000);
+  document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') checkForNewVersion(); });
   document.addEventListener('visibilitychange', function(){
     if(document.visibilityState === 'hidden'){ if(debounceTimer) flushSync(); return; }   // leaving the tab: send what is waiting right now
     lastActivity = Date.now();                                                              // coming back counts as being there
