@@ -1963,6 +1963,35 @@
             saveState(); closeModal(); renderAll();
           }, 'Zrušiť tento a všetky budúce'));
           editArea.appendChild(endSeriesBtn);
+          // Permanently delete this occurrence and every later one of the series. Occurrences that already ended, are completed, or are paid are
+          // never touched (their hours and payments stay in the reports). The first click shows exactly how many will go; the second one does it.
+          var delFutureBtn = document.createElement('button');
+          delFutureBtn.className = 'btn btn-ghost btn-sm'; delFutureBtn.textContent = 'Natrvalo vymazať tento a všetky budúce';
+          var dfArmed = false, dfTimer = null;
+          function dfSplit(){
+            var all = sessions.filter(function(x){ return x.seriesId===s.seriesId && x.date>=s.date; });
+            var del = all.filter(function(x){ return !(x.paid || x.status==='completed' || hasEnded(x)); });
+            return {del:del, kept:all.length - del.length};
+          }
+          delFutureBtn.addEventListener('click', function(){
+            if(isTrainerRole()) return;
+            var sp = dfSplit();
+            if(!sp.del.length){ toast('Nie je čo vymazať: minulé, dokončené a zaplatené tréningy sa nemažú.'); return; }
+            if(!dfArmed){
+              dfArmed = true; delFutureBtn.classList.add('btn-warning');
+              delFutureBtn.textContent = 'Vymaže ' + sp.del.length + ' ' + trWord(sp.del.length) + (sp.kept ? ' (' + sp.kept + ' ostane)' : '') + ' — kliknite znova';
+              clearTimeout(dfTimer);
+              dfTimer = setTimeout(function(){ dfArmed = false; delFutureBtn.classList.remove('btn-warning'); delFutureBtn.textContent = 'Natrvalo vymazať tento a všetky budúce'; }, 5000);
+              return;
+            }
+            clearTimeout(dfTimer);
+            var gone = {}; sp.del.forEach(function(x){ gone[x.id] = true; });
+            logChange('deleted', s, {count:sp.del.length});
+            sessions = sessions.filter(function(x){ return !gone[x.id]; });
+            saveState(); closeModal(); renderAll();
+            toast('Vymazaných: ' + sp.del.length + (sp.kept ? ', ponechaných: ' + sp.kept : '') + '.');
+          });
+          editArea.appendChild(delFutureBtn);
         }
       }
     }
@@ -2959,7 +2988,7 @@
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
   // Which page and which server code are running: hover over "Obnoviť dáta". (The server's build is also what its web address shows when opened.)
-  var PAGE_BUILD = '2026-10-19-bands-2', serverBuild = '?';
+  var PAGE_BUILD = '2026-10-20-delseries-1', serverBuild = '?';
   function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
