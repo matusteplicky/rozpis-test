@@ -80,6 +80,12 @@
   .tabs{ display:flex; gap:4px; background:var(--surface-2); border:1px solid var(--border-soft); border-radius:10px; padding:4px; flex-wrap:wrap; }
   .tab{ border:none; background:transparent; color:var(--ink-dim); font-size:13px; font-weight:600; padding:8px 14px; border-radius:7px; cursor:pointer; }
   .tab.active{ background:var(--surface); color:var(--ink); box-shadow:var(--shadow); }
+  /* the three main sections (Kalendár / Tím / Reporty) — deliberately bigger and bolder than the other small toggles that share .tab */
+  #tabs{ display:flex; gap:6px; background:var(--surface-2); border:1px solid var(--border); border-radius:14px; padding:5px; flex-wrap:wrap; }
+  #tabs .tab{ color:var(--ink); font-size:16px; font-weight:700; letter-spacing:0.01em; padding:11px 26px; border-radius:10px; }
+  #tabs .tab:hover{ background:var(--surface); }
+  #tabs .tab.active{ background:var(--accent); color:var(--accent-ink); box-shadow:var(--shadow); }
+  @media (max-width:640px){ #tabs{ width:100%; flex-wrap:nowrap; } #tabs .tab{ flex:1; padding:11px 8px; font-size:15px; } }
   .btn{ border:1px solid var(--border); background:var(--surface); color:var(--ink); font-size:13px; font-weight:600; padding:8px 13px; border-radius:8px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
   .btn:hover{ border-color:var(--ink-faint); }
   .btn-primary{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
@@ -360,6 +366,7 @@
     <button class="btn btn-ghost btn-sm" id="resetBtn">Obnoviť vzorové dáta</button>
     <button class="btn btn-sm" id="refreshBtn">Obnoviť dáta</button>
     <button class="btn btn-sm" id="calBtn">Môj kalendár</button>
+    <button class="btn btn-sm" id="helpBtn" title="Pomoc — ako stránku používať">? Pomoc</button>
     <button class="btn btn-sm" id="updateBtn" title="Načítať najnovšiu verziu stránky (obíde pamäť prehliadača)">Nová verzia</button>
     <span class="save-status" id="saveStatus" aria-live="polite"></span>
     <button class="btn btn-ghost btn-sm" id="signOutBtn">Odhlásiť</button>
@@ -462,8 +469,8 @@
         <button class="subtab subtab-urgent" data-sub="conflicts">Konflikty</button>
         <button class="subtab" data-sub="summary">Prehľad</button>
         <button class="subtab" data-sub="vertigo">Vertigo</button>
+        <button class="subtab" data-sub="bytrainer">Vertigo tréningy</button>
         <button class="subtab" data-sub="private">Súkromné</button>
-        <button class="subtab" data-sub="bytrainer">Podľa trénera</button>
         <button class="subtab" data-sub="load">Vyťaženosť</button>
         <button class="subtab" data-sub="activity">Zmeny</button>
         <button class="subtab" data-sub="archive" id="archiveSubtab" hidden>Archív</button>
@@ -1010,6 +1017,7 @@
     if(changeLog.length > LOG_MAX) changeLog = changeLog.slice(-LOG_MAX);
   }
   function logChange(action, s, extra){
+    track('training_' + action);
     var e = {t:new Date().toISOString(), by:currentTrainerId, byName:currentActorLabel(), action:action,
              sid:s.id, label:s.clientName||s.type, when:s.date+' '+s.start, isPrivate:isPrivateSession(s), forNames:[]};
     Object.keys(extra||{}).forEach(function(k){ e[k] = extra[k]; });
@@ -1839,6 +1847,7 @@
   });
 
   function openModal(sessionId, prefill){
+    track(sessionId ? 'form_edit' : 'form_new');
     var s = sessionId ? sessions.filter(function(x){return x.id===sessionId;})[0] : null;
     if(READ_ONLY && !s) return;
     if(s && isMaskedForViewer(s)) return; // externals never open a Vertigo client's training
@@ -2998,7 +3007,7 @@
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
   // Which page and which server code are running: hover over "Obnoviť dáta". (The server's build is also what its web address shows when opened.)
-  var PAGE_BUILD = '2026-10-21-readmode-4', serverBuild = '?';
+  var PAGE_BUILD = '2026-10-21-readmode-7', serverBuild = '?';
   function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
@@ -3609,6 +3618,86 @@
       else { state.textContent = 'Odkaz sa nepodarilo načítať. Skúste to znova o chvíľu.'; }
     });
   }
+  // ---- anonymous usage counts ----
+  // Counts how often each feature is used — nothing about who, and no content. Sent in small batches (never during a save);
+  // the server stores them per day and ROLE only. See recordUsage() in the backend.
+  var usage = {}, usageSending = false;
+  function track(ev){ if(ev) usage[ev] = (usage[ev] || 0) + 1; }
+  function usageFlush(){
+    if(!Object.keys(usage).length || usageSending || !session || outdated || fetchBusy || inflight) return;
+    var batch = usage; usage = {}; usageSending = true;
+    safePost({op:'usage', counts:batch}).then(function(d){
+      usageSending = false;
+      if(d && (d.ok || d.error === 'bad_op' || d.error === 'outdated')) return;   // stored, or the server cannot take it: drop
+      Object.keys(batch).forEach(function(k){ usage[k] = (usage[k] || 0) + batch[k]; });   // lost on the way: keep for the next try
+    });
+  }
+  setInterval(usageFlush, 5 * 60 * 1000);
+  document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'hidden') usageFlush(); });
+  var TRACK_CLICKS = [['#addSessionBtn','add_training_button'], ['#addBlockBtn','add_block'], ['#onlyMineBtn','only_mine'], ['#fullDayBtn','full_day'],
+    ['#refreshBtn','refresh_data'], ['#updateBtn','new_version'], ['#calBtn','my_calendar'], ['#helpBtn','help_open'], ['#exportBtn','export_csv'],
+    ['#modeDay','view_day'], ['#modeWeek','view_week']];
+  document.addEventListener('click', function(e){
+    var t = e.target; if(!t || !t.closest) return;
+    TRACK_CLICKS.forEach(function(c){ if(t.closest(c[0])) track(c[1]); });
+    var x = t.closest('.tab[data-view]'); if(x) track('tab_' + x.dataset.view);
+    x = t.closest('#reportSubtabs .subtab'); if(x) track('report_' + x.dataset.sub);
+    x = t.closest('#clientScopeToggle .subtab'); if(x) track('scope_' + x.dataset.scope);
+    x = t.closest('#zoomToggle .subtab'); if(x) track('zoom_' + x.dataset.px);
+  }, true);
+
+  // ---- help window ("? Pomoc") ----
+  var helpOv = null;
+  function helpSections(){
+    var role = currentRole, ext = isPrivateOnlyViewer(), admin = role === 'owner' || role === 'admin', S = [];
+    S.push(['Prvé kroky', true,
+      '<p>Stránka je <b>rozpis tréningov</b>. Hore sú záložky <b>Kalendár</b>' + (admin ? ', <b>Tím</b>' : '') + ' a <b>Reporty</b>. Všetko, čo zmeníte, sa ukladá automaticky — stačí vyplniť údaje a kliknúť <b>Uložiť tréning</b>.</p>' +
+      '<p>Vpravo hore uvidíte, či sa zmena uložila: <b>„Ukladá sa…“</b> → <b>„Uložené ✓“</b>. Ak sa objaví <b>„Overuje sa uloženie“</b>, nič nerobte — stránka to skúša znova a môžete pokračovať v práci.</p>']);
+    S.push(['Kalendár', false,
+      '<p>Prepínač <b>Deň / Týždeň</b> mení rozsah. Farba tréningu hovorí, do ktorej skupiny patrí (legenda je nad kalendárom). Tréningy sa zobrazujú podľa hodín; <b>Celý deň</b> ukáže aj hodiny bez tréningov, <b>Úzke / Bežné / Široké</b> mení šírku hodiny.</p>' +
+      '<p><b>Vertigo / Súkromné / Oboje</b> filtruje, čo vidíte. <b>Len moje</b> ukáže iba tréningy, na ktorých ste vy.</p>' +
+      '<p>Kliknutím na tréning ho otvoríte. Na tablete: prvé klepnutie ukáže náhľad, tlačidlo <b>Otvoriť</b> ho otvorí.</p>']);
+    S.push(['Pridať tréning', false,
+      '<p>Tlačidlo <b>+ Pridať tréning</b> alebo kliknutie na prázdne miesto v kalendári. Vyplňte klienta, čas, dĺžku a trénerov.' + (ext ? '' : ' Ak máte zapnutý pohľad <b>Súkromné</b>, nový tréning sa predvolí ako súkromný.') + '</p>' +
+      (ext ? '' : '<p><b>Opakovaný tréning:</b> zaškrtnite „Opakuje sa týždenne“ a zadajte dátum, dokedy sa má opakovať.</p>') +
+      (role === 'trainer' ? '<p>Seba ako trénera ste pri novom tréningu už zaškrtnutý(á).</p>' : '')]);
+    S.push(['Upraviť, zrušiť, vrátiť', false,
+      '<p>Otvorte tréning a zmeňte, čo treba. Pri <b>opakovanom</b> tréningu sa opýta, či zmenu použiť <b>Len tento tréning</b>, alebo <b>Tento a budúce tréningy</b>.</p>' +
+      '<p><b>Zrušiť</b> tréning ostane v kalendári, prečiarknutý a označený ZRUŠENÉ — dá sa <b>vrátiť späť</b>.' + (admin ? ' Úplne vymazať tréning (aj „tento a budúce“) môže administrátor.' : '') + '</p>' +
+      (role === 'trainer' ? '<p>Ak tréning už niekto upravil medzitým, stránka vás upozorní a načíta aktuálny stav — vašu zmenu potom skúste zopakovať.</p>' : '<p>Ak tréning medzitým upravil niekto iný, stránka vás upozorní a načíta aktuálny stav.</p>')]);
+    S.push(['Môj kalendár', false,
+      '<p>Tlačidlo <b>Môj kalendár</b> vám dá odkaz, vďaka ktorému uvidíte svoje tréningy v Google alebo Apple Kalendári (aj v telefóne). Odkaz je súkromný — nezdieľajte ho.</p>']);
+    S.push(['Reporty', false,
+      '<p><b>Chýba tréner</b> ukazuje tréningy, ktoré ešte potrebujú trénera. <b>Konflikty</b> hľadá prekrývajúce sa tréningy trénera. <b>Vertigo tréningy</b> a <b>Súkromné</b> sú zoznamy po mesiacoch' + (admin ? '' : ' (len vaše)') + '. <b>Vyťaženosť</b> ukazuje počet ľudí v telocvični po hodinách.</p>' +
+      (admin ? '<p>Administrátor a majiteľ vidia aj <b>Prehľad</b> (hodiny a export do CSV), <b>Vertigo</b> (platby) a <b>Zmeny</b> (kto čo zmenil).</p>' : '')]);
+    if(admin) S.push(['Tím', false, '<p>V záložke <b>Tím</b> sa pridávajú a upravujú ľudia, ich úloha (majiteľ, administrátor, tréner) a prístup. Zmena prístupu platí hneď.</p>']);
+    S.push(['Obnoviť dáta a Nová verzia', false,
+      '<p><b>Obnoviť dáta</b> načíta aktuálny stav zo servera (ak podozrievate, že vidíte staré údaje). <b>Nová verzia</b> načíta najnovšiu verziu stránky — použite ju, keď sa vám ukáže hlásenie o novej verzii alebo keď niečo nefunguje ako má.</p>']);
+    S.push(['Ochrana súkromia', false,
+      '<p>Stránka anonymne počíta, ktoré funkcie sa používajú (napr. koľkokrát sa otvorila záložka Reporty) — len počty podľa úlohy, <b>bez mien</b> a bez obsahu tréningov. Slúži to iba na zlepšovanie stránky.</p>']);
+    return S;
+  }
+  function helpDialog(){
+    if(helpOv) return helpOv;
+    helpOv = document.createElement('div'); helpOv.className = 'modal-overlay'; helpOv.id = 'helpOverlay'; helpOv.hidden = true;
+    helpOv.innerHTML =
+      '<div class="modal" role="dialog" aria-modal="true" aria-label="Pomoc">' +
+        '<div class="modal-head"><h3 style="font-size:15px;">Pomoc</h3><button class="btn btn-ghost btn-sm" type="button" data-help="close" aria-label="Zavrieť">✕</button></div>' +
+        '<div class="modal-body" id="helpBody" style="max-height:70vh; overflow:auto;"></div>' +
+        '<div class="modal-foot"><button class="btn" type="button" data-help="close">Zavrieť</button></div>' +
+      '</div>';
+    document.body.appendChild(helpOv);
+    helpOv.addEventListener('click', function(ev){ var t = ev.target; if(t === helpOv || (t.getAttribute && t.getAttribute('data-help') === 'close')) helpOv.hidden = true; });
+    document.addEventListener('keydown', function(ev){ if(ev.key === 'Escape' && !helpOv.hidden) helpOv.hidden = true; });
+    return helpOv;
+  }
+  document.getElementById('helpBtn').addEventListener('click', function(){
+    var ov = helpDialog();
+    ov.querySelector('#helpBody').innerHTML = helpSections().map(function(sec){
+      return '<details class="cal-help"' + (sec[1] ? ' open' : '') + '><summary>' + sec[0] + '</summary><div style="margin-top:6px; display:flex; flex-direction:column; gap:6px;">' + sec[2] + '</div></details>';
+    }).join('');
+    ov.hidden = false;
+  });
   document.getElementById('calBtn').addEventListener('click', function(){ calDialog().hidden = false; loadCal(false); });
   // The button answers the click at once (spinner, disabled, status line) and ignores a second click while the load is running.
   var refreshBtn = document.getElementById('refreshBtn'), refreshing = false;
