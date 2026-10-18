@@ -1252,9 +1252,9 @@
     document.getElementById('addBlockBtn').hidden = t;
     document.getElementById('resetBtn').hidden = t;
 
-    // Trainers see everything except the gym-wide Summary (hours/CSV export).
+    // Trainers see everything except the gym-wide Summary (hours/CSV export), Vertigo payments and Zmeny.
     // Needs a trainer & Conflicts stay visible — that's how a trainer spots a gap to fill.
-    var restrictedSubs = {summary:1, vertigo:1, private:1, activity:1};
+    var restrictedSubs = {summary:1, vertigo:1, activity:1};   // Súkromné is open to trainers too, but only shows their own (see drawPrivate)
     if(isPrivateOnlyViewer()){ restrictedSubs.missing = 1; restrictedSubs.conflicts = 1; } // both list Vertigo clients
     var subtabButtons = document.querySelectorAll('#reportSubtabs .subtab');
     subtabButtons.forEach(function(btn){ btn.hidden = (t && restrictedSubs[btn.dataset.sub]) || (btn.dataset.sub==='archive' && !isOwnerRole()); });
@@ -2672,7 +2672,7 @@
   // Same structure as Vertigo (grouped by trainer), but no bulk button: the trainer settles their cut with the gym per training.
   function drawPrivate(){
     var unpaidOnly = document.getElementById('privateUnpaidOnly').checked;
-    var monthSessions = filteredMonthSessions().filter(isPrivateSession)
+    var monthSessions = filteredMonthSessions().filter(function(s){ return isPrivateSession(s) && (!isTrainerRole() || isAssigned(s)); })   // a trainer sees only their own private trainings
       .sort(function(a,b){ return a.date===b.date ? toMin(a.start)-toMin(b.start) : a.date.localeCompare(b.date); });
     var live = monthSessions.filter(function(s){ return s.status!=='cancelled'; });
     var unpaidCompleted = live.filter(function(s){ return s.status==='completed' && !s.paid; });
@@ -2807,7 +2807,7 @@
     var tId = document.getElementById('byTrainerSelect').value;
     var statsEl = document.getElementById('byTrainerStats');
     if(!tId){ document.getElementById('byTrainerList').innerHTML = '<div class="agenda-empty">Vyberte trénera vyššie a zobrazia sa jeho tréningy.</div>'; statsEl.innerHTML = ''; return; }
-    var monthSessions = filteredMonthSessions().filter(function(s){ return s.trainerIds.indexOf(tId)!==-1; })
+    var monthSessions = filteredMonthSessions().filter(function(s){ return s.trainerIds.indexOf(tId)!==-1 && !isPrivateSession(s); })   // private trainings have their own report (Súkromné)
       .sort(function(a,b){ return a.date===b.date ? toMin(a.start)-toMin(b.start) : a.date.localeCompare(b.date); });
     var wrap = document.getElementById('byTrainerList');
     monthSessions = monthSessions.filter(function(s){ return !(isMaskedForViewer(s) && s.status==='cancelled'); });
@@ -2998,7 +2998,7 @@
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
   // Which page and which server code are running: hover over "Obnoviť dáta". (The server's build is also what its web address shows when opened.)
-  var PAGE_BUILD = '2026-10-21-readmode-3', serverBuild = '?';
+  var PAGE_BUILD = '2026-10-21-readmode-4', serverBuild = '?';
   function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
