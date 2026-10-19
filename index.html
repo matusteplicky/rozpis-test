@@ -100,6 +100,19 @@
   .seg-btn.st-confirmed.on{ background:var(--swatch-green); color:var(--swatch-green-ink); }
   .seg-btn.st-completed.on{ background:var(--swatch-blue); color:var(--swatch-blue-ink); }
   @media (max-width:520px){ .choice-grp{ width:100%; } .seg-btn{ flex:1; padding:8px 6px; } }
+  /* trainings waiting for confirmation (Predbežné): strip above the page, badge on Reporty, report rows, pop-up */
+  .confirm-strip{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; border:2px solid var(--warning); background:var(--warning-soft); color:var(--ink); border-radius:12px; padding:10px 14px; font-size:14px; font-weight:600; margin:10px 0; }
+  .confirm-strip.red{ border-color:var(--danger); background:var(--danger-soft); }
+  .tab-badge{ display:inline-block; min-width:20px; padding:1px 6px; margin-left:8px; border-radius:999px; background:var(--danger); color:#fff; font-size:12px; font-weight:800; line-height:18px; text-align:center; vertical-align:1px; }
+  .confirm-strip[hidden], .tab-badge[hidden]{ display:none; }
+  .cf-help{ font-size:12.5px; color:var(--ink-dim); margin:0 0 6px; }
+  .cf-row{ display:flex; align-items:center; gap:10px 14px; flex-wrap:wrap; border:1px solid var(--border); border-left:5px solid var(--warning); background:var(--surface); border-radius:9px; padding:9px 12px; font-size:13px; cursor:pointer; }
+  .cf-row.red{ border-left-color:var(--danger); background:var(--danger-soft); }
+  .cf-row.late{ border-left-color:var(--ink-dim); }
+  .cf-row.later, .cf-row.old{ border-left-color:var(--border); }
+  .cf-main{ flex:1 1 220px; min-width:180px; } .cf-sub{ font-size:11.5px; color:var(--ink-dim); } .cf-when{ color:var(--ink-dim); font-weight:600; }
+  .cf-phone{ font-size:13px; font-weight:700; white-space:nowrap; } .cf-phone a{ color:inherit; } .cf-nophone{ font-weight:400; color:var(--ink-faint); }
+  .cf-actions{ display:flex; gap:6px; flex-wrap:wrap; }
   .btn{ border:1px solid var(--border); background:var(--surface); color:var(--ink); font-size:13px; font-weight:600; padding:8px 13px; border-radius:8px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
   .btn:hover{ border-color:var(--ink-faint); }
   .btn-primary{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
@@ -371,7 +384,7 @@
     <nav class="tabs" id="tabs">
       <button class="tab active" data-view="calendar">Kalendár</button>
       <button class="tab" data-view="team" id="teamTabBtn">Tím</button>
-      <button class="tab" data-view="reports">Reporty</button>
+      <button class="tab" data-view="reports">Reporty<span class="tab-badge" id="confirmBadge" hidden></span></button>
     </nav>
     <div style="display:flex; align-items:center; gap:8px;">
       <span style="font-size:11px; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.04em;">Prihlásený ako</span>
@@ -388,6 +401,7 @@
   </div>
 
   <div class="notice" id="roleBanner"></div>
+  <div class="confirm-strip" id="confirmStrip" hidden></div>
 
   <div class="notice outdated-banner" id="outdatedBanner" hidden><span></span><button class="btn btn-sm btn-primary" id="outdatedReload">Obnoviť stránku</button></div>
 
@@ -479,6 +493,7 @@
         </div>
       </div>
       <div class="subtabs" id="reportSubtabs">
+        <button class="subtab subtab-urgent" data-sub="confirm" id="confirmSubtab">Na potvrdenie</button>
         <button class="subtab subtab-urgent active" data-sub="missing">Chýba tréner</button>
         <button class="subtab subtab-urgent" data-sub="conflicts">Konflikty</button>
         <button class="subtab" data-sub="summary">Prehľad</button>
@@ -488,6 +503,11 @@
         <button class="subtab" data-sub="load">Vyťaženosť</button>
         <button class="subtab" data-sub="activity">Zmeny</button>
         <button class="subtab" data-sub="archive" id="archiveSubtab" hidden>Archív</button>
+      </div>
+
+      <div class="subview" id="sub-confirm" hidden>
+        <p class="cf-help">Predbežné tréningy, ktoré treba potvrdiť — zavolajte klientovi. Zoradené podľa času; nezávisí od filtrov vyššie.</p>
+        <div id="confirmList" style="display:flex; flex-direction:column; gap:8px;"></div>
       </div>
 
       <div class="subview" id="sub-missing">
@@ -642,6 +662,8 @@
           </div>
         </div>
       </div>
+
+      <div class="series-note" id="statusLockNote" hidden>Dokončený tréning sa už nedá zmeniť na iný stav — dá sa iba zrušiť (tlačidlo „Zrušiť tréning“ dole).</div>
 
       <div class="form-cols"><div class="form-col">
       <div class="field"><label for="f-client">Klient / skupina <span>(povinné)</span></label><input id="f-client" type="text" list="clientDatalist" autocomplete="off" placeholder="napr. Nováková"><datalist id="clientDatalist"></datalist></div>
@@ -1301,7 +1323,7 @@
       var fallback = Array.prototype.filter.call(subtabButtons, function(b){ return !b.hidden; })[0];
       if(fallback){
         subtabButtons.forEach(function(b){ b.classList.toggle('active', b===fallback); });
-        ['missing','conflicts','summary','vertigo','private','bytrainer','load','activity','archive'].forEach(function(k){ document.getElementById('sub-'+k).hidden = (k!==fallback.dataset.sub); });
+        ['confirm','missing','conflicts','summary','vertigo','private','bytrainer','load','activity','archive'].forEach(function(k){ document.getElementById('sub-'+k).hidden = (k!==fallback.dataset.sub); });
       }
     }
 
@@ -1488,6 +1510,7 @@
     hidePreview();
     runAutoComplete();
     applyRoleUI();
+    updateConfirmUI();
     document.getElementById('calDateLabel').textContent = viewMode==='day' ? fmtDateLabel(selectedDate) : monthLabel(startOfWeek(selectedDate));
     renderWeekStrip();
 
@@ -1682,11 +1705,13 @@
   }
   function syncChoiceUI(){
     var stSel = document.getElementById('f-status'), tySel = document.getElementById('f-type'), ended = formHasEnded();
+    var exS = existingBeingEdited(), done = !!(exS && derived(exS) === 'completed' && hasEnded(exS));   // completed and over: the status is frozen, only cancelling remains
+    document.getElementById('statusLockNote').hidden = !done;
     statusBtns.querySelectorAll('.seg-btn').forEach(function(b){
       var v = b.dataset.v, offered = [].some.call(stSel.options, function(o){ return o.value === v; }), on = stSel.value === v;
       b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false');
-      b.disabled = stSel.disabled || !offered || (v === 'confirmed' && ended && !on);
-      b.title = !offered ? 'Dokončené nastavuje administrátor alebo sa nastaví samo po skončení tréningu.'
+      b.disabled = stSel.disabled || !offered || done || (v === 'confirmed' && ended && !on);
+      b.title = done ? 'Dokončený tréning sa dá už len zrušiť.' : !offered ? 'Dokončené nastavuje administrátor alebo sa nastaví samo po skončení tréningu.'
         : (v === 'confirmed' && ended && !on ? 'Skončený tréning sa sám stáva dokončeným.' : '');
     });
     var priv = tySel.value === TYPE_PRIVATE;
@@ -2498,7 +2523,7 @@
   document.getElementById('reportSubtabs').addEventListener('click', function(e){
     var btn = e.target.closest('.subtab'); if(!btn) return;
     document.querySelectorAll('#reportSubtabs .subtab').forEach(function(b){ b.classList.toggle('active', b===btn); });
-    ['missing','conflicts','summary','vertigo','private','bytrainer','load','activity','archive'].forEach(function(k){ document.getElementById('sub-'+k).hidden = (k!==btn.dataset.sub); });
+    ['confirm','missing','conflicts','summary','vertigo','private','bytrainer','load','activity','archive'].forEach(function(k){ document.getElementById('sub-'+k).hidden = (k!==btn.dataset.sub); });
   });
 
   var reportTagFilters = [];
@@ -2570,7 +2595,7 @@
     });
   }
 
-  function drawAll(){ if(archiveForReports()) return; drawSummary(); drawMissing(); drawByTrainer(); drawConflicts(); drawPrivate(); drawVertigo(); drawActivity(); drawLoad(); }
+  function drawAll(){ if(archiveForReports()) return; drawSummary(); drawConfirm(); drawMissing(); drawByTrainer(); drawConflicts(); drawPrivate(); drawVertigo(); drawActivity(); drawLoad(); }
 
   // A cell starting with = + - @ is executed as a formula when the CSV is opened in Excel/Sheets — prefix it so it stays plain text.
   function csvEscape(v){ v=String(v==null?'':v); if(/^[=+\-@\t\r]/.test(v)) v = "'"+v; return /[";\r\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }   // fields are separated by ";" (see the export), so a comma needs no quoting
@@ -3016,7 +3041,7 @@
   function fixColor(s){ s.color = s.color || ''; return s; }   // the displayed colour is computed (displayColor); a stored one is only an override when it starts with "!"
   var openTracked = false;
   function applyLoad(d, deferRender){
-    if(!openTracked){ openTracked = true; track('app_open'); }   // one per page load: the base for "how often is X used per visit"
+    if(!openTracked){ openTracked = true; track('app_open'); setTimeout(maybeConfirmPopup, 1500); }   // one per page load: the base for "how often is X used per visit"
     me = d.me; trainers = d.trainers; blocks = d.blocks;
     setGroupConfig(d.groups, d.tags);
     changeLog = []; logLoaded = false; logTriedAt = 0;   // the log is fetched only when Activity is opened (see ensureLog)
@@ -3079,7 +3104,7 @@
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
   // Which page and which server code are running: hover over "Obnoviť dáta". (The server's build is also what its web address shows when opened.)
-  var PAGE_BUILD = '2026-10-21-readmode-10', serverBuild = '?';
+  var PAGE_BUILD = '2026-10-21-readmode-12', serverBuild = '?';
   function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
@@ -3752,7 +3777,7 @@
     S.push(['Môj kalendár', false,
       '<p>Tlačidlo <b>Môj kalendár</b> vám dá odkaz, vďaka ktorému uvidíte svoje tréningy v Google alebo Apple Kalendári (aj v telefóne). Odkaz je súkromný — nezdieľajte ho.</p>']);
     S.push(['Reporty', false,
-      '<p><b>Chýba tréner</b> ukazuje tréningy, ktoré ešte potrebujú trénera. <b>Konflikty</b> hľadá prekrývajúce sa tréningy trénera. <b>Vertigo tréningy</b> a <b>Súkromné</b> sú zoznamy po mesiacoch' + (admin ? '' : ' (len vaše)') + '. <b>Vyťaženosť</b> ukazuje počet ľudí v telocvični po hodinách.</p>' +
+      '<p><b>Na potvrdenie</b> ukazuje predbežné tréningy, ktoré treba potvrdiť (zavolajte klientovi; číslo sa dá kliknúť). „Potvrdiť“ potvrdí daný tréning hneď. Pri takých tréningoch sa hore zobrazí aj výstraha. <b>Chýba tréner</b> ukazuje tréningy, ktoré ešte potrebujú trénera. <b>Konflikty</b> hľadá prekrývajúce sa tréningy trénera. <b>Vertigo tréningy</b> a <b>Súkromné</b> sú zoznamy po mesiacoch' + (admin ? '' : ' (len vaše)') + '. <b>Vyťaženosť</b> ukazuje počet ľudí v telocvični po hodinách.</p>' +
       (admin ? '<p>Administrátor a majiteľ vidia aj <b>Prehľad</b> (hodiny a export do CSV), <b>Vertigo</b> (platby) a <b>Zmeny</b> (kto čo zmenil).</p>' : '')]);
     if(admin) S.push(['Tím', false, '<p>V záložke <b>Tím</b> sa pridávajú a upravujú ľudia, ich úloha (majiteľ, administrátor, tréner) a prístup. Zmena prístupu platí hneď.</p>']);
     S.push(['Obnoviť dáta a Nová verzia', false,
@@ -3784,6 +3809,117 @@
     }).join('');
     ov.hidden = false;
   });
+  // ---- trainings waiting for confirmation (status Predbežné) ----
+  // A tentative training needs a call to the client. Shown as: the "Na potvrdenie" report, a strip + badge, and a pop-up when the page opens
+  // (again every CONFIRM_REPEAT_MS while it stays open). Admin/owner see all of them; a trainer only their own.
+  var CONFIRM_SOON_H = 48, CONFIRM_RED_H = 24, CONFIRM_REPEAT_MS = 4 * 3600 * 1000, CONFIRM_LATE_DAYS = 30;
+  function startMsOf(s){ return new Date(s.date + 'T' + s.start + ':00').getTime(); }
+  function confirmItems(){
+    var now = Date.now(), admin = !isTrainerRole(), out = {late:[], red:[], soon:[], later:[], old:[]};
+    sessions.forEach(function(s){
+      if(s.status !== 'tentative' || s._archived) return;
+      if(!admin && (!isAssigned(s) || isMaskedForViewer(s))) return;
+      if(hasEnded(s)){ if(admin) (now - startMsOf(s) <= CONFIRM_LATE_DAYS * 86400000 ? out.late : out.old).push(s); return; }   // past + still tentative: only admin can settle it
+      var h = (startMsOf(s) - now) / 3600000;
+      (h <= CONFIRM_RED_H ? out.red : (h <= CONFIRM_SOON_H ? out.soon : out.later)).push(s);
+    });
+    ['late','red','soon','later','old'].forEach(function(k){ out[k].sort(function(a, b){ return startMsOf(a) - startMsOf(b); }); });
+    return out;
+  }
+  function cakaWord(n){ return n === 1 || n >= 5 ? 'čaká' : 'čakajú'; }
+  function untilText(s){
+    var h = (startMsOf(s) - Date.now()) / 3600000;
+    return h < 1 ? 'o menej než hodinu' : (h < 24 ? 'o ' + Math.round(h) + ' h' : 'o ' + Math.round(h / 24) + ' d');
+  }
+  function canQuickConfirm(s){ return !isTrainerRole() || (isAssigned(s) && !hasEnded(s) && !s.paid); }
+  function confirmRow(s, cls){
+    var admin = !isTrainerRole(), phone = String(s.phone || '').trim(), tel = phone.replace(/[^\d+]/g, ''), ended = hasEnded(s);
+    var tr = s.trainerIds.map(trainerNameH).join(', ') || 'bez trénera';
+    return '<div class="cf-row ' + cls + '" data-id="' + s.id + '"><div class="cf-main"><b>' + esc(displayClient(s)) + '</b> &middot; ' + fmtReportDate(s.date) + ' ' + s.start + '–' + s.end +
+        ' <span class="cf-when">(' + (ended ? 'po termíne' : untilText(s)) + ')</span><div class="cf-sub">' + tr + (s.tag ? ' &middot; ' + esc(s.tag) : '') + '</div></div>' +
+      (phone ? '<div class="cf-phone">&#9742; <a href="tel:' + esc(tel) + '">' + esc(phone) + '</a></div>' : '<div class="cf-phone cf-nophone">bez telefónu</div>') +
+      '<div class="cf-actions">' + (canQuickConfirm(s) ? '<button class="btn btn-primary btn-sm" type="button" data-act="confirm">Potvrdiť</button>' : '') +
+        (admin && ended ? '<button class="btn btn-sm" type="button" data-act="cancel">Zrušiť</button>' : '') + '<button class="btn btn-ghost btn-sm" type="button" data-act="open">Otvoriť</button></div></div>';
+  }
+  function confirmSections(it, withLater){
+    function sec(title, list, cls){ return list.length ? '<div class="report-date-h">' + title + ' (' + list.length + ')</div>' + list.map(function(s){ return confirmRow(s, cls); }).join('') : ''; }
+    return sec('Po termíne — treba rozhodnúť: potvrdiť alebo zrušiť', it.late, 'late') + sec('Do 24 hodín', it.red, 'red') + sec('Do 48 hodín', it.soon, '') +
+      (withLater ? sec('Neskôr', it.later, 'later') + sec('Staršie ako ' + CONFIRM_LATE_DAYS + ' dní', it.old, 'old') : '');
+  }
+  function wireConfirmRows(root){
+    root.querySelectorAll('.cf-row').forEach(function(row){
+      row.addEventListener('click', function(e){
+        if(e.target.closest('a')) return;
+        var b = e.target.closest('button'), act = b && b.dataset.act, id = row.dataset.id;
+        if(act === 'confirm') return quickConfirm(id, false);
+        if(act === 'cancel') return quickConfirm(id, true);
+        if(cfOv) cfOv.hidden = true; openModal(id);
+      });
+    });
+  }
+  function drawConfirm(){
+    var wrap = document.getElementById('confirmList'); if(!wrap) return;
+    wrap.innerHTML = confirmSections(confirmItems(), true) || '<div class="agenda-empty">Všetky predbežné tréningy sú potvrdené.</div>';
+    wireConfirmRows(wrap);
+  }
+  function quickConfirm(id, cancel){
+    var s = sessions.filter(function(x){ return x.id === id; })[0]; if(!s || s.status !== 'tentative') return;
+    if(isTrainerRole() && (cancel || !canQuickConfirm(s))) return;
+    var before = Object.assign({}, s);
+    s.status = cancel ? 'cancelled' : 'confirmed'; stampEdited(s);
+    if(cancel) logChange('cancelled', s, {wasCompleted:false}); else logChange('edited', s, {changes:diffSession(before, s)});
+    track(cancel ? 'confirm_cancel_quick' : 'confirm_quick');
+    saveState(); renderAll(); refreshConfirmDialog();
+    toast(cancel ? 'Tréning je zrušený.' : 'Potvrdené ✓');
+  }
+  function updateConfirmUI(){
+    var badge = document.getElementById('confirmBadge'), strip = document.getElementById('confirmStrip'), sub = document.getElementById('confirmSubtab'); if(!badge || !me) return;
+    var it = confirmItems(), urgent = it.late.length + it.red.length + it.soon.length;
+    badge.hidden = !urgent; badge.textContent = urgent; sub.textContent = 'Na potvrdenie' + (urgent ? ' (' + urgent + ')' : '');
+    if(!urgent){ strip.hidden = true; return; }
+    strip.className = 'confirm-strip' + (it.red.length || it.late.length ? ' red' : '');
+    strip.innerHTML = '<span>&#9888; ' + urgent + ' ' + trWord(urgent) + ' ' + cakaWord(urgent) + ' na potvrdenie' + (it.red.length ? ' — ' + it.red.length + ' do 24 hodín' : '') + (it.late.length ? ', ' + it.late.length + ' po termíne' : '') +
+      '. Zavolajte klientovi.</span><button class="btn btn-sm" type="button" id="confirmStripBtn">Zobraziť</button>';
+    strip.hidden = false;
+  }
+  document.getElementById('confirmStrip').addEventListener('click', function(e){ if(e.target.closest('#confirmStripBtn')){ track('confirm_strip_open'); showConfirmPopup(false); } });
+
+  var cfOv = null, cfLastShown = 0;
+  function cfDialog(){
+    if(cfOv) return cfOv;
+    cfOv = document.createElement('div'); cfOv.className = 'modal-overlay'; cfOv.id = 'cfOverlay'; cfOv.hidden = true;
+    cfOv.innerHTML =
+      '<div class="modal" role="dialog" aria-modal="true" aria-label="Na potvrdenie">' +
+        '<div class="modal-head"><h3 id="cfTitle" style="font-size:15px;"></h3><button class="btn btn-ghost btn-sm" type="button" data-cf="later" aria-label="Zavrieť">✕</button></div>' +
+        '<div class="modal-body" style="max-height:65vh; overflow:auto;"><div class="cf-help">Zavolajte klientovi a tréning potvrďte — alebo ho zrušte.</div><div id="cfBody" style="display:flex; flex-direction:column; gap:8px;"></div></div>' +
+        '<div class="modal-foot"><button class="btn btn-ghost" type="button" data-cf="report">Pozrieť v reportoch</button><button class="btn" type="button" data-cf="later">Pripomenúť neskôr</button></div>' +
+      '</div>';
+    document.body.appendChild(cfOv);
+    cfOv.addEventListener('click', function(ev){
+      var t = ev.target, a = t.getAttribute && t.getAttribute('data-cf');
+      if(t === cfOv || a === 'later'){ cfOv.hidden = true; track('confirm_popup_later'); return; }
+      if(a === 'report'){ cfOv.hidden = true; document.querySelector('.tab[data-view=reports]').click(); document.querySelector('#reportSubtabs [data-sub=confirm]').click(); }
+    });
+    document.addEventListener('keydown', function(ev){ if(ev.key === 'Escape' && !cfOv.hidden) cfOv.hidden = true; });
+    return cfOv;
+  }
+  function fillConfirmDialog(){
+    var it = confirmItems(), n = it.late.length + it.red.length + it.soon.length; if(!n) return false;
+    var ov = cfDialog(); ov.querySelector('#cfTitle').textContent = n + ' ' + trWord(n) + ' ' + cakaWord(n) + ' na potvrdenie';
+    var body = ov.querySelector('#cfBody'); body.innerHTML = confirmSections(it, false); wireConfirmRows(body); return true;
+  }
+  function refreshConfirmDialog(){ if(cfOv && !cfOv.hidden && !fillConfirmDialog()) cfOv.hidden = true; }
+  function showConfirmPopup(auto){
+    if(auto && anyModalOpen()) return false;
+    if(!fillConfirmDialog()) return false;
+    cfDialog().hidden = false; cfLastShown = Date.now(); track('confirm_popup_shown'); return true;
+  }
+  function maybeConfirmPopup(){
+    if(!me || outdated || document.visibilityState !== 'visible' || (cfOv && !cfOv.hidden)) return;
+    if(Date.now() - cfLastShown < CONFIRM_REPEAT_MS) return;
+    showConfirmPopup(true);   // a form being open just postpones it: the next minute's check tries again
+  }
+  setInterval(maybeConfirmPopup, 60 * 1000);
   document.getElementById('calBtn').addEventListener('click', function(){ calDialog().hidden = false; loadCal(false); });
   // The button answers the click at once (spinner, disabled, status line) and ignores a second click while the load is running.
   var refreshBtn = document.getElementById('refreshBtn'), refreshing = false;
