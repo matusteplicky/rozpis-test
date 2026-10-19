@@ -3104,7 +3104,7 @@
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
   // Which page and which server code are running: hover over "Obnoviť dáta". (The server's build is also what its web address shows when opened.)
-  var PAGE_BUILD = '2026-10-21-readmode-12', serverBuild = '?';
+  var PAGE_BUILD = '2026-10-21-readmode-13', serverBuild = '?';
   function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
@@ -3879,7 +3879,7 @@
     if(!urgent){ strip.hidden = true; return; }
     strip.className = 'confirm-strip' + (it.red.length || it.late.length ? ' red' : '');
     strip.innerHTML = '<span>&#9888; ' + urgent + ' ' + trWord(urgent) + ' ' + cakaWord(urgent) + ' na potvrdenie' + (it.red.length ? ' — ' + it.red.length + ' do 24 hodín' : '') + (it.late.length ? ', ' + it.late.length + ' po termíne' : '') +
-      '. Zavolajte klientovi.</span><button class="btn btn-sm" type="button" id="confirmStripBtn">Zobraziť</button>';
+      '.</span><button class="btn btn-sm" type="button" id="confirmStripBtn">Zobraziť</button>';
     strip.hidden = false;
   }
   document.getElementById('confirmStrip').addEventListener('click', function(e){ if(e.target.closest('#confirmStripBtn')){ track('confirm_strip_open'); showConfirmPopup(false); } });
