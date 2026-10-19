@@ -86,6 +86,20 @@
   #tabs .tab:hover{ background:var(--surface); }
   #tabs .tab.active{ background:var(--accent); color:var(--accent-ink); box-shadow:var(--shadow); }
   @media (max-width:640px){ #tabs{ width:100%; flex-wrap:nowrap; } #tabs .tab{ flex:1; padding:11px 8px; font-size:15px; } }
+  /* Stav + Klient choice buttons in the training form: all options visible, the chosen one filled, the others greyed */
+  .choice-row{ display:flex; gap:12px 26px; flex-wrap:wrap; align-items:flex-end; padding-bottom:12px; border-bottom:1px solid var(--border-soft); }
+  .choice-grp{ display:flex; flex-direction:column; gap:5px; }
+  .choice-lbl{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--ink-dim); }
+  .seg{ display:flex; gap:6px; flex-wrap:wrap; }
+  .seg-btn{ border:2px solid var(--border); background:var(--surface-2); color:var(--ink-faint); font:inherit; font-size:13.5px; font-weight:700; padding:8px 15px; min-height:40px; border-radius:10px; cursor:pointer; }
+  .seg-btn:hover:not(:disabled):not(.on){ color:var(--ink); border-color:var(--ink-faint); }
+  .seg-btn:disabled{ opacity:.5; cursor:not-allowed; }
+  .seg-btn.on{ border-color:transparent; cursor:default; background:var(--ink); color:var(--surface); }
+  .seg-btn.on:disabled{ opacity:.8; }
+  .seg-btn.st-tentative.on{ background:var(--swatch-yellow); color:var(--swatch-yellow-ink); }
+  .seg-btn.st-confirmed.on{ background:var(--swatch-green); color:var(--swatch-green-ink); }
+  .seg-btn.st-completed.on{ background:var(--swatch-blue); color:var(--swatch-blue-ink); }
+  @media (max-width:520px){ .choice-grp{ width:100%; } .seg-btn{ flex:1; padding:8px 6px; } }
   .btn{ border:1px solid var(--border); background:var(--surface); color:var(--ink); font-size:13px; font-weight:600; padding:8px 13px; border-radius:8px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
   .btn:hover{ border-color:var(--ink-faint); }
   .btn-primary{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
@@ -366,8 +380,8 @@
     <button class="btn btn-ghost btn-sm" id="resetBtn">Obnoviť vzorové dáta</button>
     <button class="btn btn-sm" id="refreshBtn">Obnoviť dáta</button>
     <button class="btn btn-sm" id="calBtn">Môj kalendár</button>
-    <button class="btn btn-sm" id="helpBtn" title="Pomoc — ako stránku používať">? Pomoc</button>
     <button class="btn btn-sm" id="updateBtn" title="Načítať najnovšiu verziu stránky (obíde pamäť prehliadača)">Nová verzia</button>
+    <button class="btn btn-sm" id="helpBtn" title="Návod — ako stránku používať">Návod</button>
     <span class="save-status" id="saveStatus" aria-live="polite"></span>
     <button class="btn btn-ghost btn-sm" id="signOutBtn">Odhlásiť</button>
     <button class="btn btn-ghost btn-sm" id="signOutAllBtn" title="Odhlási vás na všetkých zariadeniach">Odhlásiť všade</button>
@@ -613,17 +627,31 @@
     <div class="modal-body">
       <div class="series-note" id="modalLockNote" hidden></div>
 
+      <div class="choice-row">
+        <div class="choice-grp"><span class="choice-lbl">Stav</span>
+          <div class="seg" id="statusBtns" role="radiogroup" aria-label="Stav tréningu">
+            <button type="button" class="seg-btn st-tentative" data-v="tentative" role="radio">Predbežné</button>
+            <button type="button" class="seg-btn st-confirmed" data-v="confirmed" role="radio">Potvrdené</button>
+            <button type="button" class="seg-btn st-completed" data-v="completed" role="radio">Dokončené</button>
+          </div>
+        </div>
+        <div class="choice-grp"><span class="choice-lbl">Klient</span>
+          <div class="seg" id="kindBtns" role="radiogroup" aria-label="Typ klienta">
+            <button type="button" class="seg-btn" data-kind="gym" role="radio" title="Klient Vertigo (skupina, kurz, oslava…)">Vertigo klient</button>
+            <button type="button" class="seg-btn" data-kind="private" role="radio" title="Vlastný klient trénera — súkromný tréning">Súkromný klient</button>
+          </div>
+        </div>
+      </div>
+
       <div class="form-cols"><div class="form-col">
       <div class="field"><label for="f-client">Klient / skupina <span>(povinné)</span></label><input id="f-client" type="text" list="clientDatalist" autocomplete="off" placeholder="napr. Nováková"><datalist id="clientDatalist"></datalist></div>
       <div class="row-contact">
         <div class="field field-split"><label for="f-phone">Telefón <span>(nepovinné)</span></label><input id="f-phone" type="text" placeholder="napr. 0905 123 456"></div>
         <div class="field field-split"><label for="f-people">Počet osôb <span>(nepovinné)</span></label><input id="f-people" type="number" min="0" max="999" placeholder="napr. 8"></div>
       </div>
-      <div class="row2">
-        <div class="field"><label for="f-type">Typ tréningu</label><select id="f-type"></select></div>
-        <div class="field"><label for="f-status">Stav</label>
-          <select id="f-status"><option value="confirmed">Potvrdené</option><option value="tentative">Predbežné</option><option value="completed">Dokončené</option></select>
-        </div>
+      <div hidden>   <!-- the buttons above (Stav, Klient) and the "Opakuje sa týždenne" box set these two; the rest of the page still reads them -->
+        <select id="f-type"></select>
+        <select id="f-status"><option value="confirmed">Potvrdené</option><option value="tentative">Predbežné</option><option value="completed">Dokončené</option></select>
       </div>
       <div class="field">
         <label class="check-field"><input type="checkbox" id="f-paid"> Zaplatené</label>
@@ -1624,10 +1652,8 @@
     ['f-client','f-tag','f-type','f-date','f-status','f-start','f-duration','f-phone','f-people','f-required','f-notes','f-repeat','f-until'].forEach(function(id){
       document.getElementById(id).disabled = disabled;
     });
-    // Re-enabling the whole form must not undo "a one-time training can't repeat"
-    // (this used to run after the rule was applied on open, so a fresh form left the box tickable).
-    if(!disabled && document.getElementById('f-type').value === 'Jednorazový') document.getElementById('f-repeat').disabled = true;
     colorSwatchWrap.querySelectorAll('.swatch').forEach(function(sw){ sw.classList.toggle('locked', disabled); });
+    syncChoiceUI();
   }
 
   var typeSel = document.getElementById('f-type');
@@ -1639,8 +1665,46 @@
     applyPrivateOnlyToChecklist();
     syncPaidField();
     var pe = document.getElementById('f-people'); if(this.value===TYPE_PRIVATE && !pe.value) pe.value = 1;
+    syncChoiceUI();
     updateConflicts();
   });
+
+  // ---- Stav and Klient as visible buttons ----
+  // They drive the hidden #f-status / #f-type (which the rest of the page still reads). The type is no longer chosen by hand:
+  // private client -> "Vlastný klient"; otherwise the "Opakuje sa týždenne" box decides "Opakovaný" or "Jednorazový".
+  var statusBtns = document.getElementById('statusBtns'), kindBtns = document.getElementById('kindBtns');
+  var gymTypeKept = null;   // editing an existing training: the non-private type it had, so private -> gym restores exactly that
+  function gymTypeNow(){ return gymTypeKept || (document.getElementById('f-repeat').checked ? 'Opakovaný' : 'Jednorazový'); }
+  function formHasEnded(){
+    var d = document.getElementById('f-date').value, st = document.getElementById('f-start').value, du = parseInt(document.getElementById('f-duration').value, 10) || 0;
+    return !!(d && st && du && hasEnded({date:d, end:toHHMM(toMin(st) + du)}));
+  }
+  function syncChoiceUI(){
+    var stSel = document.getElementById('f-status'), tySel = document.getElementById('f-type'), ended = formHasEnded();
+    statusBtns.querySelectorAll('.seg-btn').forEach(function(b){
+      var v = b.dataset.v, offered = [].some.call(stSel.options, function(o){ return o.value === v; }), on = stSel.value === v;
+      b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false');
+      b.disabled = stSel.disabled || !offered || (v === 'confirmed' && ended && !on);
+      b.title = !offered ? 'Dokončené nastavuje administrátor alebo sa nastaví samo po skončení tréningu.'
+        : (v === 'confirmed' && ended && !on ? 'Skončený tréning sa sám stáva dokončeným.' : '');
+    });
+    var priv = tySel.value === TYPE_PRIVATE;
+    kindBtns.querySelectorAll('.seg-btn').forEach(function(b){
+      var on = (b.dataset.kind === 'private') === priv;
+      b.classList.toggle('on', on); b.setAttribute('aria-checked', on ? 'true' : 'false'); b.disabled = tySel.disabled;
+    });
+  }
+  statusBtns.addEventListener('click', function(e){
+    var b = e.target.closest('.seg-btn'), sel = document.getElementById('f-status'); if(!b || b.disabled || sel.value === b.dataset.v) return;
+    sel.value = b.dataset.v; sel.dispatchEvent(new Event('change', {bubbles:true})); syncChoiceUI(); updateConflicts();
+  });
+  kindBtns.addEventListener('click', function(e){
+    var b = e.target.closest('.seg-btn'); if(!b || b.disabled) return;
+    var want = b.dataset.kind === 'private' ? TYPE_PRIVATE : gymTypeNow();
+    if(typeSel.value === want) return;
+    typeSel.value = want; typeSel.dispatchEvent(new Event('change'));   // same effects as before: colour reset, trainer list, payment box, people default, conflicts
+  });
+  document.getElementById('f-status').addEventListener('change', syncChoiceUI);
 
   var colorSwatchWrap = document.getElementById('colorSwatches');
   colorSwatchWrap.innerHTML = '<div class="swatch auto" data-color="" title="Farba podľa skupiny">Automaticky</div>' +
@@ -1674,11 +1738,13 @@
   }
   function syncRecurringFromType(typeValue){
     var repeatBox = document.getElementById('f-repeat');
-    repeatBox.disabled = (typeValue === 'Jednorazový'); // a one-time training can't also repeat
-    repeatBox.checked = (typeValue === 'Opakovaný');
+    if(typeValue === 'Opakovaný') repeatBox.checked = true; else if(typeValue === 'Jednorazový') repeatBox.checked = false;   // a private training keeps whatever is ticked
     applyRepeatCheckedUI();
   }
-  document.getElementById('f-repeat').addEventListener('change', applyRepeatCheckedUI);
+  document.getElementById('f-repeat').addEventListener('change', function(){
+    applyRepeatCheckedUI();
+    if(typeSel.value !== TYPE_PRIVATE && !gymTypeKept){ typeSel.value = this.checked ? 'Opakovaný' : 'Jednorazový'; syncChoiceUI(); }   // new Vertigo training: the box IS the type
+  });
   ['f-until','f-date'].forEach(function(id){
     document.getElementById(id).addEventListener('input', updateOccurrenceCount);
     document.getElementById(id).addEventListener('change', updateOccurrenceCount);
@@ -1815,6 +1881,7 @@
     updateConflicts();
   });
   function updateConflicts(){
+    syncChoiceUI();
     var f = currentFormSession();
     var dateErr = document.getElementById('dateErr');
     var box = document.getElementById('conflictBox');
@@ -1870,6 +1937,7 @@
     document.getElementById('f-start').value = data.start;
     document.getElementById('f-duration').value = data.durationMin || 60;
     document.getElementById('f-type').value = data.type || TYPES[0];
+    gymTypeKept = s ? (s.type !== TYPE_PRIVATE ? s.type : (s.seriesId ? 'Opakovaný' : 'Jednorazový')) : null;
     // Only the clock (or an admin) marks a training completed — a trainer never picks it.
     document.getElementById('f-status').innerHTML = '<option value="confirmed">Potvrdené</option><option value="tentative">Predbežné</option>'+(isTrainerRole()?'':'<option value="completed">Dokončené</option>');
     document.getElementById('f-status').value = (data.status==='cancelled' ? 'confirmed' : data.status) || 'confirmed';
@@ -1938,6 +2006,7 @@
       }
     }
 
+    syncChoiceUI();
     var metaEl = document.getElementById('modalMeta');
     if(s && s.lastEditedBy){
       metaEl.hidden = false;
@@ -3007,7 +3076,7 @@
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
   // Which page and which server code are running: hover over "Obnoviť dáta". (The server's build is also what its web address shows when opened.)
-  var PAGE_BUILD = '2026-10-21-readmode-7', serverBuild = '?';
+  var PAGE_BUILD = '2026-10-21-readmode-9', serverBuild = '?';
   function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
@@ -3646,7 +3715,7 @@
     x = t.closest('#zoomToggle .subtab'); if(x) track('zoom_' + x.dataset.px);
   }, true);
 
-  // ---- help window ("? Pomoc") ----
+  // ---- how-to window ("Návod") ----
   var helpOv = null;
   function helpSections(){
     var role = currentRole, ext = isPrivateOnlyViewer(), admin = role === 'owner' || role === 'admin', S = [];
@@ -3658,7 +3727,7 @@
       '<p><b>Vertigo / Súkromné / Oboje</b> filtruje, čo vidíte. <b>Len moje</b> ukáže iba tréningy, na ktorých ste vy.</p>' +
       '<p>Kliknutím na tréning ho otvoríte. Na tablete: prvé klepnutie ukáže náhľad, tlačidlo <b>Otvoriť</b> ho otvorí.</p>']);
     S.push(['Pridať tréning', false,
-      '<p>Tlačidlo <b>+ Pridať tréning</b> alebo kliknutie na prázdne miesto v kalendári. Vyplňte klienta, čas, dĺžku a trénerov.' + (ext ? '' : ' Ak máte zapnutý pohľad <b>Súkromné</b>, nový tréning sa predvolí ako súkromný.') + '</p>' +
+      '<p>Tlačidlo <b>+ Pridať tréning</b> alebo kliknutie na prázdne miesto v kalendári. Hore vyberte <b>Stav</b> (Predbežné / Potvrdené / Dokončené) a <b>Klient</b> (Vertigo klient alebo Súkromný klient), potom vyplňte klienta, čas, dĺžku a trénerov.' + (ext ? '' : ' Ak máte zapnutý pohľad <b>Súkromné</b>, nový tréning sa predvolí ako <b>Súkromný klient</b>.') + '</p>' +
       (ext ? '' : '<p><b>Opakovaný tréning:</b> zaškrtnite „Opakuje sa týždenne“ a zadajte dátum, dokedy sa má opakovať.</p>') +
       (role === 'trainer' ? '<p>Seba ako trénera ste pri novom tréningu už zaškrtnutý(á).</p>' : '')]);
     S.push(['Upraviť, zrušiť, vrátiť', false,
@@ -3681,8 +3750,8 @@
     if(helpOv) return helpOv;
     helpOv = document.createElement('div'); helpOv.className = 'modal-overlay'; helpOv.id = 'helpOverlay'; helpOv.hidden = true;
     helpOv.innerHTML =
-      '<div class="modal" role="dialog" aria-modal="true" aria-label="Pomoc">' +
-        '<div class="modal-head"><h3 style="font-size:15px;">Pomoc</h3><button class="btn btn-ghost btn-sm" type="button" data-help="close" aria-label="Zavrieť">✕</button></div>' +
+      '<div class="modal" role="dialog" aria-modal="true" aria-label="Návod">' +
+        '<div class="modal-head"><h3 style="font-size:15px;">Návod</h3><button class="btn btn-ghost btn-sm" type="button" data-help="close" aria-label="Zavrieť">✕</button></div>' +
         '<div class="modal-body" id="helpBody" style="max-height:70vh; overflow:auto;"></div>' +
         '<div class="modal-foot"><button class="btn" type="button" data-help="close">Zavrieť</button></div>' +
       '</div>';
