@@ -1045,7 +1045,7 @@
     if(changeLog.length > LOG_MAX) changeLog = changeLog.slice(-LOG_MAX);
   }
   function logChange(action, s, extra){
-    track('training_' + action);
+    track('training_' + action); if(extra && extra.count > 1) track('training_' + action + '_series');
     var e = {t:new Date().toISOString(), by:currentTrainerId, byName:currentActorLabel(), action:action,
              sid:s.id, label:s.clientName||s.type, when:s.date+' '+s.start, isPrivate:isPrivateSession(s), forNames:[]};
     Object.keys(extra||{}).forEach(function(k){ e[k] = extra[k]; });
@@ -1149,6 +1149,7 @@
   window.addEventListener('scroll', function(){ if(!hoverPreview.hidden && hoverPreview.classList.contains('touch')) hidePreview(); }, {passive:true, capture:true});
   function isTouchTap(){ return lastPointerType === 'touch' || lastPointerType === 'pen'; }
   function showPreview(el, s, touch){
+    track(touch ? 'preview_tap' : 'preview_hover');
     var trNames = s.trainerIds.map(trainerNameH).join(', ') || (s.requiredTrainers===0 ? 'Netreba trénera' : 'zatiaľ nikto');
     hoverPreview.innerHTML = '<div class="hp-title">'+esc(displayClient(s))+'</div>'+
       '<div class="hp-sub">'+fmtReportDate(s.date)+' &middot; '+s.start+'–'+s.end+'</div>'+
@@ -3013,7 +3014,9 @@
     location.replace(location.pathname);   // reload without any query string (a test token in the URL must not loop)
   }
   function fixColor(s){ s.color = s.color || ''; return s; }   // the displayed colour is computed (displayColor); a stored one is only an override when it starts with "!"
+  var openTracked = false;
   function applyLoad(d, deferRender){
+    if(!openTracked){ openTracked = true; track('app_open'); }   // one per page load: the base for "how often is X used per visit"
     me = d.me; trainers = d.trainers; blocks = d.blocks;
     setGroupConfig(d.groups, d.tags);
     changeLog = []; logLoaded = false; logTriedAt = 0;   // the log is fetched only when Activity is opened (see ensureLog)
@@ -3076,7 +3079,7 @@
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
   // Which page and which server code are running: hover over "Obnoviť dáta". (The server's build is also what its web address shows when opened.)
-  var PAGE_BUILD = '2026-10-21-readmode-9', serverBuild = '?';
+  var PAGE_BUILD = '2026-10-21-readmode-10', serverBuild = '?';
   function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
@@ -3207,7 +3210,7 @@
       if(isHiccup(d)){
         // The server may or may not have applied it: remember it, and resend this very request (see `unsure` above).
         unsure = {req:reqNow, sent:sentNow, t0:t0Now};
-        syncRetries++;
+        syncRetries++; track('sync_retry');
         var quick = d && d.unreadable && syncRetries <= 2;   // the server already did the work and a resend is answered from its cache: no reason to wait
         var delay = (retryNow || quick) ? 0 : Math.min(30000, 2000 * Math.pow(2, Math.min(syncRetries, 4))); retryNow = false;
         syncTimer = setTimeout(syncChanges, delay);
@@ -3215,6 +3218,7 @@
         return;
       }
       if(pendingReq === reqNow){ pendingReq = null; pendingSent = null; syncRetries = 0; pendingCount = 0; }   // a real refusal (rule, conflict, invalid): show why, then the sheet's truth
+      track('save_refused_' + String(d && d.error || 'x').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20));
       setStatus('saving', 'Načítavajú sa aktuálne údaje…'); toast(d.message || 'Zmenu sa nepodarilo uložiť.');
       return reconcile().then(finishSync);
     });
@@ -3705,7 +3709,9 @@
   document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'hidden') usageFlush(); });
   var TRACK_CLICKS = [['#addSessionBtn','add_training_button'], ['#addBlockBtn','add_block'], ['#onlyMineBtn','only_mine'], ['#fullDayBtn','full_day'],
     ['#refreshBtn','refresh_data'], ['#updateBtn','new_version'], ['#calBtn','my_calendar'], ['#helpBtn','help_open'], ['#exportBtn','export_csv'],
-    ['#modeDay','view_day'], ['#modeWeek','view_week']];
+    ['#modeDay','view_day'], ['#modeWeek','view_week'], ['#prevDay','nav_prev'], ['#nextDay','nav_next'], ['#todayBtn','nav_today'],
+    ['#signOutBtn','sign_out'], ['#signOutAllBtn','sign_out_all'], ['#calGoogle','cal_add_google'], ['#calApple','cal_add_apple'], ['[data-cal=copy]','cal_copy'], ['#calRotate','cal_rotate'],
+    ['#scopeJust','edit_scope_one'], ['#scopeFuture','edit_scope_future'], ['.hp-open','preview_open_form'], ['.day-btn','pick_day']];
   document.addEventListener('click', function(e){
     var t = e.target; if(!t || !t.closest) return;
     TRACK_CLICKS.forEach(function(c){ if(t.closest(c[0])) track(c[1]); });
@@ -3713,7 +3719,16 @@
     x = t.closest('#reportSubtabs .subtab'); if(x) track('report_' + x.dataset.sub);
     x = t.closest('#clientScopeToggle .subtab'); if(x) track('scope_' + x.dataset.scope);
     x = t.closest('#zoomToggle .subtab'); if(x) track('zoom_' + x.dataset.px);
+    x = t.closest('#statusBtns .seg-btn'); if(x && !x.disabled) track('status_' + x.dataset.v);
+    x = t.closest('#kindBtns .seg-btn'); if(x && !x.disabled) track('kind_' + x.dataset.kind);
+    x = t.closest('#colorSwatches .swatch'); if(x) track(x.dataset.color ? 'color_pick' : 'color_auto');
+    x = t.closest('#activityRange .subtab'); if(x) track('activity_' + x.dataset.h + 'h');
+    x = t.closest('#helpOverlay summary'); if(x && x.parentNode && !x.parentNode.open && x.parentNode.dataset.k) track('help_sec_' + x.parentNode.dataset.k);
   }, true);
+  // changes (not clicks) for things a label click would count twice
+  var TRACK_CHANGES = {'f-repeat':'form_repeat_toggle', 'reportMonth':'report_filter_month', 'reportStatus':'report_filter_status', 'reportTagInput':'report_filter_tag',
+    'vertigoUnpaidOnly':'report_unpaid_vertigo', 'privateUnpaidOnly':'report_unpaid_private'};
+  document.addEventListener('change', function(e){ var id = e.target && e.target.id; if(id && TRACK_CHANGES[id]) track(TRACK_CHANGES[id]); }, true);
 
   // ---- how-to window ("Návod") ----
   var helpOv = null;
@@ -3746,6 +3761,8 @@
       '<p>Stránka anonymne počíta, ktoré funkcie sa používajú (napr. koľkokrát sa otvorila záložka Reporty) — len počty podľa úlohy, <b>bez mien</b> a bez obsahu tréningov. Slúži to iba na zlepšovanie stránky.</p>']);
     return S;
   }
+  var HELP_KEYS = {'Prvé kroky':'first_steps', 'Kalendár':'calendar', 'Pridať tréning':'add_training', 'Upraviť, zrušiť, vrátiť':'edit_cancel', 'Môj kalendár':'my_calendar',
+    'Reporty':'reports', 'Tím':'team', 'Obnoviť dáta a Nová verzia':'refresh_update', 'Ochrana súkromia':'privacy'};   // names for the usage counters (help_sec_<key>)
   function helpDialog(){
     if(helpOv) return helpOv;
     helpOv = document.createElement('div'); helpOv.className = 'modal-overlay'; helpOv.id = 'helpOverlay'; helpOv.hidden = true;
@@ -3763,7 +3780,7 @@
   document.getElementById('helpBtn').addEventListener('click', function(){
     var ov = helpDialog();
     ov.querySelector('#helpBody').innerHTML = helpSections().map(function(sec){
-      return '<details class="cal-help"' + (sec[1] ? ' open' : '') + '><summary>' + sec[0] + '</summary><div style="margin-top:6px; display:flex; flex-direction:column; gap:6px;">' + sec[2] + '</div></details>';
+      return '<details class="cal-help"' + (sec[1] ? ' open' : '') + ' data-k="' + (HELP_KEYS[sec[0]] || '') + '"><summary>' + sec[0] + '</summary><div style="margin-top:6px; display:flex; flex-direction:column; gap:6px;">' + sec[2] + '</div></details>';
     }).join('');
     ov.hidden = false;
   });
