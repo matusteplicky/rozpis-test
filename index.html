@@ -79,7 +79,7 @@
   .brand-text span{ font-size:11px; color:var(--ink-dim); text-transform:uppercase; letter-spacing:0.08em; }
   .tabs{ display:flex; gap:4px; background:var(--surface-2); border:1px solid var(--border-soft); border-radius:10px; padding:4px; flex-wrap:wrap; }
   .tab{ border:none; background:transparent; color:var(--ink-dim); font-size:13px; font-weight:600; padding:8px 14px; border-radius:7px; cursor:pointer; }
-  .tab.active{ background:var(--surface); color:var(--ink); box-shadow:var(--shadow); }
+  .tab.active{ background:var(--accent); color:var(--accent-ink); box-shadow:var(--shadow); }   /* filled, not a slightly lighter grey: the selection must be obvious in dark mode too */
   /* the three main sections (Kalendár / Tím / Reporty) — deliberately bigger and bolder than the other small toggles that share .tab */
   #tabs{ display:flex; gap:6px; background:var(--surface-2); border:1px solid var(--border); border-radius:14px; padding:5px; flex-wrap:wrap; }
   #tabs .tab{ color:var(--ink); font-size:16px; font-weight:700; letter-spacing:0.01em; padding:11px 26px; border-radius:10px; }
@@ -123,13 +123,15 @@
   .sr-row.cancelled b{ text-decoration:line-through; } .sr-row.cancelled{ opacity:.65; }
   .sr-when{ font-weight:700; min-width:150px; } .sr-main{ flex:1 1 200px; } .sr-sub{ font-size:11.5px; color:var(--ink-dim); }
   /* Focus mode: only the calendar (arrows, Dnes, Deň/Týždeň, legend stay); a frame + pill + ✕ show that it is on */
+  .btn-focus{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); font-weight:700; display:inline-flex; align-items:center; gap:7px; box-shadow:var(--shadow); }
+  .btn-focus:hover{ filter:brightness(1.08); }
   #focusBar{ position:fixed; top:8px; right:12px; z-index:45; display:none; align-items:center; gap:8px; background:var(--accent); color:var(--accent-ink); border-radius:999px; padding:4px 5px 4px 14px; font-size:12px; font-weight:800; letter-spacing:0.08em; box-shadow:var(--shadow); }
   #focusBar button{ border:none; background:rgba(255,255,255,0.22); color:inherit; font:inherit; font-weight:700; letter-spacing:0; border-radius:999px; padding:8px 14px; min-height:38px; cursor:pointer; }
   body.focus #focusBar{ display:flex; }
   body.focus::after{ content:''; position:fixed; inset:0; border:4px solid var(--accent); pointer-events:none; z-index:44; }
   body.focus{ padding:8px 10px; }
   body.focus .topbar, body.focus #roleBanner, body.focus #confirmStrip, body.focus #outdatedBanner, body.focus .cal-actions, body.focus .cal-row2, body.focus .cal-search, body.focus #searchResults{ display:none !important; }
-  body.focus .cal-toolbar{ padding-right:200px; }
+  body.focus .cal-toolbar{ padding-right:270px; }
   .btn{ border:1px solid var(--border); background:var(--surface); color:var(--ink); font-size:13px; font-weight:600; padding:8px 13px; border-radius:8px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
   .btn:hover{ border-color:var(--ink-faint); }
   .btn-primary{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
@@ -138,6 +140,13 @@
   .btn-ghost{ background:transparent; border-color:transparent; color:var(--ink-dim); }
   .btn-ghost:hover{ color:var(--ink); background:var(--surface-2); }
   .btn-sm{ padding:5px 9px; font-size:12px; }
+  /* pop-up close buttons: a 44px touch target (the glyph stays small); the negative margin keeps the header the same height */
+  .modal-head > button, .modal-head > .btn-ghost{ min-width:44px; min-height:44px; font-size:18px; margin:-10px -10px -10px 0; display:inline-flex; align-items:center; justify-content:center; flex:none; }
+  @media (pointer:coarse){   /* touch screens only: desktop stays compact */
+    .btn-sm{ min-height:40px; padding:8px 12px; font-size:13px; }
+    .subtab{ min-height:38px; padding:8px 14px; font-size:13.5px; }
+    .tab{ min-height:38px; }
+  }
   .btn:disabled{ opacity:0.5; cursor:not-allowed; }
 
   .notice{ background:var(--accent-soft); border:1px solid var(--border-soft); border-radius:10px; padding:11px 14px; font-size:12.5px; color:var(--ink-dim); display:flex; gap:8px; align-items:flex-start; }
@@ -147,6 +156,8 @@
 
   .cal-toolbar{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:space-between; }
   .cal-nav{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .scope-badge{ font-size:12px; font-weight:800; letter-spacing:0.04em; text-transform:uppercase; padding:4px 10px; border-radius:999px; background:var(--accent-soft); color:var(--accent); border:1px solid var(--accent); white-space:nowrap; }
+  .scope-badge[hidden]{ display:none; }
   .cal-date-label{ font-weight:700; font-size:15px; min-width:160px; }
   .week-strip{ display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; }
   .day-btn{ position:relative; border:1px solid var(--border); background:var(--surface); border-radius:9px; padding:7px 4px 8px; min-width:44px; display:flex; flex-direction:column; align-items:center; gap:2px; cursor:pointer; color:var(--ink-dim); }
@@ -371,7 +382,7 @@
 
   .subtabs{ display:flex; gap:4px; background:var(--surface-2); border:1px solid var(--border-soft); border-radius:9px; padding:3px; align-self:flex-start; flex-wrap:wrap; }
   .subtab{ border:none; background:transparent; color:var(--ink-dim); font-size:12.5px; font-weight:600; padding:6px 12px; border-radius:6px; cursor:pointer; }
-  .subtab.active{ background:var(--surface); color:var(--ink); }
+  .subtab.active{ background:var(--accent); color:var(--accent-ink); }
   .subtab.subtab-urgent{ color:var(--danger); }
   .subtab.subtab-urgent.active{ background:var(--danger-soft); color:var(--danger); }
   .subview[hidden]{ display:none; }
@@ -432,7 +443,7 @@
     </div>
   </div>
 
-  <div id="focusBar" role="status"><span>FOCUS</span><button type="button" id="focusExit">✕ Ukončiť</button></div>
+  <div id="focusBar" role="status"><span>LEN KALENDÁR</span><button type="button" id="focusExit">✕ Ukončiť</button></div>
 
   <!-- CALENDAR VIEW -->
   <section class="view" id="view-calendar">
@@ -442,6 +453,7 @@
         <div class="cal-nav">
           <button class="btn btn-sm" id="prevDay">&larr;</button>
           <div class="cal-date-label" id="calDateLabel">&nbsp;</div>
+          <span class="scope-badge" id="scopeBadge" hidden></span>
           <button class="btn btn-sm" id="nextDay">&rarr;</button>
           <button class="btn btn-sm" id="todayBtn">Dnes</button>
           <div class="tabs" style="padding:3px;">
@@ -471,7 +483,7 @@
         </div>
         <button class="btn btn-sm" id="onlyMineBtn" title="Zobraziť v kalendári len tréningy, na ktorých ste vy">Len moje</button>
         <button class="btn btn-sm" id="fullDayBtn" title="Zobraziť celý deň, nielen hodiny s tréningami">Celý deň</button>
-        <button class="btn btn-sm" id="focusBtn" title="Zobraziť len kalendár (ukončíte tlačidlom ✕ alebo klávesom Esc)">Focus</button>
+        <button class="btn btn-sm btn-focus" id="focusBtn" title="Zobraziť len kalendár (ukončíte tlačidlom ✕ alebo klávesom Esc)"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Len kalendár</button>
       </div>
       </div>
       </div>
@@ -1393,6 +1405,14 @@
     document.getElementById('modeWeek').classList.toggle('active', viewMode==='week');
   }
 
+  // Which view the calendar shows must be readable from the calendar itself (the Vertigo/Súkromné/Oboje row is hidden in Len kalendár)
+  function updateScopeUI(){
+    var b = document.getElementById('scopeBadge'), name = clientScope==='gym' ? 'Vertigo' : clientScope==='private' ? 'Súkromné' : '';
+    b.textContent = name; b.hidden = !name;
+    var parts = ['LEN KALENDÁR']; if(name) parts.push(name); if(onlyMine) parts.push('Len moje');   // hidden filters must not be a surprise
+    document.querySelector('#focusBar span').textContent = parts.join(' · ');
+  }
+
   document.getElementById('clientScopeToggle').addEventListener('click', function(e){
     var btn = e.target.closest('.subtab'); if(!btn) return;
     clientScope = btn.dataset.scope;
@@ -1540,6 +1560,7 @@
     applyRoleUI();
     updateConfirmUI();
     renderSearchResults();
+    updateScopeUI();
     document.getElementById('calDateLabel').textContent = viewMode==='day' ? fmtDateLabel(selectedDate) : monthLabel(startOfWeek(selectedDate));
     renderWeekStrip();
 
@@ -3133,7 +3154,7 @@
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
   // Which page and which server code are running: hover over "Obnoviť dáta". (The server's build is also what its web address shows when opened.)
-  var PAGE_BUILD = '2026-10-28-search-focus-1', serverBuild = '?';
+  var PAGE_BUILD = '2026-10-28-search-focus-4', serverBuild = '?';
   function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
@@ -3793,7 +3814,7 @@
       '<p>Vpravo hore uvidíte, či sa zmena uložila: <b>„Ukladá sa…“</b> → <b>„Uložené ✓“</b>. Ak sa objaví <b>„Overuje sa uloženie“</b>, nič nerobte — stránka to skúša znova a môžete pokračovať v práci.</p>']);
     S.push(['Kalendár', false,
       '<p>Prepínač <b>Deň / Týždeň</b> mení rozsah. Farba tréningu hovorí, do ktorej skupiny patrí (legenda je nad kalendárom). Tréningy sa zobrazujú podľa hodín; <b>Celý deň</b> ukáže aj hodiny bez tréningov, <b>Úzke / Bežné / Široké</b> mení šírku hodiny.</p>' +
-      '<p><b>Vertigo / Súkromné / Oboje</b> filtruje, čo vidíte. <b>Len moje</b> ukáže iba tréningy, na ktorých ste vy. Pole <b>Hľadať</b> (skratka „/“) nájde tréningy podľa klienta, trénera, značky alebo telefónu a vypíše ich pod kalendárom — nadchádzajúce, alebo aj minulé po zaškrtnutí. <b>Focus</b> (alebo klávesa „F“) nechá na obrazovke len kalendár; ukončíte ho tlačidlom „✕ Ukončiť“ alebo klávesom Esc.</p>' +
+      '<p><b>Vertigo / Súkromné / Oboje</b> filtruje, čo vidíte. <b>Len moje</b> ukáže iba tréningy, na ktorých ste vy. Pole <b>Hľadať</b> (skratka „/“) nájde tréningy podľa klienta, trénera, značky alebo telefónu a vypíše ich pod kalendárom — nadchádzajúce, alebo aj minulé po zaškrtnutí. <b>Len kalendár</b> (alebo klávesa „F“) nechá na obrazovke len kalendár; ukončíte ho tlačidlom „✕ Ukončiť“ alebo klávesom Esc.</p>' +
       '<p>Kliknutím na tréning ho otvoríte. Na tablete: prvé klepnutie ukáže náhľad, tlačidlo <b>Otvoriť</b> ho otvorí.</p>']);
     S.push(['Pridať tréning', false,
       '<p>Tlačidlo <b>+ Pridať tréning</b> alebo kliknutie na prázdne miesto v kalendári. Hore vyberte <b>Stav</b> (Predbežné / Potvrdené / Dokončené) a <b>Klient</b> (Vertigo klient alebo Súkromný klient), potom vyplňte klienta, čas, dĺžku a trénerov.' + (ext ? '' : ' Ak máte zapnutý pohľad <b>Súkromné</b>, nový tréning sa predvolí ako <b>Súkromný klient</b>.') + '</p>' +
@@ -3995,29 +4016,19 @@
   })();
 
   // ---- Focus mode: the calendar alone (for small screens) ----
-  var focusOn = false, focusFs = false;
+  var focusOn = false;
   function isTypingTarget(t){ return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable); }
   function anyOverlayOpen(){ return !!document.querySelector('.modal-overlay:not([hidden])'); }
-  function inFullscreen(){ return !!(document.fullscreenElement || document.webkitFullscreenElement); }
   function setFocus(on){
     focusOn = !!on; document.body.classList.toggle('focus', focusOn);
-    document.getElementById('focusBtn').classList.toggle('btn-primary', focusOn);
     if(focusOn){
       track('focus_on');
-      try{ var el = document.documentElement, rq = el.requestFullscreen || el.webkitRequestFullscreen; if(rq && !inFullscreen()){ var p = rq.call(el); if(p && p.catch) p.catch(function(){}); } }catch(e){}
-      try{ if(!localStorage.getItem('rozpis_focus_hint')){ localStorage.setItem('rozpis_focus_hint', '1'); toast('Focus: ukončíte ho tlačidlom „✕ Ukončiť“ vpravo hore alebo klávesom Esc.'); } }catch(e){}
-    } else {
-      focusFs = false;
-      try{ var ex = document.exitFullscreen || document.webkitExitFullscreen; if(inFullscreen() && ex){ var p2 = ex.call(document); if(p2 && p2.catch) p2.catch(function(){}); } }catch(e){}
-    }
-    document.querySelector('#focusBar span').textContent = 'FOCUS' + (focusOn && onlyMine ? ' · Len moje' : '');   // a hidden filter must not be a surprise
+      try{ if(!localStorage.getItem('rozpis_focus_hint')){ localStorage.setItem('rozpis_focus_hint', '1'); toast('Len kalendár: ukončíte ho tlačidlom „✕ Ukončiť“ vpravo hore alebo klávesom Esc.'); } }catch(e){}
+    }   // no browser full screen on purpose: on iPad the swipe down that scrolls the calendar also leaves full screen
     hidePreview(); window.dispatchEvent(new Event('resize')); renderCalendar();
   }
   document.getElementById('focusBtn').addEventListener('click', function(){ setFocus(true); });
   document.getElementById('focusExit').addEventListener('click', function(){ setFocus(false); });
-  ['fullscreenchange', 'webkitfullscreenchange'].forEach(function(n){
-    document.addEventListener(n, function(){ if(inFullscreen()){ focusFs = true; } else if(focusOn && focusFs){ setFocus(false); } });   // leaving full screen by the browser's own way also ends Focus
-  });
   var escHadOverlay = false;   // Esc that closes a form/dialog must not also end Focus: note whether one was open BEFORE the other handlers close it
   document.addEventListener('keydown', function(e){ if(e.key === 'Escape') escHadOverlay = anyOverlayOpen(); }, true);
   document.addEventListener('keydown', function(e){
