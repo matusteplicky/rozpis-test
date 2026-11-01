@@ -146,6 +146,7 @@
     .btn-sm{ min-height:40px; padding:8px 12px; font-size:13px; }
     .subtab{ min-height:38px; padding:8px 14px; font-size:13.5px; }
     .tab{ min-height:38px; }
+    .edge-chip{ padding:10px 14px; font-size:13px; }
   }
   .btn:disabled{ opacity:0.5; cursor:not-allowed; }
 
@@ -215,6 +216,14 @@
   .hrow.day-alt .hrow-label, .hrow.day-alt .hrow-body{ background-color:color-mix(in srgb, var(--accent) 7%, var(--surface)); }
   .hour-label{ position:absolute; top:50%; left:0; transform:translateY(-50%); font-size:10.5px; color:var(--ink-faint); font-family:'IBM Plex Mono'; padding-left:3px; }
   /* Full fills: the colour comes from the training's group (inline), and its readable ink with it. */
+  /* now-line, dimmed past of today, current-time tag in the ruler, and edge chips counting trainings scrolled out of sight */
+  .now-line{ position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--danger); z-index:3; pointer-events:none; }
+  .now-line::before{ content:''; position:absolute; top:-1px; left:-4px; width:10px; height:10px; border-radius:50%; background:var(--danger); }
+  .now-past{ position:absolute; left:0; top:0; bottom:0; background:var(--surface); opacity:0.45; z-index:2; pointer-events:none; }
+  .now-tag{ position:absolute; top:50%; transform:translate(-50%,-50%); z-index:3; background:var(--danger); color:var(--surface); font:700 10.5px 'IBM Plex Mono', monospace; padding:1px 6px; border-radius:6px; pointer-events:none; }
+  .edge-chip{ position:absolute; top:4px; z-index:6; border-radius:999px; font-weight:800; font-size:12px; line-height:1; font-family:inherit; padding:7px 11px; cursor:pointer; border:1px solid var(--accent); box-shadow:var(--shadow); white-space:nowrap; }
+  .edge-chip.up{ background:var(--accent); color:var(--accent-ink); }
+  .edge-chip.past{ background:var(--surface); color:var(--ink-dim); border-color:var(--border); opacity:0.85; box-shadow:none; }
   .session-block{ position:absolute; min-width:64px; border-radius:7px; padding:3px 7px; overflow:hidden; cursor:pointer; border:1px solid rgba(0,0,0,0.28); box-shadow:0 1px 2px rgba(0,0,0,0.18); line-height:1.25; z-index:1; }
   .session-block:hover{ filter:brightness(1.08); z-index:3; }
   .session-block.dim{ opacity:0.2; filter:saturate(0.3); }
@@ -456,6 +465,7 @@
           <span class="scope-badge" id="scopeBadge" hidden></span>
           <button class="btn btn-sm" id="nextDay">&rarr;</button>
           <button class="btn btn-sm" id="todayBtn">Dnes</button>
+          <button class="btn btn-sm btn-primary" id="nowBtn" hidden title="Vrátiť kalendár na aktuálny čas">⟲ Teraz</button>
           <div class="tabs" style="padding:3px;">
             <button class="tab" data-mode="day" id="modeDay">Deň</button>
             <button class="tab active" data-mode="week" id="modeWeek">Týždeň</button>
@@ -1430,6 +1440,7 @@
   // ---- the visible hours: from half an hour before the first training of the week to half an hour after the last one ----
   // Each hour has a fixed comfortable width (zoom setting), so names stay readable; when that is wider than the screen the grid scrolls
   // sideways, with the day labels and the hour ruler staying in place. "Celý deň" shows the whole gym day (08–21) instead.
+  var following = true, progUntil = 0, progLeft = -1e9, chipRaf = 0, calDates = [];   // following: keep "now" near the left edge; paused by the person's own sideways scrolling
   var viewStart = START_MIN, viewEnd = END_MIN, hourPx = 150, fullDay = false, legendFilter = '', pxPerHour = 150, LABEL_W = 76;
   try{ var zs = Number(localStorage.getItem('rozpis_hourpx')); if(zs === 110 || zs === 150 || zs === 200) hourPx = zs; fullDay = localStorage.getItem('rozpis_fullday') === '1'; }catch(e){}
   function computeRange(dates){
@@ -1478,6 +1489,8 @@
     var topBar = document.getElementById('calTopScroll');
     sc.addEventListener('scroll', function(){
       wrap.style.setProperty('--scroll-x', (-sc.scrollLeft) + 'px');
+      if(following && Date.now() > progUntil && Math.abs(sc.scrollLeft - progLeft) > 2){ following = false; updateNowBtn(); }   // a scroll the page did not make itself: the person took over
+      if(!chipRaf) chipRaf = requestAnimationFrame(function(){ chipRaf = 0; updateChips(); });
       if(Math.abs(topBar.scrollLeft - sc.scrollLeft) > 1) topBar.scrollLeft = sc.scrollLeft;
     }, {passive:true});
     topBar.addEventListener('scroll', function(){ if(Math.abs(sc.scrollLeft - topBar.scrollLeft) > 1) sc.scrollLeft = topBar.scrollLeft; }, {passive:true});
@@ -1554,6 +1567,7 @@
   }
 
   function renderCalendar(){
+    progUntil = Date.now() + 500;   // layout changes below may move the scroll position: not the person's doing
     archiveForCalendar();
     hidePreview();
     runAutoComplete();
@@ -1656,6 +1670,7 @@
     });
 
     renderAgenda(dates);
+    calDates = dates; drawNow(); followNow(); updateChips(); updateNowBtn();
   }
 
   function renderAgenda(dates){
@@ -1702,9 +1717,74 @@
     });
   }
 
+  // ---- current time: line, dimmed past, follow, "Teraz" ----
+  function nowMinutes(){ var n = new Date(); return n.getHours() * 60 + n.getMinutes(); }
+  function drawNow(){
+    document.querySelectorAll('.now-line, .now-past, .now-tag').forEach(function(el){ el.remove(); });
+    var iso = isoOf(new Date()), nm = nowMinutes();
+    if(calDates.indexOf(iso) < 0 || nm < viewStart || nm > viewEnd) return;
+    var body = document.querySelector('[data-day-body="' + iso + '"]'); if(!body) return;
+    var x = xOf(nm), past = document.createElement('div'), line = document.createElement('div'), tag = document.createElement('div');
+    past.className = 'now-past'; past.style.width = x + 'px';
+    line.className = 'now-line'; line.style.left = x + 'px';
+    tag.className = 'now-tag'; tag.style.left = x + 'px'; tag.textContent = toHHMM(nm);
+    body.appendChild(past); body.appendChild(line); document.getElementById('timeGutter').appendChild(tag);
+  }
+  function followNow(){
+    var sc = document.getElementById('calScroll');
+    if(!following || calDates.indexOf(isoOf(new Date())) < 0 || sc.scrollWidth <= sc.clientWidth + 1) return;
+    var t = Math.max(0, Math.min(xOf(nowMinutes()) - pxPerHour, sc.scrollWidth - sc.clientWidth));   // "now" sits about an hour in from the left edge
+    if(Math.abs(t - sc.scrollLeft) < 1) return;
+    progUntil = Date.now() + 500; progLeft = t; sc.scrollLeft = t;
+  }
+  function updateNowBtn(){
+    var sc = document.getElementById('calScroll');
+    document.getElementById('nowBtn').hidden = !(calDates.indexOf(isoOf(new Date())) >= 0 && !following && sc.scrollWidth > sc.clientWidth + 1);
+  }
+  document.getElementById('nowBtn').addEventListener('click', function(){ following = true; followNow(); updateNowBtn(); updateChips(); });
+  function plural(n){ return n === 1 ? 'tréning' : (n >= 2 && n <= 4 ? 'tréningy' : 'tréningov'); }
+  // Chips on the edge of a day's row: how many trainings are scrolled out of sight on that side (filled = something still to come, faint = already past)
+  function updateChips(){
+    var sc = document.getElementById('calScroll'), visW = sc.clientWidth - LABEL_W;
+    if(visW <= 0) return;
+    var S = sc.scrollLeft, nm = nowMinutes(), todayIso = isoOf(new Date());
+    document.querySelectorAll('[data-day-body]').forEach(function(body){
+      var date = body.dataset.dayBody, hid = {L:[], R:[]};
+      visibleSessionsOnDate(date).forEach(function(s){
+        if(s.status === 'cancelled') return;
+        var x1 = xOf(toMin(s.start)), x2 = xOf(toMin(s.end)), up = s.date > todayIso || (s.date === todayIso && toMin(s.end) > nm), it = {x1:x1, x2:x2, up:up};
+        if(x2 <= S + 2) hid.L.push(it); else if(x1 >= S + visW - 2) hid.R.push(it);
+      });
+      ['L', 'R'].forEach(function(side){
+        var list = hid[side], chip = body.querySelector('.edge-chip[data-side="' + side + '"]');
+        if(!list.length){ if(chip) chip.remove(); return; }
+        if(!chip){
+          chip = document.createElement('button'); chip.type = 'button'; chip.dataset.side = side;
+          chip.addEventListener('click', function(e){
+            e.stopPropagation();
+            var l = chip._hid, t;
+            if(side === 'L'){ var n1 = l.reduce(function(a, b){ return b.x2 > a.x2 ? b : a; }); t = n1.x1 - 16; }
+            else { var n2 = l.reduce(function(a, b){ return b.x1 < a.x1 ? b : a; }); t = Math.min(n2.x2 - visW + 16, n2.x1 - 8); }
+            following = false; updateNowBtn();
+            sc.scrollTo({left:Math.max(0, Math.min(t, sc.scrollWidth - sc.clientWidth)), behavior:'smooth'});
+          });
+          body.appendChild(chip);
+        }
+        chip._hid = list;
+        var upN = list.filter(function(i){ return i.up; }).length;
+        chip.className = 'edge-chip ' + (upN ? 'up' : 'past');
+        chip.textContent = side === 'L' ? '‹ ' + list.length : list.length + ' ›';
+        chip.title = (side === 'L' ? 'Skôr, skryté vľavo: ' : 'Neskôr, skryté vpravo: ') + list.length + ' ' + plural(list.length) + (upN ? ' (z toho ' + upN + ' ešte pred nami)' : ' (už prebehli)') + ' — klepnutím ich zobrazíte';
+        chip.style.left = (side === 'L' ? S + 6 : S + visW - 6 - chip.offsetWidth) + 'px';
+      });
+    });
+  }
+  setInterval(function(){ if(me && !document.hidden){ drawNow(); followNow(); updateChips(); updateNowBtn(); } }, 30000);
+  document.addEventListener('visibilitychange', function(){ if(me && !document.hidden){ drawNow(); followNow(); updateChips(); updateNowBtn(); } });
+
   document.getElementById('prevDay').addEventListener('click', function(){ selectedDate = addDays(selectedDate, viewMode==='week'?-7:-1); renderCalendar(); });
   document.getElementById('nextDay').addEventListener('click', function(){ selectedDate = addDays(selectedDate, viewMode==='week'?7:1); renderCalendar(); });
-  document.getElementById('todayBtn').addEventListener('click', function(){ selectedDate=TODAY; renderCalendar(); });
+  document.getElementById('todayBtn').addEventListener('click', function(){ selectedDate = isoOf(new Date()); following = true; renderCalendar(); });
   document.getElementById('addSessionBtn').addEventListener('click', function(){ openModal(null, {date:selectedDate, start:'16:00', durationMin:60}); });
 
   // ---------- modal ----------
@@ -3154,7 +3234,7 @@
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
   // Which page and which server code are running: hover over "Obnoviť dáta". (The server's build is also what its web address shows when opened.)
-  var PAGE_BUILD = '2026-10-28-search-focus-4', serverBuild = '?';
+  var PAGE_BUILD = '2026-11-01-now-1', serverBuild = '?';
   function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
@@ -3784,7 +3864,7 @@
   document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'hidden') usageFlush(); });
   var TRACK_CLICKS = [['#addSessionBtn','add_training_button'], ['#addBlockBtn','add_block'], ['#onlyMineBtn','only_mine'], ['#fullDayBtn','full_day'],
     ['#refreshBtn','refresh_data'], ['#updateBtn','new_version'], ['#calBtn','my_calendar'], ['#helpBtn','help_open'], ['#exportBtn','export_csv'],
-    ['#modeDay','view_day'], ['#modeWeek','view_week'], ['#prevDay','nav_prev'], ['#nextDay','nav_next'], ['#todayBtn','nav_today'],
+    ['#modeDay','view_day'], ['#modeWeek','view_week'], ['#prevDay','nav_prev'], ['#nextDay','nav_next'], ['#todayBtn','nav_today'], ['#nowBtn','now_jump'], ['.edge-chip','edge_chip'],
     ['#signOutBtn','sign_out'], ['#signOutAllBtn','sign_out_all'], ['#calGoogle','cal_add_google'], ['#calApple','cal_add_apple'], ['[data-cal=copy]','cal_copy'], ['#calRotate','cal_rotate'],
     ['#scopeJust','edit_scope_one'], ['#scopeFuture','edit_scope_future'], ['.hp-open','preview_open_form'], ['.day-btn','pick_day']];
   document.addEventListener('click', function(e){
@@ -3815,6 +3895,7 @@
     S.push(['Kalendár', false,
       '<p>Prepínač <b>Deň / Týždeň</b> mení rozsah. Farba tréningu hovorí, do ktorej skupiny patrí (legenda je nad kalendárom). Tréningy sa zobrazujú podľa hodín; <b>Celý deň</b> ukáže aj hodiny bez tréningov, <b>Úzke / Bežné / Široké</b> mení šírku hodiny.</p>' +
       '<p><b>Vertigo / Súkromné / Oboje</b> filtruje, čo vidíte. <b>Len moje</b> ukáže iba tréningy, na ktorých ste vy. Pole <b>Hľadať</b> (skratka „/“) nájde tréningy podľa klienta, trénera, značky alebo telefónu a vypíše ich pod kalendárom — nadchádzajúce, alebo aj minulé po zaškrtnutí. <b>Len kalendár</b> (alebo klávesa „F“) nechá na obrazovke len kalendár; ukončíte ho tlačidlom „✕ Ukončiť“ alebo klávesom Esc.</p>' +
+      '<p><b>Červená čiara</b> v kalendári ukazuje aktuálny čas; dnešné hodiny, ktoré už prebehli, sú zosvetlené. Kalendár sa sám posúva tak, aby bol „teraz“ pri ľavom okraji. Keď ho posuniete sami, automatické posúvanie sa pozastaví a objaví sa tlačidlo <b>⟲ Teraz</b>. Čísla na okrajoch riadkov (<b>‹ 2</b> alebo <b>3 ›</b>) hovoria, koľko tréningov je mimo obrazovky; plné sú tie, ktoré ešte len prídu. Klepnutím ich zobrazíte.</p>' +
       '<p>Kliknutím na tréning ho otvoríte. Na tablete: prvé klepnutie ukáže náhľad, tlačidlo <b>Otvoriť</b> ho otvorí.</p>']);
     S.push(['Pridať tréning', false,
       '<p>Tlačidlo <b>+ Pridať tréning</b> alebo kliknutie na prázdne miesto v kalendári. Hore vyberte <b>Stav</b> (Predbežné / Potvrdené / Dokončené) a <b>Klient</b> (Vertigo klient alebo Súkromný klient), potom vyplňte klienta, čas, dĺžku a trénerov.' + (ext ? '' : ' Ak máte zapnutý pohľad <b>Súkromné</b>, nový tréning sa predvolí ako <b>Súkromný klient</b>.') + '</p>' +
