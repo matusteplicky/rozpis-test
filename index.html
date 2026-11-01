@@ -1440,7 +1440,7 @@
   // ---- the visible hours: from half an hour before the first training of the week to half an hour after the last one ----
   // Each hour has a fixed comfortable width (zoom setting), so names stay readable; when that is wider than the screen the grid scrolls
   // sideways, with the day labels and the hour ruler staying in place. "Celý deň" shows the whole gym day (08–21) instead.
-  var following = true, progUntil = 0, progLeft = -1e9, chipRaf = 0, calDates = [];   // following: keep "now" near the left edge; paused by the person's own sideways scrolling
+  var echoTop = -1e9, following = true, progUntil = 0, progLeft = -1e9, chipRaf = 0, calDates = [];   // following: keep "now" near the left edge; paused by the person's own sideways scrolling
   var viewStart = START_MIN, viewEnd = END_MIN, hourPx = 150, fullDay = false, legendFilter = '', pxPerHour = 150, LABEL_W = 76;
   try{ var zs = Number(localStorage.getItem('rozpis_hourpx')); if(zs === 110 || zs === 150 || zs === 200) hourPx = zs; fullDay = localStorage.getItem('rozpis_fullday') === '1'; }catch(e){}
   function computeRange(dates){
@@ -1491,9 +1491,10 @@
       wrap.style.setProperty('--scroll-x', (-sc.scrollLeft) + 'px');
       if(following && Date.now() > progUntil && Math.abs(sc.scrollLeft - progLeft) > 2){ following = false; updateNowBtn(); }   // a scroll the page did not make itself: the person took over
       if(!chipRaf) chipRaf = requestAnimationFrame(function(){ chipRaf = 0; updateChips(); });
-      if(Math.abs(topBar.scrollLeft - sc.scrollLeft) > 1) topBar.scrollLeft = sc.scrollLeft;
+      if(Math.abs(topBar.scrollLeft - sc.scrollLeft) > 1){ echoTop = sc.scrollLeft; topBar.scrollLeft = sc.scrollLeft; }
     }, {passive:true});
-    topBar.addEventListener('scroll', function(){ if(Math.abs(sc.scrollLeft - topBar.scrollLeft) > 1) sc.scrollLeft = topBar.scrollLeft; }, {passive:true});
+    // the echo of our own sync is ignored: an old echo written back would cancel a smooth scroll that is still running
+    topBar.addEventListener('scroll', function(){ if(Math.abs(topBar.scrollLeft - echoTop) <= 1) return; if(Math.abs(sc.scrollLeft - topBar.scrollLeft) > 1) sc.scrollLeft = topBar.scrollLeft; }, {passive:true});
     var zt = document.getElementById('zoomToggle');
     function syncZoom(){ zt.querySelectorAll('.subtab').forEach(function(b){ b.classList.toggle('active', Number(b.dataset.px) === hourPx); }); document.getElementById('fullDayBtn').classList.toggle('btn-primary', fullDay); document.getElementById('onlyMineBtn').classList.toggle('btn-primary', onlyMine); }
     zt.addEventListener('click', function(e){
@@ -1763,10 +1764,13 @@
           chip.addEventListener('click', function(e){
             e.stopPropagation();
             var l = chip._hid, t;
-            if(side === 'L'){ var n1 = l.reduce(function(a, b){ return b.x2 > a.x2 ? b : a; }); t = n1.x1 - 16; }
-            else { var n2 = l.reduce(function(a, b){ return b.x1 < a.x1 ? b : a; }); t = Math.min(n2.x2 - visW + 16, n2.x1 - 8); }
+            // all the hidden ones on that side come into view when they fit: to the earliest one on the left, to the end of the latest one on the right
+            if(side === 'L'){ t = Math.min.apply(null, l.map(function(i){ return i.x1; })) - 16; }
+            else { t = Math.max.apply(null, l.map(function(i){ return i.x2; })) - visW + 16; }
+            t = Math.max(0, Math.min(t, sc.scrollWidth - sc.clientWidth));
             following = false; updateNowBtn();
-            sc.scrollTo({left:Math.max(0, Math.min(t, sc.scrollWidth - sc.clientWidth)), behavior:'smooth'});
+            sc.scrollTo({left:t, behavior:'smooth'});
+            setTimeout(function(){ if(Math.abs(sc.scrollLeft - t) > 2) sc.scrollLeft = t; }, 700);   // if the smooth scroll was cut short, finish the move
           });
           body.appendChild(chip);
         }
@@ -3234,7 +3238,7 @@
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
   // Which page and which server code are running: hover over "Obnoviť dáta". (The server's build is also what its web address shows when opened.)
-  var PAGE_BUILD = '2026-11-01-now-1', serverBuild = '?';
+  var PAGE_BUILD = '2026-11-01-now-2', serverBuild = '?';
   function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
