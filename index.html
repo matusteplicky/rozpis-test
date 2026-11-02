@@ -122,7 +122,7 @@
   .sr-row{ display:flex; align-items:center; gap:6px 12px; flex-wrap:wrap; border:1px solid var(--border); border-left:5px solid var(--border); background:var(--surface); border-radius:8px; padding:7px 10px; font-size:13px; cursor:pointer; }
   .sr-row.cancelled b{ text-decoration:line-through; } .sr-row.cancelled{ opacity:.65; }
   .sr-when{ font-weight:700; min-width:150px; } .sr-main{ flex:1 1 200px; } .sr-sub{ font-size:11.5px; color:var(--ink-dim); }
-  /* Focus mode: only the calendar (arrows, Dnes, Deň/Týždeň, legend stay); a frame + pill + ✕ show that it is on */
+  /* Focus mode: only the calendar (arrows, Dnes, Deň/Týždeň/Mesiac, legend stay); a frame + pill + ✕ show that it is on */
   .btn-focus{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); font-weight:700; display:inline-flex; align-items:center; gap:7px; box-shadow:var(--shadow); }
   .btn-focus:hover{ filter:brightness(1.08); }
   #focusBar{ position:fixed; top:8px; right:12px; z-index:45; display:none; align-items:center; gap:8px; background:var(--accent); color:var(--accent-ink); border-radius:999px; padding:4px 5px 4px 14px; font-size:12px; font-weight:800; letter-spacing:0.08em; box-shadow:var(--shadow); }
@@ -214,6 +214,10 @@
   .hrow-body{ position:relative; flex:0 0 auto; width:var(--body-w, 100%); min-height:54px; background-image:linear-gradient(to right, var(--border-soft) 0, var(--border-soft) 1px, transparent 1px); background-size:var(--hour-px, 120px) 100%; background-position:var(--grid-off, 0px) 0; background-repeat:repeat-x; cursor:copy; }
   .hrow-ruler .hrow-body{ min-height:26px; cursor:default; background-image:none; width:var(--body-w, 100%); }
   .hrow.day-alt .hrow-label, .hrow.day-alt .hrow-body{ background-color:color-mix(in srgb, var(--accent) 7%, var(--surface)); }
+  .cal-dayrow.is-today .hrow-label{ box-shadow:inset 4px 0 0 var(--accent); background-color:color-mix(in srgb, var(--accent) 16%, var(--surface)); }
+  /* Month view: a thin header with the week number before each Monday; its text pins to the left edge while the hours scroll sideways */
+  .week-sep{ border-top:1px solid var(--border-soft); background:var(--surface-2); font-size:11px; font-weight:700; color:var(--ink-dim); letter-spacing:0.04em; text-transform:uppercase; }
+  .week-sep span{ position:sticky; left:0; display:inline-block; padding:4px 10px; }
   .hour-label{ position:absolute; top:50%; left:0; transform:translateY(-50%); font-size:10.5px; color:var(--ink-faint); font-family:'IBM Plex Mono'; padding-left:3px; }
   /* Full fills: the colour comes from the training's group (inline), and its readable ink with it. */
   /* now-line, dimmed past of today, current-time tag in the ruler, and edge chips counting trainings scrolled out of sight */
@@ -469,6 +473,7 @@
           <div class="tabs" style="padding:3px;">
             <button class="tab" data-mode="day" id="modeDay">Deň</button>
             <button class="tab active" data-mode="week" id="modeWeek">Týždeň</button>
+            <button class="tab" data-mode="month" id="modeMonth">Mesiac</button>
           </div>
         </div>
         <div class="cal-actions" style="display:flex; gap:8px;">
@@ -1408,11 +1413,59 @@
   var selectedDate = TODAY;
   var viewMode = 'week';
 
+  var pendingScroll = null;   // {date, smooth}: after the next render, bring that day's row into view (month view)
   document.getElementById('modeDay').addEventListener('click', function(){ viewMode='day'; syncModeButtons(); renderCalendar(); });
   document.getElementById('modeWeek').addEventListener('click', function(){ viewMode='week'; syncModeButtons(); renderCalendar(); });
+  document.getElementById('modeMonth').addEventListener('click', function(){ viewMode='month'; pendingScroll = {date:selectedDate, smooth:false}; syncModeButtons(); renderCalendar(); });
   function syncModeButtons(){
     document.getElementById('modeDay').classList.toggle('active', viewMode==='day');
     document.getElementById('modeWeek').classList.toggle('active', viewMode==='week');
+    document.getElementById('modeMonth').classList.toggle('active', viewMode==='month');
+  }
+  // The days the calendar shows: one, the 7 of the selected week, or every day of the selected month
+  function viewDates(){
+    if(viewMode==='day') return [selectedDate];
+    var d = new Date(selectedDate+'T00:00:00'), arr = [], i;
+    if(viewMode==='month'){
+      var n = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+      for(i=1;i<=n;i++) arr.push(isoOf(new Date(d.getFullYear(), d.getMonth(), i)));
+      return arr;
+    }
+    var start = startOfWeek(selectedDate);
+    for(i=0;i<7;i++) arr.push(isoOf(new Date(start.getFullYear(), start.getMonth(), start.getDate()+i)));
+    return arr;
+  }
+  // Same day-of-month in the previous/next month (clamped for shorter months); a month that holds today lands on today, any other on its 1st
+  function stepMonth(dir){
+    var d = new Date(selectedDate+'T00:00:00'), day = d.getDate();
+    d.setDate(1); d.setMonth(d.getMonth()+dir);
+    d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth()+1, 0).getDate()));
+    var iso = isoOf(d), today = isoOf(new Date());
+    if(iso.slice(0,7) === today.slice(0,7)){ selectedDate = today; pendingScroll = {date:today, smooth:false}; }
+    else { selectedDate = iso; pendingScroll = {date:iso.slice(0,7)+'-01', smooth:false}; }
+  }
+  function isoWeek(iso){
+    var d = new Date(iso+'T00:00:00'); d.setDate(d.getDate() + 3 - ((d.getDay()+6)%7));   // the Thursday of this week decides the year
+    var w1 = new Date(d.getFullYear(), 0, 4);
+    return 1 + Math.round(((d - w1) / 86400000 - 3 + ((w1.getDay()+6)%7)) / 7);
+  }
+  // Bring a day's row just under the pinned navigation and hour ruler (on a phone: the first agenda item of that day or later)
+  function scrollToDay(iso, smooth){
+    var stickyH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cal-sticky-h'), 10) || 0, target = null, y;
+    if(document.getElementById('calGridWrap').offsetParent === null){
+      var items = document.querySelectorAll('#agendaList .agenda-item[data-d]');
+      for(var k = 0; k < items.length; k++){ if(items[k].dataset.d >= iso){ target = items[k]; break; } }
+      if(!target) return;
+      y = target.getBoundingClientRect().top + window.scrollY - stickyH - 12;
+    } else {
+      var body = document.querySelector('[data-day-body="'+iso+'"]');
+      target = body && body.closest('.cal-dayrow');
+      if(!target) return;
+      var sep = target.previousElementSibling;
+      if(sep && sep.classList.contains('week-sep')) target = sep;   // keep the week header with its first day
+      y = target.getBoundingClientRect().top + window.scrollY - stickyH - document.getElementById('calHead').offsetHeight - 4;
+    }
+    window.scrollTo({top:Math.max(0, y), behavior: smooth ? 'smooth' : 'auto'});
   }
 
   // Which view the calendar shows must be readable from the calendar itself (the Vertigo/Súkromné/Oboje row is hidden in Len kalendár)
@@ -1556,11 +1609,19 @@
 
   function buildDayRows(dates){
     var wrap = document.getElementById('calRows');
-    Array.from(wrap.querySelectorAll('.cal-dayrow')).forEach(function(el){ el.remove(); });
+    Array.from(wrap.querySelectorAll('.cal-dayrow, .week-sep')).forEach(function(el){ el.remove(); });
+    var todayIso = isoOf(new Date());
     dates.forEach(function(date, idx){
-      var row = document.createElement('div');
-      row.className = 'hrow cal-dayrow' + (dates.length>1 && idx%2 ? ' day-alt' : '');
       var d = new Date(date+'T00:00:00');
+      if(viewMode==='month' && (idx===0 || d.getDay()===1)){   // week header: number and the days of it that fall in this month
+        var last = idx, k = idx; while(k+1 < dates.length && new Date(dates[k+1]+'T00:00:00').getDay() !== 1){ k++; } last = k;
+        var sep = document.createElement('div'); sep.className = 'week-sep';
+        var e = new Date(dates[last]+'T00:00:00');
+        sep.innerHTML = '<span>Týždeň '+isoWeek(date)+' &middot; '+d.getDate()+'.'+(last > idx ? '–'+e.getDate()+'.' : '')+' '+(d.getMonth()+1)+'.</span>';
+        wrap.appendChild(sep);
+      }
+      var row = document.createElement('div');
+      row.className = 'hrow cal-dayrow' + (dates.length>1 && idx%2 ? ' day-alt' : '') + (dates.length>1 && date===todayIso ? ' is-today' : '');
       var head = dates.length>1 ? ('<span class="hrl-dow">'+weekdayShort(d)+'</span>'+d.getDate()+'/'+(d.getMonth()+1)) : 'Tréningy';
       row.innerHTML = '<div class="hrow-label">'+head+'</div><div class="hrow-body" data-day-body="'+date+'"></div>';
       wrap.appendChild(row);
@@ -1576,14 +1637,11 @@
     updateConfirmUI();
     renderSearchResults();
     updateScopeUI();
-    document.getElementById('calDateLabel').textContent = viewMode==='day' ? fmtDateLabel(selectedDate) : monthLabel(startOfWeek(selectedDate));
+    document.getElementById('calDateLabel').textContent = viewMode==='day' ? fmtDateLabel(selectedDate) : monthLabel(viewMode==='month' ? new Date(selectedDate+'T00:00:00') : startOfWeek(selectedDate));
     renderWeekStrip();
+    document.getElementById('weekStrip').style.display = viewMode==='month' ? 'none' : '';   // a month is not picked day by day
 
-    var dates = viewMode==='day' ? [selectedDate] : (function(){
-      var start = startOfWeek(selectedDate), arr=[];
-      for(var i=0;i<7;i++) arr.push(isoOf(new Date(start.getFullYear(),start.getMonth(),start.getDate()+i)));
-      return arr;
-    })();
+    var dates = viewDates();
     var rg = computeRange(dates); viewStart = rg.s; viewEnd = rg.e; applyRange(); renderRuler();
     renderLegend(dates);
     buildDayRows(dates);
@@ -1672,6 +1730,7 @@
 
     renderAgenda(dates);
     calDates = dates; drawNow(); followNow(); updateChips(); updateNowBtn();
+    if(pendingScroll){ var ps = pendingScroll; pendingScroll = null; scrollToDay(ps.date, ps.smooth); }
   }
 
   function renderAgenda(dates){
@@ -1686,14 +1745,14 @@
     wrap.innerHTML = items.map(function(it){
       if(it.kind==='block'){
         var b = it.data;
-        return '<div class="agenda-item blocked" data-block-id="'+b.id+'">'+
+        return '<div class="agenda-item blocked" data-block-id="'+b.id+'" data-d="'+b.date+'">'+
           '<span class="a-time">'+(dates.length>1?b.date.slice(5)+' ':'')+(b.allDay?'All day':(b.start+'–'+blockEnd(b)))+'</span>'+
           '<span class="a-main"><div class="a-type">🚫 '+esc(b.label)+'</div><div class="a-sub">Blokované — žiadne rezervácie</div></span></div>';
       }
       var s = it.data;
       if(isMaskedForViewer(s)){
         if(s.status==='cancelled') return '';
-        return '<div class="agenda-item" style="cursor:default; opacity:0.85;"><span class="dot" style="background:var(--ink-faint)"></span>'+
+        return '<div class="agenda-item" data-d="'+s.date+'" style="cursor:default; opacity:0.85;"><span class="dot" style="background:var(--ink-faint)"></span>'+
           '<span class="a-time">'+(dates.length>1?s.date.slice(5)+' ':'')+s.start+'–'+s.end+'</span><span class="a-main"><div class="a-type">'+maskedLabel(s)+'</div></span></div>';
       }
       var color = colorVar(displayColor(s));
@@ -1703,7 +1762,7 @@
       if(s.tag) subParts.push(esc(s.tag));
       if(trNames) subParts.push(trNames);
       if(missing) subParts.push('chýba ešte '+(s.requiredTrainers-s.trainerIds.length));
-      return '<div class="agenda-item'+(s.status==='cancelled'?' cancelled':'')+'" data-id="'+s.id+'">'+
+      return '<div class="agenda-item'+(s.status==='cancelled'?' cancelled':'')+'" data-id="'+s.id+'" data-d="'+s.date+'">'+
         '<span class="dot" style="background:'+color+'"></span>'+
         '<span class="a-time">'+(dates.length>1?s.date.slice(5)+' ':'')+s.start+'–'+s.end+'</span>'+
         '<span class="a-main"><div class="a-type">'+esc(s.clientName||s.type)+(s.status==='cancelled'?' &middot; Zrušené':(s.status==='tentative'?' &middot; Predbežné':(s.status==='completed'?' &middot; <span style="color:var(--success);">Dokončené</span>':'')))+(missing?' &middot; <span style="color:var(--warning);">nedostatočne obsadené</span>':'')+(s.paid?' &middot; <span style="color:var(--success);">&#128176; Zaplatené</span>':'')+'</div>'+
@@ -1750,6 +1809,7 @@
     if(visW <= 0) return;
     var S = sc.scrollLeft, nm = nowMinutes(), todayIso = isoOf(new Date());
     document.querySelectorAll('[data-day-body]').forEach(function(body){
+      if(viewMode === 'month'){ var rr = body.getBoundingClientRect(); if(rr.bottom < -150 || rr.top > window.innerHeight + 150) return; }   // a month has ~30 rows: only the ones on screen are worked out (the page scroll below refreshes the rest)
       var date = body.dataset.dayBody, hid = {L:[], R:[]};
       visibleSessionsOnDate(date).forEach(function(s){
         if(s.status === 'cancelled') return;
@@ -1786,9 +1846,10 @@
   setInterval(function(){ if(me && !document.hidden){ drawNow(); followNow(); updateChips(); updateNowBtn(); } }, 30000);
   document.addEventListener('visibilitychange', function(){ if(me && !document.hidden){ drawNow(); followNow(); updateChips(); updateNowBtn(); } });
 
-  document.getElementById('prevDay').addEventListener('click', function(){ selectedDate = addDays(selectedDate, viewMode==='week'?-7:-1); renderCalendar(); });
-  document.getElementById('nextDay').addEventListener('click', function(){ selectedDate = addDays(selectedDate, viewMode==='week'?7:1); renderCalendar(); });
-  document.getElementById('todayBtn').addEventListener('click', function(){ selectedDate = isoOf(new Date()); following = true; renderCalendar(); });
+  window.addEventListener('scroll', function(){ if(viewMode === 'month' && !chipRaf) chipRaf = requestAnimationFrame(function(){ chipRaf = 0; updateChips(); }); }, {passive:true});
+  document.getElementById('prevDay').addEventListener('click', function(){ if(viewMode==='month') stepMonth(-1); else selectedDate = addDays(selectedDate, viewMode==='week'?-7:-1); renderCalendar(); });
+  document.getElementById('nextDay').addEventListener('click', function(){ if(viewMode==='month') stepMonth(1); else selectedDate = addDays(selectedDate, viewMode==='week'?7:1); renderCalendar(); });
+  document.getElementById('todayBtn').addEventListener('click', function(){ selectedDate = isoOf(new Date()); following = true; if(viewMode==='month') pendingScroll = {date:selectedDate, smooth:true}; renderCalendar(); });
   document.getElementById('addSessionBtn').addEventListener('click', function(){ openModal(null, {date:selectedDate, start:'16:00', durationMin:60}); });
 
   // ---------- modal ----------
@@ -3238,7 +3299,7 @@
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
   // Which page and which server code are running: hover over "Obnoviť dáta". (The server's build is also what its web address shows when opened.)
-  var PAGE_BUILD = '2026-11-01-now-2', serverBuild = '?';
+  var PAGE_BUILD = '2026-11-02-month-1', serverBuild = '?';
   function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
@@ -3602,7 +3663,7 @@
   }
   function archiveForCalendar(){
     if(!archiveInfo) return;
-    var days = viewMode === 'day' ? [selectedDate] : (function(){ var a = [], st = startOfWeek(selectedDate); for(var i = 0; i < 7; i++) a.push(isoOf(new Date(st.getFullYear(), st.getMonth(), st.getDate() + i))); return a; })();
+    var days = viewDates();
     loadArchiveMonths(days.map(ym), function(){ renderCalendar(); });
   }
 
@@ -3868,7 +3929,7 @@
   document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'hidden') usageFlush(); });
   var TRACK_CLICKS = [['#addSessionBtn','add_training_button'], ['#addBlockBtn','add_block'], ['#onlyMineBtn','only_mine'], ['#fullDayBtn','full_day'],
     ['#refreshBtn','refresh_data'], ['#updateBtn','new_version'], ['#calBtn','my_calendar'], ['#helpBtn','help_open'], ['#exportBtn','export_csv'],
-    ['#modeDay','view_day'], ['#modeWeek','view_week'], ['#prevDay','nav_prev'], ['#nextDay','nav_next'], ['#todayBtn','nav_today'], ['#nowBtn','now_jump'], ['.edge-chip','edge_chip'],
+    ['#modeDay','view_day'], ['#modeWeek','view_week'], ['#modeMonth','view_month'], ['#prevDay','nav_prev'], ['#nextDay','nav_next'], ['#todayBtn','nav_today'], ['#nowBtn','now_jump'], ['.edge-chip','edge_chip'],
     ['#signOutBtn','sign_out'], ['#signOutAllBtn','sign_out_all'], ['#calGoogle','cal_add_google'], ['#calApple','cal_add_apple'], ['[data-cal=copy]','cal_copy'], ['#calRotate','cal_rotate'],
     ['#scopeJust','edit_scope_one'], ['#scopeFuture','edit_scope_future'], ['.hp-open','preview_open_form'], ['.day-btn','pick_day']];
   document.addEventListener('click', function(e){
@@ -3897,7 +3958,7 @@
       '<p>Stránka je <b>rozpis tréningov</b>. Hore sú záložky <b>Kalendár</b>' + (admin ? ', <b>Tím</b>' : '') + ' a <b>Reporty</b>. Všetko, čo zmeníte, sa ukladá automaticky — stačí vyplniť údaje a kliknúť <b>Uložiť tréning</b>.</p>' +
       '<p>Vpravo hore uvidíte, či sa zmena uložila: <b>„Ukladá sa…“</b> → <b>„Uložené ✓“</b>. Ak sa objaví <b>„Overuje sa uloženie“</b>, nič nerobte — stránka to skúša znova a môžete pokračovať v práci.</p>']);
     S.push(['Kalendár', false,
-      '<p>Prepínač <b>Deň / Týždeň</b> mení rozsah. Farba tréningu hovorí, do ktorej skupiny patrí (legenda je nad kalendárom). Tréningy sa zobrazujú podľa hodín; <b>Celý deň</b> ukáže aj hodiny bez tréningov, <b>Úzke / Bežné / Široké</b> mení šírku hodiny.</p>' +
+      '<p>Prepínač <b>Deň / Týždeň / Mesiac</b> mení rozsah. <b>Mesiac</b> ukáže všetky dni mesiaca pod sebou; každý týždeň má hlavičku s číslom týždňa, dnešný deň je zvýraznený a tlačidlo <b>Dnes</b> naň skočí. Šípky listujú po mesiacoch. Farba tréningu hovorí, do ktorej skupiny patrí (legenda je nad kalendárom). Tréningy sa zobrazujú podľa hodín; <b>Celý deň</b> ukáže aj hodiny bez tréningov, <b>Úzke / Bežné / Široké</b> mení šírku hodiny.</p>' +
       '<p><b>Vertigo / Súkromné / Oboje</b> filtruje, čo vidíte. <b>Len moje</b> ukáže iba tréningy, na ktorých ste vy. Pole <b>Hľadať</b> (skratka „/“) nájde tréningy podľa klienta, trénera, značky alebo telefónu a vypíše ich pod kalendárom — nadchádzajúce, alebo aj minulé po zaškrtnutí. <b>Len kalendár</b> (alebo klávesa „F“) nechá na obrazovke len kalendár; ukončíte ho tlačidlom „✕ Ukončiť“ alebo klávesom Esc.</p>' +
       '<p><b>Červená čiara</b> v kalendári ukazuje aktuálny čas; dnešné hodiny, ktoré už prebehli, sú zosvetlené. Kalendár sa sám posúva tak, aby bol „teraz“ pri ľavom okraji. Keď ho posuniete sami, automatické posúvanie sa pozastaví a objaví sa tlačidlo <b>⟲ Teraz</b>. Čísla na okrajoch riadkov (<b>‹ 2</b> alebo <b>3 ›</b>) hovoria, koľko tréningov je mimo obrazovky; plné sú tie, ktoré ešte len prídu. Klepnutím ich zobrazíte.</p>' +
       '<p>Kliknutím na tréning ho otvoríte. Na tablete: prvé klepnutie ukáže náhľad, tlačidlo <b>Otvoriť</b> ho otvorí.</p>']);
@@ -4084,7 +4145,7 @@
     box.querySelectorAll('.sr-row').forEach(function(row){
       row.addEventListener('click', function(e){
         var id = row.dataset.id;
-        if(e.target.closest('[data-sr=cal]')){ var s = sessions.filter(function(x){ return x.id === id; })[0]; if(s){ selectedDate = s.date; track('search_show_in_calendar'); renderAll(); } return; }
+        if(e.target.closest('[data-sr=cal]')){ var s = sessions.filter(function(x){ return x.id === id; })[0]; if(s){ selectedDate = s.date; if(viewMode==='month') pendingScroll = {date:s.date, smooth:false}; track('search_show_in_calendar'); renderAll(); } return; }
         track('search_open_result'); openModal(id);
       });
     });
