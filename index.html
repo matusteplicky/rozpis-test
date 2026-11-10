@@ -241,6 +241,20 @@
   #refreshBtn.spin::before{ content:''; display:inline-block; width:10px; height:10px; margin-right:6px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; vertical-align:-1px; animation:rfspin .7s linear infinite; }
   #refreshBtn:disabled{ opacity:.7; cursor:progress; }
   @keyframes rfspin{ to{ transform:rotate(360deg); } }
+  /* A refresh is shown, never enforced: a thin moving line at the top of the window and a tag next to the date. Nothing is blocked or dimmed. */
+  #freshBar{ position:fixed; top:0; left:0; right:0; height:3px; z-index:2500; pointer-events:none; opacity:0; transition:opacity .25s; overflow:hidden; }
+  body.refreshing #freshBar{ opacity:1; }
+  #freshBar::before{ content:''; position:absolute; top:0; bottom:0; width:35%; background:var(--accent); border-radius:2px; animation:freshslide 1.1s ease-in-out infinite; }
+  @keyframes freshslide{ from{ left:-35%; } to{ left:100%; } }
+  .fresh-tag{ font:inherit; font-size:12px; font-weight:700; padding:4px 10px; border-radius:999px; white-space:nowrap; border:1px solid transparent; background:transparent; cursor:default; }
+  .fresh-tag[hidden]{ display:none; }
+  .fresh-tag.busy{ background:var(--accent-soft); color:var(--accent); border-color:var(--accent); }
+  .fresh-tag.busy::before{ content:''; display:inline-block; width:9px; height:9px; margin-right:6px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; vertical-align:-1px; animation:rfspin .7s linear infinite; }
+  .fresh-tag.ok{ color:var(--success); }
+  .fresh-tag.stale{ background:color-mix(in srgb, var(--warning) 18%, var(--surface)); color:var(--warning); border-color:var(--warning); cursor:pointer; }
+  .just-changed{ outline:3px solid var(--accent); outline-offset:1px; animation:chgfade 6s ease-out forwards; z-index:4 !important; }
+  @keyframes chgfade{ 0%, 70%{ outline-color:var(--accent); } 100%{ outline-color:transparent; } }
+  @media (prefers-reduced-motion:reduce){ #freshBar::before{ animation:none; width:100%; left:0; opacity:.6; } }
   body.ro .edit-trainer{ pointer-events:none; opacity:0.55; }
   .team-contact{ font-size:11px; color:var(--ink-dim); }
   .outdated-banner{ display:flex; gap:12px; align-items:center; justify-content:space-between; background:var(--warning-soft); border-color:var(--warning); font-weight:600; }
@@ -404,6 +418,11 @@
   .flag-row .fr-main{ flex:1; }
   .flag-row .fr-sub{ font-size:11.5px; color:var(--ink-dim); }
   .conflict-pair{ border:1px solid var(--danger); background:var(--danger-soft); border-radius:9px; padding:9px 12px; font-size:13px; }
+  .slot-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; border:1px solid var(--warning); background:var(--warning-soft); border-radius:9px; padding:9px 12px; font-size:13px; cursor:pointer; }
+  .slot-row .fr-main{ flex:1 1 220px; }
+  .slot-row .fr-sub{ font-size:11.5px; color:var(--ink-dim); }
+  .slot-row .slot-actions{ display:flex; gap:6px; flex-wrap:wrap; }
+  .tab-badge.soft{ background:var(--warning); }
   .report-date-h{ font-size:12.5px; font-weight:700; color:var(--ink-dim); margin:14px 0 6px; }
   .report-date-h:first-child{ margin-top:0; }
 
@@ -424,6 +443,7 @@
     </div>
     <nav class="tabs" id="tabs">
       <button class="tab active" data-view="calendar">Kalendár</button>
+      <button class="tab" data-view="open" id="openTabBtn">Voľné miesta<span class="tab-badge soft" id="openBadge" hidden></span></button>
       <button class="tab" data-view="team" id="teamTabBtn">Tím</button>
       <button class="tab" data-view="reports">Reporty<span class="tab-badge" id="confirmBadge" hidden></span></button>
     </nav>
@@ -441,6 +461,7 @@
     <button class="btn btn-ghost btn-sm" id="signOutAllBtn" title="Odhlási vás na všetkých zariadeniach">Odhlásiť všade</button>
   </div>
 
+  <div id="freshBar" aria-hidden="true"></div>
   <div class="notice" id="roleBanner"></div>
   <div class="confirm-strip" id="confirmStrip" hidden></div>
 
@@ -467,6 +488,7 @@
           <button class="btn btn-sm" id="prevDay">&larr;</button>
           <div class="cal-date-label" id="calDateLabel">&nbsp;</div>
           <span class="scope-badge" id="scopeBadge" hidden></span>
+          <button type="button" class="fresh-tag" id="freshTag" hidden></button>
           <button class="btn btn-sm" id="nextDay">&rarr;</button>
           <button class="btn btn-sm" id="todayBtn">Dnes</button>
           <button class="btn btn-sm btn-primary" id="nowBtn" hidden title="Vrátiť kalendár na aktuálny čas">⟲ Teraz</button>
@@ -516,6 +538,16 @@
   </section>
 
   <!-- REPORTS VIEW -->
+  <section class="view" id="view-open" hidden>
+    <div class="card" style="display:flex; flex-direction:column; gap:14px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+        <div><h2 style="margin:0; font-size:17px;">Voľné miesta</h2><div class="cf-help" id="openSub" style="margin:4px 0 0;"></div></div>
+        <button class="btn btn-sm" id="openShareAll" type="button">Zdieľať zoznam ↗</button>
+      </div>
+      <div id="openList" style="display:flex; flex-direction:column; gap:8px;"></div>
+    </div>
+  </section>
+
   <section class="view" id="view-reports" hidden>
     <div class="card" style="display:flex; flex-direction:column; gap:16px;">
       <div class="row2" style="flex-wrap:wrap; align-items:flex-start;">
@@ -1303,13 +1335,14 @@
   }
 
   // ---------- tabs ----------
-  var views = {calendar:document.getElementById('view-calendar'), reports:document.getElementById('view-reports'), team:document.getElementById('view-team')};
+  var views = {calendar:document.getElementById('view-calendar'), open:document.getElementById('view-open'), reports:document.getElementById('view-reports'), team:document.getElementById('view-team')};
   document.getElementById('tabs').addEventListener('click', function(e){
     var btn = e.target.closest('.tab'); if(!btn || !btn.dataset.view) return;
     if(btn.dataset.view==='team' && isTrainerRole()) return;
     document.querySelectorAll('#tabs .tab').forEach(function(t){ t.classList.toggle('active', t===btn); });
     Object.keys(views).forEach(function(k){ views[k].hidden = (k!==btn.dataset.view); });
     if(btn.dataset.view==='reports') renderReports();
+    if(btn.dataset.view==='open'){ track('open_tab'); drawOpen(); }
     if(btn.dataset.view==='team') renderTeam();
   });
 
@@ -1634,7 +1667,7 @@
     hidePreview();
     runAutoComplete();
     applyRoleUI();
-    updateConfirmUI();
+    updateConfirmUI(); updateOpenUI();
     renderSearchResults();
     updateScopeUI();
     document.getElementById('calDateLabel').textContent = viewMode==='day' ? fmtDateLabel(selectedDate) : monthLabel(viewMode==='month' ? new Date(selectedDate+'T00:00:00') : startOfWeek(selectedDate));
@@ -1685,7 +1718,7 @@
         lane.forEach(function(s){
           var gid = displayColor(s);
           var el = document.createElement('div');
-          el.className = 'session-block status-'+s.status;
+          el.className = 'session-block status-'+s.status; el.setAttribute('data-sbid', s.id);
           el.style.left = xOf(toMin(s.start))+'px';
           el.style.width = ((toMin(s.end)-toMin(s.start))/60*pxPerHour)+'px';
           el.style.top = (idx*LANE_PX)+'px';
@@ -2139,7 +2172,7 @@
     var s = sessionId ? sessions.filter(function(x){return x.id===sessionId;})[0] : null;
     if(READ_ONLY && !s) return;
     if(s && isMaskedForViewer(s)) return; // externals never open a Vertigo client's training
-    editingId = sessionId; formAttempted = false; FIELD_IDS.forEach(clearInvalid);
+    changedElsewhere = {}; editingId = sessionId; formAttempted = false; FIELD_IDS.forEach(clearInvalid);
     editingOriginalDate = s ? s.date : null;
     var mode = trainingEditMode(s);
     currentModalMode = mode;
@@ -2238,6 +2271,12 @@
 
     var editArea = document.getElementById('editOnlyActions');
     editArea.innerHTML = '';
+    if(s && canShareSlot(s)){
+      var shBtn = document.createElement('button');
+      shBtn.className = 'btn btn-sm'; shBtn.type = 'button'; shBtn.textContent = 'Hľadáme trénera ↗';
+      shBtn.addEventListener('click', function(){ shareSlot(s.id); });
+      editArea.appendChild(shBtn);
+    }
     document.getElementById('scopeChooser').hidden = true;
     document.getElementById('saveBtn').hidden = false;
     if(s && !READ_ONLY && !s._archived && (!isTrainerRole() || canTrainerToggleCancel(s))){
@@ -2377,7 +2416,7 @@
       if(currentModalMode==='selfOnly'){ // joining a gap touches the trainer list and nothing else
         existing.trainerIds = f.trainerIds; stampEdited(existing);
         var jc = diffSession(before, existing); if(jc.length) logChange('edited', existing, {changes:jc});
-        saveState(); closeModal(); renderAll(); return;
+        saveState(); closeModal(); renderAll(); offerJoinShare(existing); return;
       }
     }
     keepPrivateOnlyOffGym(f, existing);
@@ -2419,8 +2458,21 @@
   document.getElementById('confirmOk').addEventListener('click', function(){ closeConfirm(true); });
   document.getElementById('confirmCancel').addEventListener('click', function(){ closeConfirm(false); });
 
+  // Pressing Save while a refresh is still running (or after the poll was paused for a long time by this open form) waits for the
+  // refresh for at most 3 s, then checks again against the fresh data: a conflict that appeared, a training that changed or was deleted
+  // elsewhere stops the save and says so. Otherwise it goes through exactly as before. See holdThen().
   document.getElementById('saveBtn').addEventListener('click', function(){
     if(currentModalMode==='locked') return;
+    var hadConf = !document.getElementById('conflictBox').hidden;
+    holdThen(this, updateConflicts, function(held){
+      if(overlay.hidden) return;
+      if(editingId && !sessions.some(function(x){ return x.id === editingId; })){ toast('Tento tréning bol medzitým zmazaný inde.', 5000); return; }
+      if(editingId && changedElsewhere[editingId]){ toast('Tento tréning sa medzitým zmenil inde. Zatvorte okno a otvorte ho znova.', 6000); return; }
+      if(held){ updateConflicts(); if(!hadConf && !document.getElementById('conflictBox').hidden){ toast('Po aktualizácii pribudol konflikt — skontrolujte ho.', 5000); return; } }
+      doSaveClick();
+    });
+  });
+  function doSaveClick(){
     var f = currentFormSession();
     formAttempted = true;
     var probs = formProblems(f); showProblems(probs);
@@ -2432,7 +2484,7 @@
       return;
     }
     continueSave(f);
-  });
+  }
   function continueSave(f){
     if(!editingId){
       if(document.getElementById('f-repeat').checked) saveRecurringNew(f); else saveSingleNew(f);
@@ -2555,6 +2607,13 @@
 
   document.getElementById('blockSaveBtn').addEventListener('click', function(){
     if(isTrainerRole()) return;
+    holdThen(this, updateBlockConflicts, function(held){
+      if(blockOverlay.hidden) return;
+      if(editingBlockId && !blocks.some(function(x){ return x.id === editingBlockId; })){ toast('Tento blok bol medzitým zmazaný inde.', 5000); return; }
+      doBlockSave();
+    });
+  });
+  function doBlockSave(){
     var f = currentBlockForm();
     if(!f.date || (!f.allDay && (!f.start || !f.durationMin))) return;
     if(editingBlockId){
@@ -2567,7 +2626,7 @@
       blocks.push(f);
     }
     saveState(); closeBlockModal(); renderAll();
-  });
+  }
 
   // ---------- team (roster, roles, and activation — Admin & Owner) ----------
   function trainerStats(trainerId, monthKey){
@@ -3204,12 +3263,12 @@
     saveState(); closeTeamEdit(); renderTeam();
   });
   // ---------- live mode: Google sign-in, data from the backend ----------
-  function toast(msg){
+  function toast(msg, ms){
     var t = document.createElement('div'); t.textContent = msg;
     // Inverted from the page: dark box with light text in the light theme, light box with dark text in the dark theme (white text on --ink
     // is unreadable in dark mode, where --ink is itself nearly white). Long messages wrap instead of running off-screen.
     t.style.cssText = 'position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:var(--ink); color:var(--bg); border:1px solid var(--border); box-shadow:var(--shadow); padding:10px 16px; border-radius:8px; font-size:13px; line-height:1.4; font-weight:500; text-align:center; max-width:min(92vw, 520px); z-index:2000;';
-    document.body.appendChild(t); setTimeout(function(){ t.remove(); }, 3500);
+    document.body.appendChild(t); setTimeout(function(){ t.remove(); }, ms || 3500);
   }
   var gate = document.getElementById('authGate'), gateMsg = document.getElementById('gateMsg');
   var gateRetry = document.getElementById('gateRetry'), retryLoadTimer = null, retryLoadN = 0;
@@ -3256,11 +3315,14 @@
     schedulePoll();
     if(!deferRender){ renderCalendar(); if(!views.team.hidden) renderTeam(); if(!views.reports.hidden) renderReports(); }
     gate.hidden = true;
+    if(!deepDone){ deepDone = true; setTimeout(handleDeepLink, 50); }
   }
   // ---- what changed since the server last confirmed the state ----
   var snap = {sessions:{}, blocks:{}, trainers:{}, logLen:0};
+  // NOTE: sKey() must not depend on the clock. It used to use derived(s), so the moment a confirmed training ended the page saw an
+  // "unsaved change" nobody made — polling stopped and refresh refused with "pending upload" on any page that was only being looked at.
   function derived(s){ return (s.status==='confirmed' && hasEnded(s)) ? 'completed' : s.status; }   // the server derives "completed" the same way
-  function sKey(s){ return JSON.stringify([s.date, s.start, s.durationMin, s.type, s.tag||'', s.color||'', s.clientName||'', s.phone||'', s.people==null?null:s.people, s.requiredTrainers, s.trainerIds, derived(s), s.notes||'', !!s.paid]); }
+  function sKey(s){ return JSON.stringify([s.date, s.start, s.durationMin, s.type, s.tag||'', s.color||'', s.clientName||'', s.phone||'', s.people==null?null:s.people, s.requiredTrainers, s.trainerIds, (s.status==='completed' ? 'confirmed' : s.status), s.notes||'', !!s.paid]); }
   function bKey(b){ return JSON.stringify([b.date, b.label, !!b.allDay, b.start, b.durationMin||0]); }
   function tKey(t){ return JSON.stringify([t.role, t.status, !!t.hidden, !!t.privateOnly, !!t.noAccess, t.name, t.email||'', t.phone||'', !!t._reset]); }
   function makeSnap(){
@@ -3299,7 +3361,7 @@
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
   // Which page and which server code are running: hover over "Obnoviť dáta". (The server's build is also what its web address shows when opened.)
-  var PAGE_BUILD = '2026-11-02-month-1', serverBuild = '?';
+  var PAGE_BUILD = '2026-11-10-slots-1', serverBuild = '?';
   function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
@@ -3533,15 +3595,26 @@
     clearTimeout(syncTimer); syncTimer = null;
     flushSync();
   });
-  window.addEventListener('beforeunload', function(e){ if(inflight || buildChanges()){ e.preventDefault(); e.returnValue = ''; } });
+  var discarding = false;
+  window.addEventListener('beforeunload', function(e){ if(!discarding && (inflight || buildChanges())){ e.preventDefault(); e.returnValue = ''; } });
+  // Is something really on its way to the server (or waiting to be)? If not, "unsaved changes" is a leftover the page can offer to drop,
+  // so a refresh is never a dead end.
+  function savingNow(){ return fetchBusy || !!syncTimer || !!debounceTimer || !!unsure || !!pendingReq || reconciling; }
+  function whenSafeToReload(go){
+    if(savingNow()){ toast('Najprv sa dokončí ukladanie.'); return; }
+    if(inflight || buildChanges()){
+      askConfirm('Táto stránka má zmeny, ktoré sa na server neuložili. Zahodiť ich a obnoviť údaje zo servera?', 'Zahodiť a obnoviť', 'Zrušiť', function(){ track('discard_refresh'); discarding = true; inflight = false; go(); });
+      return;
+    }
+    go();
+  }
   // Coming back to the page (phone unlocked, tab reopened): refresh quietly if it has been a while and nothing is unsaved.
   // ---- loading the newest version of this page ----
   // The browser may keep the page for a while (GitHub Pages allows ~10 minutes, Safari sometimes longer). Asking for the page under a unique
   // address (?v=…) makes the browser fetch it afresh. The button does that on demand; the check below also notices, once the tab is in
   // view again, that a newer build is published and offers the same reload — nobody has to know a release happened.
   function reloadFresh(){
-    if(inflight || buildChanges()){ toast('Najprv sa dokončí ukladanie.'); return; }
-    location.href = location.pathname + '?v=' + Date.now();
+    whenSafeToReload(function(){ location.href = location.pathname + '?v=' + Date.now(); });
   }
   document.getElementById('updateBtn').addEventListener('click', reloadFresh);
   var versionBanner = null, lastVersionCheck = 0, versionSnoozeUntil = 0;
@@ -3572,6 +3645,7 @@
     lastActivity = Date.now();                                                              // coming back counts as being there
     if(pollPaused) resumePolling();
     else if(me && !inflight && !buildChanges() && Date.now()-lastLoadAt > 120000) loadFromBackend({quiet:true});
+    else catchUp();
   });
   // ---- polling: pick up other people's changes every 20 s, without a full reload ----
   // Paused while a modal is open (nothing should shift under you mid-edit) or while your own save is in flight.
@@ -3583,7 +3657,7 @@
   function idleLimit(){ return window.__idleMs !== undefined ? window.__idleMs : IDLE_MS; }
   function markActive(){
     var n = Date.now(); if(n - lastActivity < 1000 && !pollPaused) return;
-    lastActivity = n; if(pollPaused) resumePolling();
+    lastActivity = n; if(pollPaused) resumePolling(); else if(n - lastContactAt > 45000) catchUp();   // a poll that keeps failing or being deferred is retried on the next sign of life
   }
   ['mousemove', 'mousedown', 'keydown', 'touchstart', 'wheel', 'scroll'].forEach(function(ev){ window.addEventListener(ev, markActive, {passive:true, capture:true}); });
   function resumePolling(){
@@ -3594,28 +3668,33 @@
   }
   function anyModalOpen(){ return !overlay.hidden || !blockOverlay.hidden || !document.getElementById('teamEditOverlay').hidden || !confirmOverlay.hidden; }
   function schedulePoll(){ clearTimeout(pollTimer); pollTimer = setTimeout(doPoll, window.__pollMs || 20000); }
-  function doPoll(){
+  function doPoll(opts){
     if(outdated) return;
     if(!session){ schedulePoll(); return; }
     if(document.visibilityState !== 'visible' || Date.now() - lastActivity > idleLimit()){ pollPaused = true; return; }   // nobody is looking: stop (resumePolling restarts it)
-    if(inflight || buildChanges() || anyModalOpen()){ schedulePoll(); return; }
-    var t0 = Date.now(), gen = syncGen;
-    pollAborted = false;
+    if(pollBusy) return;
+    if(inflight || buildChanges() || (anyModalOpen() && !(opts && opts.ignoreModal))){ schedulePoll(); return; }
+    var t0 = Date.now(), gen = syncGen, ended = false;
+    function end(v){ if(ended) return; ended = true; freshEnd(v); }
+    pollAborted = false; pollBusy = true; freshBegin('poll');
     safePost({op:'poll', since:pollCursor}).then(function(d){
       var ms = ((Date.now() - t0) / 1000).toFixed(1);
-      if(!d || !d.ok){ if(!pollAborted) console.log('poll: zlyhalo ('+ms+' s)'); pollAborted = false; return; }
+      if(!d || !d.ok){ if(!pollAborted) console.log('poll: zlyhalo ('+ms+' s)'); end(pollAborted ? null : false); pollAborted = false; return; }
       lastContactAt = Date.now();
       // An edit made while this poll was in the air must not be overwritten by it (the next save would then send the old
       // value back). Drop the whole answer and keep the cursor where it was — the next poll fetches the same lines again.
       // Also dropped when one of your own saves completed while it was in the air: it read the sheet BEFORE that save, so its
       // rows are older than what the page now has — applying them would roll your edit back on screen and leave the page
       // holding a stale version, so your next edit of that training would be refused as "changed by someone else".
-      if(inflight || buildChanges() || gen !== syncGen){ console.log('poll: odložené (prebieha alebo práve skončilo ukladanie)'); return; }
+      if(inflight || buildChanges() || gen !== syncGen){ console.log('poll: odložené (prebieha alebo práve skončilo ukladanie)'); end(null); return; }
       if(d.logCursor != null) pollCursor = d.logCursor;
       var n = (d.sessions ? d.sessions.length : 0) + (d.blocks ? d.blocks.length : 0) + (d.trainers ? d.trainers.length : 0) + (d.deletedSessions ? d.deletedSessions.length : 0);
       console.log('poll: ' + (n ? (n + ' zmien (' + ms + ' s)') : ('nič nové (' + ms + ' s)')));
-      if(!n) return;
+      if(!n){ end(true); return; }
       var landed = (d.sessions || []).filter(function(x){ return x && x.id != null; }).map(fixColor);
+      // What is genuinely different from what this page showed (a poll also returns this page's own saves, which match and are not news).
+      var was = sessKeyMap(), changedIds = landed.filter(function(x){ return was[x.id] !== sKey(x); }).map(function(x){ return x.id; });
+      var delN = (d.deletedSessions || []).filter(function(id){ return was[id] !== undefined; }).length;
       upsert(sessions, landed, null); upsert(blocks, d.blocks || [], null); upsert(trainers, d.trainers || [], null);
       (d.deletedSessions || []).forEach(function(id){ for(var i = sessions.length - 1; i >= 0; i--) if(sessions[i].id === id) sessions.splice(i, 1); });
       landed.forEach(function(s){ snap.sessions[s.id] = {key:sKey(s), version:s.version}; });
@@ -3623,7 +3702,120 @@
       (d.trainers || []).forEach(function(t){ snap.trainers[t.id] = tKey(t); });
       (d.deletedSessions || []).forEach(function(id){ delete snap.sessions[id]; });
       renderCalendar(); if(!views.team.hidden) renderTeam(); if(!views.reports.hidden) renderReports();
-    }).then(schedulePoll, schedulePoll);
+      announceChanges(changedIds, delN); end(true);
+    }).then(function(){ end(null); pollBusy = false; schedulePoll(); }, function(){ end(null); pollBusy = false; schedulePoll(); });
+  }
+  var pollBusy = false;
+
+  // ---- making a refresh visible (it never blocks anything) ----
+  // While data is being fetched a thin line runs across the top of the window and a tag next to the date says so; the page stays fully usable.
+  // A fast background poll shows nothing at all (only one that takes longer than 0.8 s does). When the page cannot be sure it is current
+  // (a poll keeps failing, or it is waiting for a touch after being idle) the tag turns amber and says so, instead of a calm-looking old screen.
+  var fresh = {n:0, shown:false, showT:null, okT:null, okFlash:false, failed:false, pill:false, waiters:[]}, freshTag = document.getElementById('freshTag'), freshLastCatch = 0;
+  var changedElsewhere = {};   // ids of trainings that a refresh changed since the open form was opened
+  function freshBegin(kind){
+    fresh.n++; clearTimeout(fresh.okT); fresh.okFlash = false;
+    if(kind !== 'poll') freshShow(); else if(!fresh.showT && !fresh.shown) fresh.showT = setTimeout(freshShow, 800);
+  }
+  function freshShow(){
+    clearTimeout(fresh.showT); fresh.showT = null;
+    if(fresh.n <= 0) return;
+    fresh.shown = true; document.body.classList.add('refreshing');
+    if(!inflight && !fetchBusy && !reconciling && (!statusEl.textContent || statusEl.classList.contains('saved'))){ setStatus('saving', 'Aktualizujem…'); fresh.pill = true; }
+    freshRender();
+  }
+  function freshEnd(ok){   // ok: true = fresh data in, false = failed, null = no verdict (cancelled / answer dropped)
+    fresh.n = Math.max(0, fresh.n - 1);
+    if(fresh.n > 0) return;
+    clearTimeout(fresh.showT); fresh.showT = null;
+    var was = fresh.shown; fresh.shown = false; document.body.classList.remove('refreshing');
+    if(ok !== null) fresh.failed = !ok;
+    if(fresh.pill){ fresh.pill = false; if(statusEl.textContent === 'Aktualizujem…') setStatus(ok ? 'saved' : '', ok ? 'Údaje sú aktuálne ✓' : ''); }
+    if(ok && was){ fresh.okFlash = true; fresh.okT = setTimeout(function(){ fresh.okFlash = false; freshRender(); }, 2500); }
+    freshRender();
+    fresh.waiters.splice(0).forEach(function(f){ try{ f(); }catch(e){} });
+  }
+  function freshState(){
+    if(!me || !session || outdated) return '';
+    if(fresh.shown) return 'busy';
+    if(fresh.okFlash) return 'ok';
+    if(anyModalOpen()) return '';
+    if(fresh.failed) return 'fail';
+    if(pollPaused && document.visibilityState === 'visible') return 'idle';
+    if(!inflight && !fresh.n && Date.now() - lastContactAt > 90000) return 'fail';
+    return '';
+  }
+  var FRESH_TEXT = {
+    busy:['busy', 'Aktualizujem…', 'Načítavajú sa aktuálne údaje. Môžete pokračovať v práci.'],
+    ok:['ok', '✓ Aktuálne', ''],
+    fail:['stale', 'Údaje nemusia byť aktuálne · Obnoviť', 'Spojenie so serverom zlyháva alebo je pomalé. Kliknutím skúsite znova.'],
+    idle:['stale', 'Údaje môžu byť staré · obnovia sa dotykom', 'Obrazovka bola dlhšie nečinná. Po dotyku alebo pohybe myšou sa údaje hneď obnovia (kliknutím hneď).']
+  };
+  function freshRender(){
+    if(!freshTag) return;
+    var st = freshState(), t = FRESH_TEXT[st];
+    if(!t){ freshTag.hidden = true; return; }
+    freshTag.hidden = false; freshTag.className = 'fresh-tag ' + t[0]; freshTag.textContent = t[1]; freshTag.title = t[2];
+  }
+  // Ask for news now if the last word from the server is old — unless something would be disturbed (a save, a poll already out, an open form).
+  function catchUp(){
+    var n = Date.now();
+    if(!session || !me || outdated || pollBusy || fetchBusy || inflight || reconciling || anyModalOpen() || buildChanges()) return;
+    if(n - freshLastCatch < 8000 || n - lastContactAt < 15000) return;
+    freshLastCatch = n;
+    if(pollPaused){ lastActivity = n; resumePolling(); } else doPoll();
+  }
+  window.addEventListener('focus', function(){ if(!me) return; lastActivity = Date.now(); catchUp(); });
+  window.addEventListener('pageshow', function(){ if(me) catchUp(); });
+  var orphanTicks = 0;
+  setInterval(function(){
+    // Differences that nothing is sending (every real edit is queued within seconds) are sent after ~15 s rather than left to block polling and refresh.
+    if(me && session && !outdated && !savingNow() && !inflight && buildChanges()){ if(++orphanTicks >= 3){ orphanTicks = 0; console.log('sync: nepotvrdené zmeny, ktoré nikto neposielal — odosielam'); queueSync(); } } else orphanTicks = 0;
+    freshRender();
+    if(me && !pollPaused && !fresh.n && Date.now() - lastContactAt > 60000) catchUp();   // the poll chain stalled or keeps failing: do not wait for a touch
+  }, 5000);
+  freshTag.addEventListener('click', function(){
+    var st = freshState(); if(st !== 'fail' && st !== 'idle') return;
+    if(inflight || buildChanges()){ toast('Najprv sa dokončí ukladanie.'); return; }
+    track('fresh_tag_retry'); lastActivity = Date.now(); pollPaused = false;
+    loadFromBackend({quiet:true}).then(schedulePoll);
+  });
+  function sessKeyMap(){ var m = {}; sessions.forEach(function(s){ if(!s._archived) m[s.id] = sKey(s); }); return m; }
+  function plural(n){ return n + (n === 1 ? ' tréning' : (n >= 2 && n <= 4 ? ' tréningy' : ' tréningov')); }
+  // After fresh data came in: say what changed elsewhere, and outline those trainings for a few seconds.
+  function announceChanges(ids, delN){
+    var n = ids.length + (delN || 0); if(!n) return;
+    ids.forEach(function(id){ changedElsewhere[id] = 1; });
+    toast('Aktualizované — zmenené inde: ' + plural(n), 5000);
+    flashChanged(ids);
+  }
+  function announceFromLoad(before){
+    var ids = [], seen = {};
+    sessions.forEach(function(s){ if(s._archived) return; seen[s.id] = 1; if(before[s.id] !== sKey(s)) ids.push(s.id); });
+    var delN = Object.keys(before).filter(function(id){ return !seen[id]; }).length;
+    announceChanges(ids, delN);
+  }
+  function flashChanged(ids){
+    var els = [];
+    ids.forEach(function(id){ document.querySelectorAll('.session-block[data-sbid="' + id + '"], #agendaList .agenda-item[data-id="' + id + '"]').forEach(function(e){ els.push(e); }); });
+    els.forEach(function(e){ e.classList.add('just-changed'); });
+    setTimeout(function(){ els.forEach(function(e){ e.classList.remove('just-changed'); }); }, 6200);
+  }
+  // Used by the Save buttons: wait (at most 3 s) for a refresh that is running, then carry on with fresh data. proceed(held) tells
+  // whether it waited. A form that has been open for a while has had no polls (they pause while a form is open), so one is started now.
+  var holdingSave = false;
+  function holdThen(btn, restore, proceed){
+    if(holdingSave) return;
+    if(fresh.n === 0 && session && !outdated && !inflight && !buildChanges() && Date.now() - lastContactAt > 30000){ lastActivity = Date.now(); doPoll({ignoreModal:true}); }
+    if(fresh.n === 0){ proceed(false); return; }
+    holdingSave = true; btn.disabled = true; btn.textContent = 'Čakám na aktualizáciu…';
+    var done = false, t = setTimeout(go, 3000);
+    function go(){
+      if(done) return; done = true; clearTimeout(t); holdingSave = false;
+      btn.disabled = false; restore();
+      proceed(true);
+    }
+    fresh.waiters.push(go);
   }
 
   // ---- archive: months moved to the Archive tab are fetched when opened (Reports, or the calendar navigated back) ----
@@ -3850,6 +4042,15 @@
   function loadFromBackend(opts){
     opts = opts || {};
     if(!session) return Promise.resolve(false);
+    var shown = !opts.boot, before = (me && !opts.boot && !(opts.quiet && opts.strict)) ? sessKeyMap() : null;   // a refused save's reload says its own thing
+    if(shown) freshBegin('load');
+    return loadInner(opts).then(function(ok){
+      if(ok && before) announceFromLoad(before);
+      if(shown) freshEnd(ok);
+      return ok;
+    }, function(e){ if(shown) freshEnd(false); throw e; });
+  }
+  function loadInner(opts){
     return safePost({op:'load', strict:!!opts.strict}).then(function(d){
       if(d.ok){ try{ applyLoad(d); return true; }catch(e){ showErr('Údaje zo servera sa nepodarilo spracovať', e, d); return false; } }
       if(d.error==='denied'){ leave('Tento účet nie je v zozname tímu. Požiadajte administrátora o pridanie.'); return false; }
@@ -4078,6 +4279,116 @@
       '.</span><button class="btn btn-sm" type="button" id="confirmStripBtn">Zobraziť</button>';
     strip.hidden = false;
   }
+
+  // ---------- open slots ("Voľné miesta") and sharing to Messenger ----------
+  // The trainers talk in a Messenger group, which cannot be written to automatically. So the app prepares the message and a person sends it
+  // (share sheet on a phone, copy on a computer). Only gym trainings are shared — never a private client's name — and never phone or notes.
+  var deepDone = false;
+  function openSlots(){
+    if(!me || isPrivateOnlyViewer()) return [];
+    return sessions.filter(function(s){ return !s._archived && !isPrivateSession(s) && isMissing(s) && !hasEnded(s) && !isMaskedForViewer(s); })
+      .sort(function(a, b){ return a.date === b.date ? toMin(a.start) - toMin(b.start) : a.date.localeCompare(b.date); });
+  }
+  function canShareSlot(s){ return !READ_ONLY && !s._archived && !isPrivateSession(s) && isMissing(s) && !hasEnded(s) && !isMaskedForViewer(s) && !isPrivateOnlyViewer(); }
+  function updateOpenUI(){
+    var tab = document.getElementById('openTabBtn'), badge = document.getElementById('openBadge'); if(!tab || !me) return;
+    var hide = isPrivateOnlyViewer(); tab.hidden = hide;
+    if(hide && !views.open.hidden){ document.querySelector('.tab[data-view=calendar]').click(); return; }
+    var n = openSlots().length; badge.hidden = !n; badge.textContent = n;
+    if(!views.open.hidden) drawOpen();
+  }
+  function drawOpen(){
+    var list = openSlots(), wrap = document.getElementById('openList'), last = null;
+    document.getElementById('openShareAll').hidden = READ_ONLY || !list.length;
+    document.getElementById('openSub').textContent = list.length ? 'Tréningy, ktorým ešte chýba tréner. Najbližšie sú hore.' : '';
+    wrap.innerHTML = list.length ? list.map(function(s){
+      var head = s.date !== last ? (last = s.date, '<div class="report-date-h">' + fmtDateHeading(s.date) + '</div>') : '';
+      var need = s.requiredTrainers - s.trainerIds.length, have = s.trainerIds.map(trainerNameH).join(', ') || 'zatiaľ nikto', act = '';
+      if(!READ_ONLY){
+        if(isTrainerRole()){ if(trainingEditMode(s) === 'selfOnly') act += '<button class="btn btn-sm btn-primary" type="button" data-act="join">Pripojiť sa</button>'; }
+        else act += '<button class="btn btn-sm" type="button" data-act="assign">Priradiť</button>';
+        act += '<button class="btn btn-sm btn-ghost" type="button" data-act="share">Hľadáme trénera ↗</button>';
+      }
+      return head + '<div class="slot-row" data-id="' + esc(s.id) + '"><div class="fr-main"><b>' + esc(s.clientName || s.type) + '</b> &middot; ' + s.start + '–' + s.end + (s.status === 'tentative' ? ' &middot; Predbežné' : '') +
+        '<div class="fr-sub">Chýba ešte ' + need + ' &middot; má: ' + have + (s.tag ? ' &middot; ' + esc(s.tag) : '') + (isAssigned(s) ? ' &middot; ste prihlásený(á)' : '') + '</div></div><div class="slot-actions">' + act + '</div></div>';
+    }).join('') : '<div class="agenda-empty">Momentálne žiadnemu tréningu nechýba tréner.</div>';
+  }
+  document.getElementById('openList').addEventListener('click', function(e){
+    var row = e.target.closest('.slot-row'); if(!row) return;
+    var b = e.target.closest('button[data-act]'), a = b && b.dataset.act, id = row.dataset.id;
+    if(a === 'join') joinSlot(id); else if(a === 'share') shareSlot(id); else openModal(id);
+  });
+  document.getElementById('openShareAll').addEventListener('click', function(){
+    var list = openSlots(); if(!list.length) return;
+    if(inflight || buildChanges()){ toast('Počkajte, kým sa dokončí ukladanie.'); return; }
+    track('share_list');
+    var shown = list.slice(0, 12), lines = shown.map(function(s){ var need = s.requiredTrainers - s.trainerIds.length; return '• ' + shareWhen(s) + ' (chýba ' + need + ')'; });
+    shareText('🧗 Voľné miesta pre trénerov\n' + lines.join('\n') + (list.length > shown.length ? '\n…a ďalších ' + (list.length - shown.length) : '') + '\nPrihlásiť sa: ' + appBase() + '?open=1');
+  });
+  function appBase(){ return location.href.split('#')[0].split('?')[0]; }
+  function wk(iso){ var d = new Date(iso + 'T00:00:00'); return WEEKDAY_FULL[(d.getDay() + 6) % 7].toLowerCase() + ' ' + d.getDate() + '. ' + (d.getMonth() + 1) + '.'; }
+  function shareWhen(s){ return wk(s.date) + ', ' + s.start + '–' + s.end + ' · ' + (s.clientName || s.type) + (s.status === 'tentative' ? ' (predbežné)' : ''); }
+  function slotMessage(s){
+    var need = s.requiredTrainers - s.trainerIds.length;
+    return '🧗 Hľadáme trénera\n' + shareWhen(s) + '\nPotrebujeme ešte ' + (need === 1 ? '1 trénera' : need + ' trénerov') + '.\nPrihlásiť sa: ' + appBase() + '?slot=' + encodeURIComponent(s.id);
+  }
+  function findSession(id){ return sessions.filter(function(x){ return x.id === id; })[0]; }
+  function shareSlot(id){
+    var s = findSession(id); if(!s) return;
+    if(!snap.sessions[s.id]){ toast('Tréning sa ešte ukladá — skúste to o chvíľu.'); return; }   // its link would not work yet
+    track('share_slot'); shareText(slotMessage(s));
+  }
+  function copyText(text){
+    function done(){ toast('Text skopírovaný — vložte ho do Messengera.', 4500); }
+    function fallback(){
+      var ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed; opacity:0;'; document.body.appendChild(ta); ta.select();
+      var ok = false; try{ ok = document.execCommand('copy'); }catch(e){} ta.remove();
+      if(ok) done(); else window.prompt('Skopírujte text:', text);
+    }
+    try{ navigator.clipboard.writeText(text).then(done, fallback); }catch(e){ fallback(); }
+  }
+  // On a phone the system share sheet (Messenger is in it); on a computer the text is copied for pasting.
+  function shareText(text){
+    var touch = window.matchMedia && matchMedia('(pointer:coarse)').matches;
+    if(touch && navigator.share){ navigator.share({text:text}).catch(function(e){ if(!e || e.name !== 'AbortError') copyText(text); }); return; }
+    copyText(text);
+  }
+  function offerJoinShare(s){
+    if(!s || isPrivateSession(s)) return;
+    askConfirm('Ste pripojený(á) ✓. Oznámiť to skupine v Messengeri?', 'Oznámiť', 'Nie, ďakujem', function(){ track('share_join'); shareText(me.name + ' preberá tréning: ' + shareWhen(s) + ' ✅'); });
+  }
+  // One tap from the list: same rules as joining through the form (only a gap that has not happened yet), same record in the change log.
+  function joinSlot(id){
+    var s = findSession(id);
+    if(!s || trainingEditMode(s) !== 'selfOnly'){ toast('K tomuto tréningu sa už nedá pripojiť.'); drawOpen(); return; }
+    var clash = getConflicts({date:s.date, start:s.start, end:s.end, trainerIds:[currentTrainerId]}, s.id).length;
+    askConfirm((clash ? 'Pozor, v tom čase už máte iný tréning. ' : '') + 'Pripojiť sa na tréning ' + shareWhen(s) + '?', clash ? 'Napriek tomu sa pripojiť' : 'Pripojiť sa', 'Zrušiť', function(){
+      var cur = findSession(id);
+      if(!cur || trainingEditMode(cur) !== 'selfOnly'){ toast('K tomuto tréningu sa už nedá pripojiť.'); drawOpen(); return; }
+      var before = Object.assign({}, cur);
+      cur.trainerIds = cur.trainerIds.concat([currentTrainerId]); stampEdited(cur);
+      var jc = diffSession(before, cur); if(jc.length) logChange('edited', cur, {changes:jc});
+      track('slot_join'); saveState(); renderAll(); offerJoinShare(cur);
+    });
+  }
+  // Opened from a Messenger link: go to that training (or say why it is no longer open).
+  function handleDeepLink(){
+    var g = null; try{ g = JSON.parse(sessionStorage.getItem('rozpis_go') || 'null'); sessionStorage.removeItem('rozpis_go'); }catch(e){}
+    if(!g || !me) return;
+    if(g.open){ if(!isPrivateOnlyViewer()){ track('deeplink_open'); document.getElementById('openTabBtn').click(); } return; }
+    if(!g.slot) return;
+    track('deeplink_slot');
+    var s = findSession(g.slot);
+    if(!s || isMaskedForViewer(s)){ toast('Tento tréning už neexistuje.', 5000); return; }
+    document.querySelector('.tab[data-view=calendar]').click();
+    selectedDate = s.date; if(viewMode === 'month') pendingScroll = {date:s.date, smooth:false};
+    renderCalendar();
+    if(s.status === 'cancelled'){ toast('Tento tréning bol zrušený.', 5000); return; }
+    if(hasEnded(s)){ toast('Tento tréning už prebehol.', 5000); return; }
+    if(!isMissing(s)){ toast(isAssigned(s) ? 'Na tomto tréningu už ste.' : 'Tento tréning už má obsadených všetkých trénerov.', 5000); return; }
+    if(trainingEditMode(s) === 'locked') return;
+    openModal(s.id);
+  }
   document.getElementById('confirmStrip').addEventListener('click', function(e){ if(e.target.closest('#confirmStripBtn')){ track('confirm_strip_open'); showConfirmPopup(false); } });
 
   var cfOv = null, cfLastShown = 0;
@@ -4189,12 +4500,13 @@
   var refreshBtn = document.getElementById('refreshBtn'), refreshing = false;
   refreshBtn.addEventListener('click', function(){
     if(refreshing) return;
-    if(inflight || buildChanges()){ toast('Najprv sa dokončí ukladanie.'); return; }
+    whenSafeToReload(function(){
     refreshing = true; refreshBtn.disabled = true; refreshBtn.classList.add('spin'); refreshBtn.textContent = 'Obnovuje sa…';
     setStatus('saving', 'Načítavajú sa aktuálne údaje…');
     loadFromBackend({strict:true}).then(function(ok){
-      refreshing = false; refreshBtn.disabled = false; refreshBtn.classList.remove('spin'); refreshBtn.textContent = 'Obnoviť dáta';
+      discarding = false; refreshing = false; refreshBtn.disabled = false; refreshBtn.classList.remove('spin'); refreshBtn.textContent = 'Obnoviť dáta';
       if(ok){ setStatus('saved', 'Údaje sú aktuálne ✓'); toast('Dáta obnovené.'); } else setStatus('', '');
+    });
     });
   });
   document.getElementById('signOutBtn').addEventListener('click', function(){ leave(''); });
@@ -4222,6 +4534,8 @@
   });
   (function boot(){
     var msg = '', params = new URLSearchParams(location.search);
+    // A link from Messenger (?slot=… opens that training, ?open=1 the open-slots list) survives signing in: it is kept until the first load has been drawn.
+    try{ if(params.get('slot') || params.get('open')){ sessionStorage.setItem('rozpis_go', JSON.stringify({slot:params.get('slot') || '', open:!!params.get('open')})); history.replaceState(null, '', location.pathname); } }catch(e){}
     try{ msg = sessionStorage.getItem('rozpis_msg') || ''; sessionStorage.removeItem('rozpis_msg'); session = localStorage.getItem('rozpis_session'); }catch(e){}
     var dev = params.get('devtoken');   // for local testing only: the real backend rejects anything that is not a genuine Google token
     if(READ_ONLY) document.body.classList.add('ro');
