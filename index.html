@@ -240,6 +240,21 @@
   .save-status.saved{ color:var(--success); }
   #refreshBtn.spin::before{ content:''; display:inline-block; width:10px; height:10px; margin-right:6px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; vertical-align:-1px; animation:rfspin .7s linear infinite; }
   #refreshBtn:disabled{ opacity:.7; cursor:progress; }
+  /* Top-bar buttons: words on wide screens, icons on narrow ones (the words stay as tooltip and screen-reader label). */
+  .topbar .ico{ display:none; line-height:0; }
+  .user-menu{ position:relative; }
+  .user-menu-pop{ position:absolute; right:0; top:calc(100% + 6px); min-width:190px; max-width:calc(100vw - 16px); background:var(--surface); border:1px solid var(--border); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.18); padding:5px; z-index:3000; display:flex; flex-direction:column; gap:2px; }
+  .user-menu-pop[hidden]{ display:none; }
+  .user-menu-pop .btn{ justify-content:flex-start; width:100%; border-color:transparent; }
+  .user-menu-pop .btn:hover{ background:var(--accent-soft); }
+  @media (max-width:700px){
+    .topbar .ico{ display:inline-flex; }
+    .topbar .lbl{ display:none; }
+    .topbar{ gap:10px; }
+    #refreshBtn.spin::before{ display:none; }
+    #refreshBtn.spin .ico{ animation:rfspin .7s linear infinite; }
+    .topbar .btn-sm:has(.ico){ min-width:40px; justify-content:center; padding-left:10px; padding-right:10px; }
+  }
   @keyframes rfspin{ to{ transform:rotate(360deg); } }
   /* A refresh is shown, never enforced: a tag next to the date. Nothing is blocked or dimmed. */
   .fresh-tag{ font:inherit; font-size:12px; font-weight:700; padding:4px 10px; border-radius:999px; white-space:nowrap; border:1px solid transparent; background:transparent; cursor:default; }
@@ -447,13 +462,17 @@
       <select id="viewingAsSelect" autocomplete="off" style="border:1px solid var(--border); background:var(--surface); color:var(--ink); border-radius:8px; padding:6px 9px; font-size:12.5px;"></select>
     </div>
     <button class="btn btn-ghost btn-sm" id="resetBtn">Obnoviť vzorové dáta</button>
-    <button class="btn btn-sm" id="refreshBtn">Obnoviť dáta</button>
-    <button class="btn btn-sm" id="calBtn">Môj kalendár</button>
-    <button class="btn btn-sm" id="updateBtn" title="Načítať najnovšiu verziu stránky (obíde pamäť prehliadača)">Nová verzia</button>
-    <button class="btn btn-sm" id="helpBtn" title="Návod — ako stránku používať">Návod</button>
+    <button class="btn btn-sm" id="refreshBtn" aria-label="Obnoviť" title="Obnoviť údaje (a stránku, ak je novšia verzia)"><span class="ico"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></span><span class="lbl">Obnoviť</span></button>
+    <button class="btn btn-sm" id="calBtn" aria-label="Môj kalendár" title="Môj kalendár"><span class="ico"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span><span class="lbl">Môj kalendár</span></button>
+    <button class="btn btn-sm" id="helpBtn" aria-label="Návod" title="Návod — ako stránku používať"><span class="ico"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.6 2.6 0 1 1 3.6 2.4c-.7.4-1.1.9-1.1 1.7M12 17h.01"/></svg></span><span class="lbl">Návod</span></button>
     <span class="save-status" id="saveStatus" aria-live="polite"></span>
-    <button class="btn btn-ghost btn-sm" id="signOutBtn">Odhlásiť</button>
-    <button class="btn btn-ghost btn-sm" id="signOutAllBtn" title="Odhlási vás na všetkých zariadeniach">Odhlásiť všade</button>
+    <div class="user-menu" id="userMenuWrap">
+      <button class="btn btn-ghost btn-sm" id="userMenuBtn" type="button" aria-label="Účet" title="Účet a odhlásenie" aria-haspopup="true" aria-expanded="false"><span class="ico"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></span><span class="lbl">Účet ▾</span></button>
+      <div class="user-menu-pop" id="userMenu" hidden>
+        <button class="btn btn-ghost btn-sm" id="signOutBtn" type="button">Odhlásiť</button>
+        <button class="btn btn-ghost btn-sm" id="signOutAllBtn" type="button" title="Odhlási vás na všetkých zariadeniach">Odhlásiť všade</button>
+      </div>
+    </div>
   </div>
 
   <div class="notice" id="roleBanner"></div>
@@ -3361,9 +3380,9 @@
     return any ? ch : null;
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
-  // Which page and which server code are running: hover over "Obnoviť dáta". (The server's build is also what its web address shows when opened.)
-  var PAGE_BUILD = '2026-11-10-slots-2', serverBuild = '?';
-  function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
+  // Which page and which server code are running: hover over "Obnoviť". (The server's build is also what its web address shows when opened.)
+  var PAGE_BUILD = '2026-11-11-topbar-1', serverBuild = '?';
+  function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Obnoviť údaje · stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
     if(!body.idToken) body.session = session;
@@ -3617,7 +3636,14 @@
   function reloadFresh(){
     whenSafeToReload(function(){ location.href = location.pathname + '?v=' + Date.now(); });
   }
-  document.getElementById('updateBtn').addEventListener('click', reloadFresh);
+  function latestBuild(){   // the build number of the page as published right now ('' when it cannot be told: offline, slow, opened as a file)
+    if(!/^https?:$/.test(location.protocol)) return Promise.resolve('');
+    var ctl = ('AbortController' in window) ? new AbortController() : null, t = setTimeout(function(){ if(ctl) ctl.abort(); }, 6000);
+    return fetch(location.pathname + '?v=' + Date.now(), {cache:'no-store', signal: ctl ? ctl.signal : undefined}).then(function(r){ return r.ok ? r.text() : ''; }).then(function(x){
+      clearTimeout(t); var m = String(x).match(/PAGE_BUILD = '([^']+)'/); return m ? m[1] : '';
+    }).catch(function(){ clearTimeout(t); return ''; });
+  }
+  function setRefreshLabel(txt){ var l = document.querySelector('#refreshBtn .lbl'); if(l) l.textContent = txt; }
   var versionBanner = null, lastVersionCheck = 0, versionSnoozeUntil = 0;
   function checkForNewVersion(){
     var now = Date.now();
@@ -4130,7 +4156,7 @@
   setInterval(usageFlush, 5 * 60 * 1000);
   document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'hidden') usageFlush(); });
   var TRACK_CLICKS = [['#addSessionBtn','add_training_button'], ['#addBlockBtn','add_block'], ['#onlyMineBtn','only_mine'], ['#fullDayBtn','full_day'],
-    ['#refreshBtn','refresh_data'], ['#updateBtn','new_version'], ['#calBtn','my_calendar'], ['#helpBtn','help_open'], ['#exportBtn','export_csv'],
+    ['#refreshBtn','refresh_data'], ['#userMenuBtn','user_menu'], ['#calBtn','my_calendar'], ['#helpBtn','help_open'], ['#exportBtn','export_csv'],
     ['#modeDay','view_day'], ['#modeWeek','view_week'], ['#modeMonth','view_month'], ['#prevDay','nav_prev'], ['#nextDay','nav_next'], ['#todayBtn','nav_today'], ['#nowBtn','now_jump'], ['.edge-chip','edge_chip'],
     ['#signOutBtn','sign_out'], ['#signOutAllBtn','sign_out_all'], ['#calGoogle','cal_add_google'], ['#calApple','cal_add_apple'], ['[data-cal=copy]','cal_copy'], ['#calRotate','cal_rotate'],
     ['#scopeJust','edit_scope_one'], ['#scopeFuture','edit_scope_future'], ['.hp-open','preview_open_form'], ['.day-btn','pick_day']];
@@ -4178,14 +4204,14 @@
       '<p><b>Na potvrdenie</b> ukazuje predbežné tréningy, ktoré treba potvrdiť (zavolajte klientovi; číslo sa dá kliknúť). „Potvrdiť“ potvrdí daný tréning hneď. Pri takých tréningoch sa hore zobrazí aj výstraha. <b>Chýba tréner</b> ukazuje tréningy, ktoré ešte potrebujú trénera. <b>Konflikty</b> hľadá prekrývajúce sa tréningy trénera. <b>Vertigo tréningy</b> a <b>Súkromné</b> sú zoznamy po mesiacoch' + (admin ? '' : ' (len vaše)') + '. <b>Vyťaženosť</b> ukazuje počet ľudí v telocvični po hodinách.</p>' +
       (admin ? '<p>Administrátor a majiteľ vidia aj <b>Prehľad</b> (hodiny a export do CSV), <b>Vertigo</b> (platby) a <b>Zmeny</b> (kto čo zmenil).</p>' : '')]);
     if(admin) S.push(['Tím', false, '<p>V záložke <b>Tím</b> sa pridávajú a upravujú ľudia, ich úloha (majiteľ, administrátor, tréner) a prístup. Zmena prístupu platí hneď.</p>']);
-    S.push(['Obnoviť dáta a Nová verzia', false,
-      '<p><b>Obnoviť dáta</b> načíta aktuálny stav zo servera (ak podozrievate, že vidíte staré údaje). <b>Nová verzia</b> načíta najnovšiu verziu stránky — použite ju, keď sa vám ukáže hlásenie o novej verzii alebo keď niečo nefunguje ako má.</p>']);
+    S.push(['Obnoviť', false,
+      '<p>Tlačidlo <b>Obnoviť</b> (v úzkom okne ikona so šípkami v kruhu) načíta aktuálny stav zo servera — použite ho, ak podozrievate, že vidíte staré údaje alebo keď niečo nefunguje ako má. Ak je medzitým zverejnená novšia verzia stránky, načíta aj tú. Tlačidlo <b>Účet</b> (ikona osoby) ukrýva <b>Odhlásiť</b> a <b>Odhlásiť všade</b>.</p>']);
     S.push(['Ochrana súkromia', false,
       '<p>Stránka anonymne počíta, ktoré funkcie sa používajú (napr. koľkokrát sa otvorila záložka Reporty) — len počty podľa úlohy, <b>bez mien</b> a bez obsahu tréningov. Slúži to iba na zlepšovanie stránky.</p>']);
     return S;
   }
   var HELP_KEYS = {'Prvé kroky':'first_steps', 'Kalendár':'calendar', 'Pridať tréning':'add_training', 'Upraviť, zrušiť, vrátiť':'edit_cancel', 'Môj kalendár':'my_calendar',
-    'Reporty':'reports', 'Tím':'team', 'Obnoviť dáta a Nová verzia':'refresh_update', 'Ochrana súkromia':'privacy'};   // names for the usage counters (help_sec_<key>)
+    'Reporty':'reports', 'Tím':'team', 'Obnoviť':'refresh_update', 'Ochrana súkromia':'privacy'};   // names for the usage counters (help_sec_<key>)
   function helpDialog(){
     if(helpOv) return helpOv;
     helpOv = document.createElement('div'); helpOv.className = 'modal-overlay'; helpOv.id = 'helpOverlay'; helpOv.hidden = true;
@@ -4301,7 +4327,7 @@
   function drawOpen(){
     var list = openSlots(), wrap = document.getElementById('openList'), last = null;
     document.getElementById('openShareAll').hidden = READ_ONLY || !list.length;
-    document.getElementById('openSub').textContent = list.length ? 'Tréningy, ktorým ešte chýba tréner. Najbližšie sú hore.' : '';
+    document.getElementById('openSub').textContent = list.length ? 'Tréningy, ktorým ešte chýba tréner.' : '';
     wrap.innerHTML = list.length ? list.map(function(s){
       var head = s.date !== last ? (last = s.date, '<div class="report-date-h">' + fmtDateHeading(s.date) + '</div>') : '';
       var need = s.requiredTrainers - s.trainerIds.length, have = s.trainerIds.map(trainerNameH).join(', ') || 'zatiaľ nikto', act = '';
@@ -4324,7 +4350,7 @@
     if(inflight || buildChanges()){ toast('Počkajte, kým sa dokončí ukladanie.'); return; }
     track('share_list');
     var shown = list.slice(0, 12), lines = shown.map(function(s){ var need = s.requiredTrainers - s.trainerIds.length; return '• ' + shareWhen(s) + ' (chýba ' + need + ')'; });
-    shareText('🧗 Voľné miesta pre trénerov\n' + lines.join('\n') + (list.length > shown.length ? '\n…a ďalších ' + (list.length - shown.length) : '') + '\nPrihlásiť sa: ' + appBase() + '?open=1');
+    shareText('Chýbajú tréneri:\n' + lines.join('\n') + (list.length > shown.length ? '\n…a ďalších ' + (list.length - shown.length) : '') + '\nPrihlásiť sa: ' + appBase() + '?open=1');
   });
   function appBase(){ return location.href.split('#')[0].split('?')[0]; }
   function wk(iso){ var d = new Date(iso + 'T00:00:00'); return WEEKDAY_FULL[(d.getDay() + 6) % 7].toLowerCase() + ' ' + d.getDate() + '. ' + (d.getMonth() + 1) + '.'; }
@@ -4502,11 +4528,15 @@
   refreshBtn.addEventListener('click', function(){
     if(refreshing) return;
     whenSafeToReload(function(){
-    refreshing = true; refreshBtn.disabled = true; refreshBtn.classList.add('spin'); refreshBtn.textContent = 'Obnovuje sa…';
+    refreshing = true; refreshBtn.disabled = true; refreshBtn.classList.add('spin'); setRefreshLabel('Obnovuje sa…');
     setStatus('saving', 'Načítavajú sa aktuálne údaje…');
-    loadFromBackend({strict:true}).then(function(ok){
-      discarding = false; refreshing = false; refreshBtn.disabled = false; refreshBtn.classList.remove('spin'); refreshBtn.textContent = 'Obnoviť dáta';
-      if(ok){ setStatus('saved', 'Údaje sú aktuálne ✓'); toast('Dáta obnovené.'); } else setStatus('', '');
+    // One button for both jobs: if a newer build of this page has been published, load it (a full reload also brings fresh data); otherwise just refresh the data in place.
+    latestBuild().then(function(b){
+      if(b && b > PAGE_BUILD){ location.href = location.pathname + '?v=' + Date.now(); return; }
+      return loadFromBackend({strict:true}).then(function(ok){
+        discarding = false; refreshing = false; refreshBtn.disabled = false; refreshBtn.classList.remove('spin'); setRefreshLabel('Obnoviť');
+        if(ok){ setStatus('saved', 'Údaje sú aktuálne ✓'); toast('Dáta obnovené.'); } else setStatus('', '');
+      });
     });
     });
   });
@@ -4533,6 +4563,19 @@
     if(!confirm('Odhlásiť sa na všetkých zariadeniach?')) return;
     post({op:'logoutAll'}).then(function(d){ leave(d.ok ? 'Boli ste odhlásený(á) na všetkých zariadeniach.' : ''); }).catch(function(){ toast('Spojenie zlyhalo.'); });
   });
+  // "Účet" menu: Odhlásiť / Odhlásiť všade (opens on click, closes on a click elsewhere, on Esc, or after choosing).
+  (function(){
+    var btn = document.getElementById('userMenuBtn'), pop = document.getElementById('userMenu'), wrap = document.getElementById('userMenuWrap');
+    function closeMenu(){ pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+    btn.addEventListener('click', function(){
+      if(!pop.hidden){ closeMenu(); return; }
+      pop.hidden = false; pop.style.left = ''; pop.style.right = '0'; btn.setAttribute('aria-expanded', 'true');
+      if(pop.getBoundingClientRect().left < 8){ pop.style.right = 'auto'; pop.style.left = '0'; }   // never off the left edge of a narrow screen
+    });
+    pop.addEventListener('click', closeMenu);
+    document.addEventListener('click', function(e){ if(!pop.hidden && !wrap.contains(e.target)) closeMenu(); });
+    document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !pop.hidden) closeMenu(); });
+  })();
   (function boot(){
     var msg = '', params = new URLSearchParams(location.search);
     // A link from Messenger (?slot=… opens that training, ?open=1 the open-slots list) survives signing in: it is kept until the first load has been drawn.
