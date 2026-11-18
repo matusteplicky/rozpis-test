@@ -3383,7 +3383,7 @@
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
   // Which page and which server code are running: hover over "Obnoviť". (The server's build is also what its web address shows when opened.)
-  var PAGE_BUILD = '2026-11-13-icon-1', serverBuild = '?';
+  var PAGE_BUILD = '2026-11-18-quiet-1', serverBuild = '?';
   function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Obnoviť údaje · stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
@@ -3737,14 +3737,14 @@
   var pollBusy = false;
 
   // ---- making a refresh visible (it never blocks anything) ----
-  // While data is being fetched a thin line runs across the top of the window and a tag next to the date says so; the page stays fully usable.
-  // A fast background poll shows nothing at all (only one that takes longer than 0.8 s does). When the page cannot be sure it is current
-  // (a poll keeps failing, or it is waiting for a touch after being idle) the tag turns amber and says so, instead of a calm-looking old screen.
+  // Rule: healthy background work is silent. Background polls (and quiet reloads) never show anything; "Aktualizujem…" appears only
+  // for a refresh the person asked for (the Obnoviť button). The tag turns amber only when the page genuinely cannot be sure it is
+  // current: no word from the server for 2 minutes (it then says since when), or the screen sat idle and will refresh on touch.
   var fresh = {n:0, shown:false, showT:null, okT:null, okFlash:false, failed:false, pill:false, waiters:[]}, freshTag = document.getElementById('freshTag'), freshLastCatch = 0;
   var changedElsewhere = {};   // ids of trainings that a refresh changed since the open form was opened
   function freshBegin(kind){
     fresh.n++; clearTimeout(fresh.okT); fresh.okFlash = false;
-    if(kind !== 'poll') freshShow(); else if(!fresh.showT && !fresh.shown) fresh.showT = setTimeout(freshShow, 800);
+    if(kind !== 'poll') freshShow();   // background polls are counted (saves wait for them) but never shown
   }
   function freshShow(){
     clearTimeout(fresh.showT); fresh.showT = null;
@@ -3769,9 +3769,8 @@
     if(fresh.shown) return 'busy';
     if(fresh.okFlash) return 'ok';
     if(anyModalOpen()) return '';
-    if(fresh.failed) return 'fail';
     if(pollPaused && document.visibilityState === 'visible') return 'idle';
-    if(!inflight && !fresh.n && Date.now() - lastContactAt > 90000) return 'fail';
+    if(!inflight && Date.now() - lastContactAt > 120000) return 'fail';   // one failed poll is not news; two quiet minutes are
     return '';
   }
   var FRESH_TEXT = {
@@ -3784,7 +3783,9 @@
     if(!freshTag) return;
     var st = freshState(), t = FRESH_TEXT[st];
     if(!t){ freshTag.hidden = true; return; }
-    freshTag.hidden = false; freshTag.className = 'fresh-tag ' + t[0]; freshTag.textContent = t[1]; freshTag.title = t[2];
+    var txt = t[1];
+    if(st === 'fail' && lastContactAt){ var lc = new Date(lastContactAt); txt = 'Údaje z ' + lc.getHours() + ':' + ('0' + lc.getMinutes()).slice(-2) + ' · spojenie zlyháva · Obnoviť'; }
+    freshTag.hidden = false; freshTag.className = 'fresh-tag ' + t[0]; freshTag.textContent = txt; freshTag.title = t[2];
   }
   // Ask for news now if the last word from the server is old — unless something would be disturbed (a save, a poll already out, an open form).
   function catchUp(){
@@ -3807,7 +3808,7 @@
     var st = freshState(); if(st !== 'fail' && st !== 'idle') return;
     if(inflight || buildChanges()){ toast('Najprv sa dokončí ukladanie.'); return; }
     track('fresh_tag_retry'); lastActivity = Date.now(); pollPaused = false;
-    loadFromBackend({quiet:true}).then(schedulePoll);
+    loadFromBackend({quiet:true, visible:true}).then(schedulePoll);   // a click asked for it: show it
   });
   function sessKeyMap(){ var m = {}; sessions.forEach(function(s){ if(!s._archived) m[s.id] = sKey(s); }); return m; }
   function plural(n){ return n + (n === 1 ? ' tréning' : (n >= 2 && n <= 4 ? ' tréningy' : ' tréningov')); }
@@ -4072,7 +4073,7 @@
     opts = opts || {};
     if(!session) return Promise.resolve(false);
     var shown = !opts.boot, before = (me && !opts.boot && !(opts.quiet && opts.strict)) ? sessKeyMap() : null;   // a refused save's reload says its own thing
-    if(shown) freshBegin('load');
+    if(shown) freshBegin(opts.quiet && !opts.visible ? 'poll' : 'load');   // quiet reloads are background work: counted, not shown
     return loadInner(opts).then(function(ok){
       if(ok && before) announceFromLoad(before);
       if(shown) freshEnd(ok);
