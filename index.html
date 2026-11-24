@@ -377,6 +377,8 @@
   .trainer-opt input{ width:15px; height:15px; }
   .trainer-opt.inactive{ color:var(--ink-faint); }
   .required-counter{ font-size:11.5px; font-weight:700; margin-top:6px; }
+  .trainer-hint{ font-size:11.5px; color:var(--muted, #5f6c7b); margin-top:4px; }
+  .trainer-hint[hidden]{ display:none; }
   .end-display{ font-size:11.5px; color:var(--ink-dim); }
   .conflict-box{ background:var(--warning-soft); border:1px solid var(--warning); border-radius:9px; padding:10px 12px; font-size:12.5px; display:flex; flex-direction:column; gap:5px; }
   .conflict-box b{ color:var(--warning); font-size:11.5px; text-transform:uppercase; letter-spacing:0.04em; }
@@ -803,6 +805,7 @@
         <label>Priradení tréneri</label>
         <div class="trainer-list" id="trainerCheckList"></div>
         <div class="required-counter" id="requiredCounter"></div>
+        <div class="trainer-hint" id="trainerHint" hidden></div>
       </div>
 
       <div class="form-sec"></div>
@@ -1115,8 +1118,13 @@
     if(existing){
       if(isClosedForTrainer(existing)) return false;
       f.type = existing.type;
+      // A trainer on the training may leave it and add OTHER people (gym trainings only, not a cancelled one, not when only joining a gap);
+      // everyone already on it stays. Going over the required number is fine. The server applies the same rule.
       var others = existing.trainerIds.filter(function(id){ return id!==currentTrainerId; });
-      f.trainerIds = others.concat(f.trainerIds.indexOf(currentTrainerId)!==-1 ? [currentTrainerId] : []);
+      var wasOn = existing.trainerIds.indexOf(currentTrainerId)!==-1;
+      var canAdd = wasOn && currentModalMode!=='selfOnly' && !isPrivateSession(existing) && existing.status!=='cancelled';
+      var added = canAdd ? f.trainerIds.filter(function(id){ return id!==currentTrainerId && existing.trainerIds.indexOf(id)===-1; }) : [];
+      f.trainerIds = others.concat(added, f.trainerIds.indexOf(currentTrainerId)!==-1 ? [currentTrainerId] : []);
     } else if(f.trainerIds.indexOf(currentTrainerId)===-1){
       f.trainerIds.push(currentTrainerId);
     }
@@ -2020,7 +2028,7 @@
   });
 
   var checklistOriginalIds = [];
-  function renderTrainerChecklist(selectedIds, editMode, lockSelfChecked, onlySelfEditable){
+  function renderTrainerChecklist(selectedIds, editMode, lockSelfChecked, onlySelfEditable, canAddOthers){
     editMode = editMode || 'full';
     checklistOriginalIds = selectedIds.slice();
     var wrap = document.getElementById('trainerCheckList');
@@ -2032,8 +2040,9 @@
       // lockSelfChecked: a trainer creating a new training — their own box is
       // always ticked and can't be unticked, so it's never possible to save a
       // training that doesn't include them.
-      // onlySelfEditable: a trainer editing an existing training may add/remove only themselves.
-      var locked = editMode==='locked' || (editMode==='selfOnly' && !isSelf) || (lockSelfChecked && isSelf) || (onlySelfEditable && !isSelf);
+      // onlySelfEditable: a trainer editing an existing training may remove only themselves — and, with canAddOthers (a gym training
+      // they are on), also tick other people who are not on it yet. Those already on it stay ticked and locked.
+      var locked = editMode==='locked' || (editMode==='selfOnly' && !isSelf) || (lockSelfChecked && isSelf) || (onlySelfEditable && !isSelf && !(canAddOthers && !checked));
       return '<label class="trainer-opt'+(t.status==='inactive'?' inactive':'')+'"><input type="checkbox" value="'+t.id+'" id="trainer-'+t.id+'" '+(checked?'checked':'')+(locked?' disabled':'')+'> '+esc(t.name)+(t.privateOnly?' (iba súkromné)':'')+(t.status==='inactive'?' (neaktívny)':'')+(isSelf?' (ty)':'')+'</label>';
     }).join('');
     wrap.querySelectorAll('input').forEach(function(cb){ cb.addEventListener('change', updateConflicts); });
@@ -2228,7 +2237,14 @@
     document.getElementById('f-notes').value = data.notes || '';
     selectedColor = overrideColor(data.color); legacyColor = data.color || ''; colorTouched = false;
     syncSwatchSelection();
-    renderTrainerChecklist(data.trainerIds || [], mode, !s && isTrainerRole(), !!s && isTrainerRole() && mode==='full');
+    var addOthersOK = !!s && isTrainerRole() && mode==='full' && !isPrivateSession(s) && s.status!=='cancelled';
+    renderTrainerChecklist(data.trainerIds || [], mode, !s && isTrainerRole(), !!s && isTrainerRole() && mode==='full', addOthersOK);
+    var thint = document.getElementById('trainerHint');
+    if(thint){
+      thint.hidden = !(!!s && isTrainerRole() && mode==='full');
+      thint.textContent = addOthersOK ? 'Môžete sa odobrať alebo pridať ďalšieho trénera (aj naraz). Už priradených trénerov mení len recepcia.'
+        : 'Môžete sa odobrať. Trénerov na súkromný tréning pridáva len recepcia.';
+    }
 
     var recurRow = document.getElementById('recurRow');
     var seriesNote = document.getElementById('seriesNote');
@@ -3383,7 +3399,7 @@
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
   // Which page and which server code are running: hover over "Obnoviť". (The server's build is also what its web address shows when opened.)
-  var PAGE_BUILD = '2026-11-18-quiet-1', serverBuild = '?';
+  var PAGE_BUILD = '2026-11-24-assign-1', serverBuild = '?';
   function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Obnoviť údaje · stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
