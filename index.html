@@ -515,6 +515,28 @@
     #focusBar{ left:10px; right:10px; justify-content:space-between; padding-left:12px; }
     #focusBar button{ padding:8px 12px; }
   }
+  /* Zmeny report cards */
+  #activityFilters select{ border:1px solid var(--border); background:var(--surface); color:var(--ink); border-radius:8px; padding:7px 10px; font-size:13px; max-width:100%; }
+  .act-count{ font-weight:600; opacity:.7; margin-left:2px; }
+  .act-flag{ display:inline-block; font-size:11px; font-weight:700; padding:1px 8px; border-radius:999px; margin-left:6px; vertical-align:1px; }
+  .act-flag.s2{ background:var(--danger); color:#fff; }
+  .act-flag.s1{ background:var(--warning); color:#1a1206; }
+  .subtab.active .act-flag.s2{ background:#fff; color:var(--danger); }
+  .act-day{ font-size:12px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-dim); margin:12px 0 4px; }
+  .act-day:first-child{ margin-top:0; }
+  .act-card{ border:1px solid var(--border-soft); border-left:5px solid var(--border); border-radius:9px; background:var(--surface); }
+  .act-card.sev2{ border-left-color:var(--danger); background:var(--danger-soft); }
+  .act-card.sev1{ border-left-color:var(--warning); background:var(--warning-soft); }
+  .act-card summary{ list-style:none; cursor:pointer; padding:10px 12px; display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 0; }
+  .act-card summary::-webkit-details-marker{ display:none; }
+  .act-what{ font-weight:700; font-size:13.5px; margin-right:2px; }
+  .act-time{ margin-left:auto; padding-left:12px; font-size:11.5px; color:var(--ink-dim); white-space:nowrap; font-family:'IBM Plex Mono',ui-monospace,monospace; }
+  .act-sub{ flex:1 1 100%; font-size:12.5px; color:var(--ink-dim); }
+  .act-sub b{ color:var(--ink); }
+  .act-detail{ padding:2px 12px 10px; border-top:1px dashed var(--border-soft); font-size:12px; color:var(--ink-dim); }
+  .act-ev{ padding:3px 0; }
+  .act-evt{ font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:11px; margin-right:6px; }
+  .act-open{ margin-top:6px; }
 </style>
 </head>
 <body>
@@ -706,14 +728,25 @@
       </div>
 
       <div class="subview" id="sub-activity" hidden>
-        <div class="flexbar" style="margin-bottom:12px;">
+        <div class="flexbar" style="margin-bottom:10px; gap:10px 16px;">
+          <div class="subtabs" id="activityReport">
+            <button class="subtab active" data-r="trainers">Tréneri</button>
+            <button class="subtab" data-r="reception">Recepcia</button>
+            <button class="subtab" data-r="owner">Majiteľ</button>
+            <button class="subtab" data-r="team">Tím a roly</button>
+          </div>
           <div class="subtabs" id="activityRange">
             <button class="subtab" data-h="24">24 hodín</button>
             <button class="subtab active" data-h="168">7 dní</button>
+            <button class="subtab" data-h="720">30 dní</button>
           </div>
-          <span style="font-size:11.5px; color:var(--ink-dim);">Nezávisí od filtrov vyššie.</span>
         </div>
-        <div id="activityBody" style="display:flex; flex-direction:column; gap:16px;"></div>
+        <div class="flexbar" id="activityFilters" style="margin-bottom:12px; gap:8px 12px; justify-content:flex-start;">
+          <select id="activityWho" aria-label="Zmeny podľa osoby"></select>
+          <button class="btn btn-sm" id="activitySus" type="button" aria-pressed="false" title="Zobraziť len zmeny, ktoré stojí za to skontrolovať (spätné zmeny, zrušenia, presuny)">Na skontrolovanie</button>
+          <span id="activityHint" class="desk-only" style="font-size:11.5px; color:var(--ink-dim);"></span>
+        </div>
+        <div id="activityBody" style="display:flex; flex-direction:column; gap:4px;"></div>
       </div>
 
       <div class="subview" id="sub-summary" hidden>
@@ -3150,33 +3183,6 @@
 
   // ---------- recent activity (Admin/Owner): what was added or changed lately ----------
   var activityHours = 168;
-  function activityRow(e){
-    var exists = sessions.some(function(s){ return s.id===e.sid; });
-    var danger = e.action==='cancelled' || e.action==='deleted';
-    var typeChanged = (e.changes||[]).some(function(ch){ return ch.k==='type'; });
-    var text;
-    if(e.isTeam) text = (e.action==='created' ? 'Osoba pridaná' : 'Upravené');
-    else if(e.action==='created') text = 'Nový tréning' + (e.count>1 ? ' ('+e.count+'× týždenne)' : '');
-    else if(e.action==='cancelled') text = 'ZRUŠENÉ' + (e.count>1 ? ' (tento a ďalšie: '+e.count+')' : '') + (e.wasCompleted ? ' — bol dokončený' : '');
-    else if(e.action==='deleted') text = 'VYMAZANÉ';
-    else if(e.action==='archived') text = 'Archivované: '+e.count+(e.count===1?' tréning':(e.count>=2&&e.count<=4?' tréningy':' tréningov'));
-    else if(e.action==='restored') text = 'Obnovené z archívu: '+e.count+(e.count===1?' tréning':(e.count>=2&&e.count<=4?' tréningy':' tréningov'));
-    else if(e.action==='reinstated') text = 'Obnovené';
-    else if(e.action==='paid') text = 'Označené ako zaplatené: '+e.count+(e.count===1?' tréning':' tréningov')+'';
-    else text = 'Upravené' + (e.count>1 ? ' (rad: '+e.count+' tréningov)' : '') + (e.wasCompleted ? ' — po dokončení' : '');
-    var changes = (e.changes||[]).slice(0,4).map(function(ch){ return esc(ch.f)+': '+(ch.from ? esc(ch.from)+' → ' : '')+esc(ch.to); }).join(' &middot; ') + ((e.changes||[]).length>4 ? ' &middot; …' : '');
-    var who = esc(e.byName);
-    var st = (exists ? '' : 'cursor:default;') + (danger ? 'background:var(--danger-soft); border-color:var(--danger);' : (typeChanged ? 'background:var(--warning-soft); border-color:var(--warning);' : ''));
-    return '<div class="agenda-item"'+(exists?' data-sid="'+esc(e.sid)+'"':'')+(st?' style="'+st+'"':'')+'>'+
-      '<span class="dot" style="background:'+(danger?'var(--danger)':(e.isPrivate?'var(--swatch-purple)':'var(--accent)'))+'"></span>'+
-      '<span class="a-time" style="width:130px;">'+esc(fmtWhen(e.t))+'</span>'+
-      '<span class="a-main"><div class="a-type">'+esc(e.action==='paid' ? 'Platba trénerovi '+e.bulkFor : e.label)+' &middot; <span style="'+(danger?'color:var(--danger); font-weight:700;':'')+'">'+text+'</span></div>'+
-      '<div class="a-sub" style="white-space:normal;">'+(e.action==='paid' ? '' : esc(e.when)+' &middot; ')+who+(changes?' &middot; '+changes:'')+'</div></span></div>';
-  }
-  function activitySection(title, list){
-    return '<div><h3 style="font-size:13px; margin-bottom:8px;">'+title+' <span style="font-weight:400; color:var(--ink-dim);">('+list.length+')</span></h3>'+
-      '<div style="display:flex; flex-direction:column; gap:6px;">'+(list.length ? list.map(activityRow).join('') : '<div class="agenda-empty" style="padding:10px;">Nič nové.</div>')+'</div></div>';
-  }
   // Payments for Vertigo trainings are the owner's business: leave those lines out for everyone else.
   function hidePay(e){
     if(isOwnerRole() || e.isPrivate) return e;
@@ -3185,17 +3191,154 @@
     if(e.action==='edited' && (e.changes||[]).length && !ch.length) return null;
     return Object.assign({}, e, {changes:ch});
   }
+  // ---- Zmeny: one report per kind of person; one card per training and person (several edits are folded into it) ----
+  var activityReport = 'trainers', activityWho = '', activityOnlySus = false, GRACE_MIN = 15;
+  function parseWhen(w){ var m = /^(\d{4})-(\d\d)-(\d\d) (\d\d):(\d\d)/.exec(w || ''); return m ? new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5]).getTime() : null; }
+  function whenTxt(w){ var t = parseWhen(w); if(t === null) return esc(w || ''); var d = new Date(t); return SK_DOW[d.getDay()]+' '+d.getDate()+'. '+(d.getMonth()+1)+'. '+toHHMM(d.getHours()*60+d.getMinutes()); }
+  function actRole(e){ var t = trainerById(e.by); return t ? t.role : 'trainer'; }   // an unknown person is treated like a trainer, so it shows up
+  function blank(x){ x = String(x == null ? '' : x).trim(); return (x === '—' || x === '-') ? '' : x; }
+  function cleanChanges(e){ return (e.changes || []).filter(function(c){ return blank(c.from) !== blank(c.to); }); }   // "Zaplatené: nie → nie" is not a change
+  function nameList(x){ return blank(x) ? String(x).split(',').map(function(n){ return n.trim(); }).filter(Boolean) : []; }
+  function dayLabel(iso){
+    var d = new Date(iso), t0 = new Date(); t0.setHours(0,0,0,0);
+    var diff = Math.round((t0.getTime() - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / 86400000);
+    return diff === 0 ? 'Dnes' : diff === 1 ? 'Včera' : SK_DOW[d.getDay()]+' '+d.getDate()+'. '+(d.getMonth()+1)+'.';
+  }
+  function clockOf(iso){ var d = new Date(iso); return toHHMM(d.getHours()*60+d.getMinutes()); }
+  function phraseFor(k, f, from, to, actor){
+    if(k === 'trainerIds'){
+      var a = nameList(from), b = nameList(to), added = b.filter(function(n){ return a.indexOf(n) < 0; }), removed = a.filter(function(n){ return b.indexOf(n) < 0; }), out = [];
+      added.forEach(function(n){ out.push(n === actor ? 'Pridal(a) sa ako tréner' : 'Pridaný tréner: '+n); });
+      removed.forEach(function(n){ out.push(n === actor ? 'Odobral(a) sa z trénerov' : 'Odobraný tréner: '+n); });
+      return out;
+    }
+    var fr = blank(from), tt = blank(to);
+    return [f + ': ' + (fr ? fr + ' → ' : '') + (tt || '—')];
+  }
+  // fold all edits of one group: first "from" to last "to" per field, then drop fields that ended where they started
+  function foldChanges(events, actor){
+    var byK = {}, order = [];
+    events.slice().reverse().forEach(function(e){ cleanChanges(e).forEach(function(c){
+      if(!byK[c.k]){ byK[c.k] = {k:c.k, f:c.f, from:c.from, to:c.to}; order.push(c.k); } else byK[c.k].to = c.to;
+    }); });
+    var out = [];
+    order.forEach(function(k){ var c = byK[k]; if(blank(c.from) !== blank(c.to)) phraseFor(c.k, c.f, c.from, c.to, actor).forEach(function(p){ out.push({k:c.k, text:p}); }); });
+    return out;
+  }
+  function flagsOf(e, actor){
+    var out = [], st = parseWhen(e.when), ev = new Date(e.t).getTime(), late = st !== null && ev > st + GRACE_MIN*60000;
+    if(e.isTeam) return out;
+    var ch = cleanChanges(e);
+    if(e.action === 'created' && late) out.push({sev:2, text:'Vytvorený spätne – tréning už prebehol'});
+    else if(e.action === 'cancelled' || e.action === 'deleted'){
+      var w = e.action === 'cancelled' ? 'Zrušený' : 'Vymazaný';
+      out.push(late ? {sev:2, text:w+' po tréningu'} : (e.wasCompleted ? {sev:2, text:w+' – bol dokončený'} : {sev:1, text:w, quiet:true}));
+    }
+    else if(e.action === 'edited'){
+      var tr = ch.filter(function(c){ return c.k === 'trainerIds'; })[0];
+      var joined = tr && nameList(tr.to).indexOf(actor) >= 0 && nameList(tr.from).indexOf(actor) < 0;
+      if(late && joined) out.push({sev:2, text:'Pridal(a) sa až po začiatku tréningu'});
+      else if(e.wasCompleted) out.push({sev:2, text:'Upravené po dokončení'});
+      else if(late && ch.length) out.push({sev:1, text:'Upravené po začiatku tréningu'});
+      if(ch.some(function(c){ return c.k === 'date' || c.k === 'start'; })) out.push({sev:1, text:'Presunutý termín'});
+    }
+    return out;
+  }
+  var ACT_WORD = {created:'Nový tréning', cancelled:'ZRUŠENÉ', deleted:'VYMAZANÉ', reinstated:'Obnovené', archived:'Archivované', restored:'Obnovené z archívu', paid:'Označené ako zaplatené'};
+  function buildGroups(items){
+    var map = {}, order = [];
+    items.forEach(function(e){
+      var key = (e.isTeam ? 'T' : 'S') + '|' + (e.sid || (e.label + '|' + e.when)) + '|' + e.by;
+      if(!map[key]){ map[key] = {sid:e.sid, by:e.by, byName:e.byName, role:actRole(e), label:e.label, when:e.when, isTeam:!!e.isTeam, isPrivate:!!e.isPrivate, events:[]}; order.push(key); }
+      map[key].events.push(e);   // newest first
+    });
+    return order.map(function(k){
+      var g = map[k], chrono = g.events.slice().reverse(), actor = g.byName;
+      var acts = [], seen = {};
+      chrono.forEach(function(e){ if(!seen[e.action]){ seen[e.action] = true; acts.push(e.action); } });
+      var folded = foldChanges(g.events, actor), parts = [];
+      acts.forEach(function(a){
+        if(a === 'edited'){
+          if(g.isTeam) parts.push(folded.length ? folded.map(function(c){ return c.text; }).join(' · ') : 'Upravené');
+          else if(folded.length) parts.push(folded.map(function(c){ return c.text; }).join(' · '));
+          else if(acts.length === 1) parts.push('Upravené');
+        }
+        else if(g.isTeam && a === 'created') parts.push('Osoba pridaná');
+        else if(a === 'created'){ var c0 = chrono.filter(function(e){ return e.action === 'created'; })[0]; parts.push('Nový tréning' + (c0 && c0.count > 1 ? ' ('+c0.count+'× týždenne)' : '')); }
+        else if(a === 'cancelled'){ var c1 = chrono.filter(function(e){ return e.action === 'cancelled'; })[0]; parts.push('ZRUŠENÉ' + (c1 && c1.count > 1 ? ' (tento a ďalšie: '+c1.count+')' : '')); }
+        else parts.push(ACT_WORD[a] || a);
+      });
+      var flags = [], fseen = {};
+      g.events.forEach(function(e){ flagsOf(e, actor).forEach(function(f){ if(!fseen[f.text]){ fseen[f.text] = true; flags.push(f); } }); });
+      if(g.isTeam && folded.some(function(c){ return c.k === 'role'; })) flags.push({sev:2, text:'Zmena roly'});
+      if(g.isTeam && folded.some(function(c){ return c.k === 'email' || c.k === 'account' || c.k === 'noAccess'; })) flags.push({sev:1, text:'Zmena prístupu'});
+      if(!g.isTeam && g.role !== 'trainer') flags = [];   // warnings are about trainers; recepcia and owner are simply listed
+      g.headline = parts.join(' · ') || 'Upravené'; g.flags = flags;
+      g.sev = flags.reduce(function(m, f){ return Math.max(m, f.sev); }, 0);
+      g.lastT = g.events[0].t; g.firstT = chrono[0].t; g.n = g.events.length;
+      return g;
+    });
+  }
+  function groupHtml(g){
+    var flagHtml = g.flags.filter(function(f){ return !f.quiet; }).map(function(f){ return '<span class="act-flag s'+f.sev+'">⚠ '+esc(f.text)+'</span>'; }).join('');
+    var timeTxt = g.n > 1 ? (clockOf(g.firstT) === clockOf(g.lastT) ? clockOf(g.lastT) : clockOf(g.firstT)+'–'+clockOf(g.lastT))+' · '+g.n+'× upravené' : clockOf(g.lastT);
+    var exists = !g.isTeam && sessions.some(function(s){ return s.id === g.sid; });
+    var what = g.isTeam ? 'Tím' : whenTxt(g.when);
+    var detail = g.events.map(function(e){
+      var ch = cleanChanges(e), txt = [];
+      if(e.action === 'edited') ch.forEach(function(c){ phraseFor(c.k, c.f, c.from, c.to, g.byName).forEach(function(p){ txt.push(p); }); });
+      else txt.push(ACT_WORD[e.action] || e.action);
+      return '<div class="act-ev"><span class="act-evt">'+esc(dayLabel(e.t))+' '+clockOf(e.t)+'</span> '+(txt.length ? esc(txt.join(' · ')) : 'Upravené')+'</div>';
+    }).join('');
+    return '<details class="act-card'+(g.sev ? ' sev'+g.sev : '')+'"><summary>' +
+      '<span class="act-what">'+esc(g.headline)+'</span>'+flagHtml+'<span class="act-time">'+timeTxt+'</span>' +
+      '<span class="act-sub"><b>'+esc(g.byName)+'</b> <span class="act-role">('+esc(ROLE_LABEL[g.role] || '')+')</span> · '+(g.isTeam ? esc(g.label) : esc(g.label)+' · '+esc(what)+(g.isPrivate ? ' · súkromný' : ''))+'</span>' +
+      '</summary><div class="act-detail">'+detail+(exists ? '<button class="btn btn-sm act-open" type="button" data-sid="'+esc(g.sid)+'">Otvoriť tréning</button>' : '')+'</div></details>';
+  }
   function drawActivity(){
-    if(!logLoaded && isAdminOrOwnerRole()){ ensureLog(); document.getElementById('activityBody').innerHTML = '<div class="agenda-empty">' + (logLoading || !logTriedAt ? 'Načítavam aktivitu…' : 'Aktivitu sa nepodarilo načítať.') + '</div>'; return; }
+    var body = document.getElementById('activityBody');
+    if(!logLoaded && isAdminOrOwnerRole()){ ensureLog(); body.innerHTML = '<div class="agenda-empty">' + (logLoading || !logTriedAt ? 'Načítavam aktivitu…' : 'Aktivitu sa nepodarilo načítať.') + '</div>'; return; }
     var cutoff = Date.now() - activityHours*3600*1000;
     var items = changeLog.filter(function(e){ return new Date(e.t).getTime() >= cutoff; }).sort(function(a,b){ return b.t.localeCompare(a.t); }).map(hidePay).filter(Boolean);
-    var wrap = document.getElementById('activityBody');
-    wrap.innerHTML =
-      activitySection('Nové tréningy Vertigo', items.filter(function(e){ return !e.isTeam && e.action==='created' && !e.isPrivate; })) +
-      activitySection('Nové súkromné tréningy', items.filter(function(e){ return !e.isTeam && e.action==='created' && e.isPrivate; })) +
-      activitySection('Ostatné zmeny', items.filter(function(e){ return !e.isTeam && e.action!=='created'; })) +
-      activitySection('Zmeny v tíme', items.filter(function(e){ return e.isTeam; }));
-    wrap.querySelectorAll('.agenda-item[data-sid]').forEach(function(it){ it.addEventListener('click', function(){ openModal(it.dataset.sid); }); });
+    // an "edited" entry whose only changes were non-changes (nie → nie) is noise
+    items = items.filter(function(e){ return !(e.action === 'edited' && !cleanChanges(e).length && !e.isTeam); });
+    var REP = {
+      trainers: function(e){ return !e.isTeam && e.action !== 'paid' && actRole(e) === 'trainer'; },
+      reception: function(e){ return !e.isTeam && actRole(e) === 'admin'; },
+      owner: function(e){ return !e.isTeam && actRole(e) === 'owner'; },
+      team: function(e){ return e.isTeam; }
+    };
+    var perReport = {}, badge = {};
+    Object.keys(REP).forEach(function(r){ var gs = buildGroups(items.filter(REP[r])); perReport[r] = gs; badge[r] = {n:gs.length, bad:gs.filter(function(g){ return g.sev === 2; }).length}; });
+    document.querySelectorAll('#activityReport .subtab').forEach(function(b){
+      var r = b.dataset.r, base = {trainers:'Tréneri', reception:'Recepcia', owner:'Majiteľ', team:'Tím a roly'}[r];
+      b.classList.toggle('active', r === activityReport);
+      b.innerHTML = esc(base) + ' <span class="act-count">'+badge[r].n+'</span>' + (r === 'trainers' && badge[r].bad ? ' <span class="act-flag s2">⚠ '+badge[r].bad+'</span>' : '');
+    });
+    var groups = perReport[activityReport];
+    // person filter (not for the single-person owner report or the team report)
+    var who = document.getElementById('activityWho'), sus = document.getElementById('activitySus');
+    var showWho = activityReport === 'trainers' || activityReport === 'reception', showSus = activityReport === 'trainers';
+    who.hidden = !showWho; sus.hidden = !showSus;
+    if(showWho){
+      var counts = {}; groups.forEach(function(g){ counts[g.byName] = (counts[g.byName] || 0) + 1; });
+      var names = Object.keys(counts).sort(function(a,b){ return a.localeCompare(b); });
+      if(activityWho && !counts[activityWho]) activityWho = '';
+      who.innerHTML = '<option value="">' + (activityReport === 'trainers' ? 'Všetci tréneri' : 'Všetci') + '</option>' + names.map(function(n){ return '<option value="'+esc(n)+'"'+(n === activityWho ? ' selected' : '')+'>'+esc(n)+' ('+counts[n]+')</option>'; }).join('');
+      if(activityWho) groups = groups.filter(function(g){ return g.byName === activityWho; });
+    }
+    sus.setAttribute('aria-pressed', activityOnlySus ? 'true' : 'false'); sus.classList.toggle('btn-primary', activityOnlySus);
+    if(showSus && activityOnlySus) groups = groups.filter(function(g){ return g.sev > 0; });
+    document.getElementById('activityHint').textContent = activityReport === 'trainers' ? 'Červené = spätné zmeny (po začiatku tréningu), oranžové = zrušenie alebo presun.' : '';
+    groups.sort(function(a,b){ return b.lastT.localeCompare(a.lastT); });
+    if(!groups.length){
+      body.innerHTML = '<div class="agenda-empty">' + (activityOnlySus && showSus ? 'Nič na skontrolovanie v tomto období.' : activityReport === 'trainers' ? 'Žiadne zmeny od trénerov v tomto období.' : 'Nič v tomto období.') + '</div>';
+      return;
+    }
+    var html = '', lastDay = '';
+    groups.forEach(function(g){ var d = dayLabel(g.lastT); if(d !== lastDay){ lastDay = d; html += '<h3 class="act-day">'+esc(d)+'</h3>'; } html += groupHtml(g); });
+    body.innerHTML = html;
+    body.querySelectorAll('.act-open').forEach(function(btn){ btn.addEventListener('click', function(ev){ ev.preventDefault(); openModal(btn.dataset.sid); }); });
   }
   document.getElementById('activityRange').addEventListener('click', function(e){
     var btn = e.target.closest('.subtab'); if(!btn) return;
@@ -3203,6 +3346,12 @@
     document.querySelectorAll('#activityRange .subtab').forEach(function(b){ b.classList.toggle('active', b===btn); });
     drawActivity();
   });
+  document.getElementById('activityReport').addEventListener('click', function(e){
+    var btn = e.target.closest('.subtab'); if(!btn) return;
+    activityReport = btn.dataset.r; drawActivity();
+  });
+  document.getElementById('activityWho').addEventListener('change', function(){ activityWho = this.value; drawActivity(); });
+  document.getElementById('activitySus').addEventListener('click', function(){ activityOnlySus = !activityOnlySus; drawActivity(); });
 
   // "Paid" here means the trainer has settled their cut with the gym — a
   // flat per-training thing, not per-hour, and only meaningful once the
@@ -3565,7 +3714,7 @@
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
   // Which page and which server code are running: hover over "Obnoviť". (The server's build is also what its web address shows when opened.)
-  var PAGE_BUILD = '2026-11-28-launch-14', serverBuild = '?';
+  var PAGE_BUILD = '2026-11-28-launch-15', serverBuild = '?';
   function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Obnoviť údaje · stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
@@ -4356,6 +4505,8 @@
     x = t.closest('#kindBtns .seg-btn'); if(x && !x.disabled) track('kind_' + x.dataset.kind);
     x = t.closest('#colorSwatches .swatch'); if(x) track(x.dataset.color ? 'color_pick' : 'color_auto');
     x = t.closest('#activityRange .subtab'); if(x) track('activity_' + x.dataset.h + 'h');
+    x = t.closest('#activityReport .subtab'); if(x) track('activity_rep_' + x.dataset.r);
+    x = t.closest('#activitySus'); if(x) track('activity_suspicious');
     x = t.closest('#helpOverlay summary'); if(x && x.parentNode && !x.parentNode.open && x.parentNode.dataset.k) track('help_sec_' + x.parentNode.dataset.k);
   }, true);
   // changes (not clicks) for things a label click would count twice
@@ -4391,7 +4542,7 @@
       '<p>Tlačidlo <b>Môj kalendár</b> vám dá odkaz, vďaka ktorému uvidíte svoje tréningy v Google alebo Apple Kalendári (aj v telefóne). Odkaz je súkromný — nezdieľajte ho.</p>']);
     S.push(['Reporty', false,
       '<p><b>Na potvrdenie</b> ukazuje predbežné tréningy, ktoré treba potvrdiť (zavolajte klientovi; číslo sa dá kliknúť). „Potvrdiť“ potvrdí daný tréning hneď. Pri takých tréningoch sa hore zobrazí aj výstraha. <b>Chýba tréner</b> ukazuje tréningy, ktoré ešte potrebujú trénera. <b>Konflikty</b> hľadá prekrývajúce sa tréningy trénera. ' + (admin ? '<b>Jeden tréner</b> ukáže tréningy Vertigo vybraného trénera (hodiny a zoznam) a ' : '<b>Moje tréningy</b> a ') + '<b>Súkromné</b> sú zoznamy po mesiacoch' + (admin ? '' : ' (len vaše)') + '. <b>Vyťaženosť</b> ukazuje počet ľudí v telocvični po hodinách.</p>' +
-      (admin ? '<p>Recepcia a majiteľ vidia aj <b>Prehľad</b> (hodiny a export do CSV), <b>Všetci tréneri</b> (tréningy Vertigo všetkých trénerov, majiteľ tu značí platby) a <b>Zmeny</b> (kto čo zmenil).</p>' : '')]);
+      (admin ? '<p>Recepcia a majiteľ vidia aj <b>Prehľad</b> (hodiny a export do CSV), <b>Všetci tréneri</b> (tréningy Vertigo všetkých trénerov, majiteľ tu značí platby) a <b>Zmeny</b> (kto čo zmenil: samostatne zmeny trénerov, recepcie, majiteľa a tímu; červené je spätná zmena po začiatku tréningu).</p>' : '')]);
     if(admin) S.push(['Tím', false, '<p>V záložke <b>Tím</b> sa pridávajú a upravujú ľudia, ich úloha (majiteľ, recepcia, tréner) a prístup. Zmena prístupu platí hneď.</p>']);
     S.push(['Obnoviť', false,
       '<p>Tlačidlo <b>Obnoviť</b> (v úzkom okne ikona so šípkami v kruhu) načíta aktuálny stav zo servera — použite ho, ak podozrievate, že vidíte staré údaje alebo keď niečo nefunguje ako má. Ak je medzitým zverejnená novšia verzia stránky, načíta aj tú. Tlačidlo <b>Účet</b> (ikona osoby) ukrýva <b>Odhlásiť</b> a <b>Odhlásiť všade</b>.</p>']);
