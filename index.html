@@ -17,6 +17,7 @@
     --success:#3F8F5F; --success-soft:#E4F1E8;
     --warning:#B9791E; --warning-soft:#FBF0DD;
     --danger:#C74B3F; --danger-soft:#FAE7E4;
+    --hot:#E8730C;   /* contrast colour: today, "Len moje" */
     --swatch-blue:#1D4ED8; --swatch-orange:#F59E0B; --swatch-green:#15803D;
     --swatch-yellow:#FACC15; --swatch-red:#DC2626; --swatch-purple:#7E22CE;
     --swatch-teal:#0F766E; --swatch-pink:#DB2777;
@@ -34,6 +35,7 @@
       --success:#6FCB92; --success-soft:#173324;
       --warning:#E3AA55; --warning-soft:#382A12;
       --danger:#E58176; --danger-soft:#3A1E1B;
+    --hot:#FF9A3D;
       --swatch-blue:#1D4ED8; --swatch-orange:#F59E0B; --swatch-green:#15803D;
     --swatch-yellow:#FACC15; --swatch-red:#DC2626; --swatch-purple:#7E22CE;
     --swatch-teal:#0F766E; --swatch-pink:#DB2777;
@@ -50,6 +52,7 @@
     --success:#6FCB92; --success-soft:#173324;
     --warning:#E3AA55; --warning-soft:#382A12;
     --danger:#E58176; --danger-soft:#3A1E1B;
+    --hot:#FF9A3D;
     --swatch-blue:#1D4ED8; --swatch-orange:#F59E0B; --swatch-green:#15803D;
     --swatch-yellow:#FACC15; --swatch-red:#DC2626; --swatch-purple:#7E22CE;
     --swatch-teal:#0F766E; --swatch-pink:#DB2777;
@@ -127,6 +130,9 @@
   /* Focus mode: only the calendar (arrows, Dnes, Deň/Týždeň/Mesiac, legend stay); a frame + pill + ✕ show that it is on */
   .btn-focus{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); font-weight:700; display:inline-flex; align-items:center; gap:7px; box-shadow:var(--shadow); }
   .btn-focus:hover{ filter:brightness(1.08); }
+  /* "Len kalendár": a clear teal outline so people notice it (the .btn rule below would otherwise flatten it to a plain button) */
+  .btn.btn-focus{ background:var(--surface); color:var(--accent); border:2px solid var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+  .btn.btn-focus:hover{ background:var(--accent); color:var(--accent-ink); filter:none; }
   #focusBar{ position:fixed; top:8px; right:12px; z-index:45; display:none; align-items:center; gap:8px; background:var(--accent); color:var(--accent-ink); border-radius:999px; padding:4px 5px 4px 14px; font-size:12px; font-weight:800; letter-spacing:0.08em; box-shadow:var(--shadow); }
   #focusBar button{ border:none; background:rgba(255,255,255,0.22); color:inherit; font:inherit; font-weight:700; letter-spacing:0; border-radius:999px; padding:8px 14px; min-height:38px; cursor:pointer; }
   body.focus #focusBar{ display:flex; }
@@ -166,8 +172,9 @@
   .day-btn{ position:relative; border:1px solid var(--border); background:var(--surface); border-radius:9px; padding:7px 4px 8px; min-width:44px; display:flex; flex-direction:column; align-items:center; gap:2px; cursor:pointer; color:var(--ink-dim); }
   .day-btn .dow{ font-size:10px; text-transform:uppercase; letter-spacing:0.05em; }
   .day-btn .dom{ font-family:'IBM Plex Mono'; font-weight:600; font-size:14px; color:var(--ink); }
-  .day-btn.today{ border-color:var(--accent); }
+  .day-btn.today{ border:2px solid var(--hot); padding:6px 3px 7px; }
   .day-btn.active{ background:var(--accent); border-color:var(--accent); }
+  .day-btn.active.today{ border-color:var(--hot); }
   .day-btn.active .dow, .day-btn.active .dom{ color:var(--accent-ink); }
   .day-btn .dot{ width:4px; height:4px; border-radius:50%; background:var(--accent); }
   .day-btn.active .dot{ background:var(--accent-ink); }
@@ -188,7 +195,7 @@
   .ruler-clip{ flex:1 1 0; overflow:hidden; position:relative; min-height:26px; }
   .ruler-clip #timeGutter{ width:var(--body-w, 100%); transform:translateX(var(--scroll-x, 0px)); }
   .cal-dayrow .hrow-label{ position:sticky; left:0; z-index:5; }
-  .hrow{ display:flex; border-top:1px solid var(--border-soft); }
+  .hrow{ display:flex; border-top:1px solid var(--border); }
   .hrow:first-child{ border-top:none; }
   /* The sideways scrollbar sits ABOVE the hours (so it is always at hand, however long the week is) and pins with the ruler. The real scroller's own
      bar is hidden; the two stay in step. */
@@ -207,6 +214,9 @@
   .cal-sticky{ display:flex; flex-direction:column; gap:10px; }
   .cal-row2{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
   .cal-row2 .subtabs{ align-self:center; }
+  .btn-mine{ font-weight:700; font-size:13.5px; min-height:38px; padding:6px 16px; border:2px solid var(--ink-faint); color:var(--ink); background:var(--surface); border-radius:9px; cursor:pointer; font-family:inherit; }
+  .btn-mine:hover{ border-color:var(--hot); box-shadow:0 0 0 3px color-mix(in srgb, var(--hot) 28%, transparent); }
+  .btn-mine.btn-primary{ background:var(--accent); color:var(--accent-ink); border-color:var(--hot); box-shadow:0 0 0 3px var(--hot); }
   @media (min-width:821px) and (min-height:561px){
     .cal-sticky{ position:sticky; top:0; z-index:6; background:var(--surface); padding:8px 0 10px; box-shadow:0 1px 0 var(--border-soft); }
   }
@@ -215,11 +225,13 @@
   .hrow-label .hrl-dow{ font-size:10px; color:var(--ink-dim); font-weight:600; text-transform:uppercase; letter-spacing:0.04em; }
   .hrow-body{ position:relative; flex:0 0 auto; width:var(--body-w, 100%); min-height:54px; background-image:linear-gradient(to right, var(--border-soft) 0, var(--border-soft) 1px, transparent 1px); background-size:var(--hour-px, 120px) 100%; background-position:var(--grid-off, 0px) 0; background-repeat:repeat-x; cursor:copy; }
   .hrow-ruler .hrow-body{ min-height:26px; cursor:default; background-image:none; width:var(--body-w, 100%); }
-  .hrow.day-alt .hrow-label, .hrow.day-alt .hrow-body{ background-color:color-mix(in srgb, var(--accent) 7%, var(--surface)); }
-  .cal-dayrow.is-today .hrow-label{ box-shadow:inset 4px 0 0 var(--accent); background-color:color-mix(in srgb, var(--accent) 16%, var(--surface)); }
+  .hrow.day-alt .hrow-label, .hrow.day-alt .hrow-body{ background-color:color-mix(in srgb, var(--accent) 17%, var(--surface)); }
+  .cal-dayrow.is-today{ border-top:2px solid var(--hot); border-bottom:2px solid var(--hot); }
+  .cal-dayrow.is-today .hrow-label{ box-shadow:inset 6px 0 0 var(--hot); background-color:color-mix(in srgb, var(--hot) 24%, var(--surface)); }
+  .cal-dayrow.is-today .hrow-body{ background-color:color-mix(in srgb, var(--hot) 9%, var(--surface)); }
   /* Month view: a thin header with the week number before each Monday; its text pins to the left edge while the hours scroll sideways */
-  .week-sep{ border-top:1px solid var(--border-soft); background:var(--surface-2); font-size:11px; font-weight:700; color:var(--ink-dim); letter-spacing:0.04em; text-transform:uppercase; }
-  .week-sep span{ position:sticky; left:0; display:inline-block; padding:4px 10px; }
+  .week-sep{ margin-top:14px; border-top:3px solid var(--accent); border-bottom:1px solid var(--border); background:color-mix(in srgb, var(--accent) 22%, var(--surface)); font-size:12px; font-weight:800; color:var(--ink); letter-spacing:0.04em; text-transform:uppercase; }
+  .week-sep span{ position:sticky; left:0; display:inline-block; padding:6px 10px; }
   .hour-label{ position:absolute; top:50%; left:0; transform:translateY(-50%); font-size:10.5px; color:var(--ink-faint); font-family:'IBM Plex Mono'; padding-left:3px; }
   /* Full fills: the colour comes from the training's group (inline), and its readable ink with it. */
   /* now-line, dimmed past of today, current-time tag in the ruler, and edge chips counting trainings scrolled out of sight */
@@ -359,6 +371,37 @@
   .form-cols{ display:grid; grid-template-columns:1fr 1fr; gap:0 26px; }
   .form-col{ display:flex; flex-direction:column; gap:11px; min-width:0; }
   @media (max-width:900px){ .form-cols{ grid-template-columns:1fr; gap:11px; } #sessionOverlay .modal{ width:min(540px, 100%); } }
+
+  /* Phones: the popups fill the screen (no sideways sway, the close button is always reachable), fields never exceed the width,
+     and the trainer list is part of the page scroll instead of a scroll area of its own. */
+  .modal{ overflow-x:hidden; }
+  .modal-overlay{ overflow:hidden; }
+  .row2 > *, .row3 > *, .form-col, .field{ min-width:0; }
+  .field input, .field select, .field textarea{ min-width:0; max-width:100%; }
+  @media (max-width:700px){
+    .modal-overlay{ padding:0; align-items:stretch; }
+    .modal, #sessionOverlay .modal, #calOverlay .modal{ width:100%; max-width:100%; height:100%; max-height:none; border-radius:0; border:none; }
+    @supports (height:100dvh){ .modal-overlay{ height:100dvh; } }
+    .field input, .field select, .field textarea{ font-size:16px; }   /* below 16px iOS zooms in on focus and the page then pans sideways */
+    .field input[type=date], .field input[type=time]{ -webkit-appearance:none; appearance:none; min-height:40px; width:100%; }
+    .row3{ flex-wrap:wrap; } .row3 > *{ flex:1 1 40%; } .row3 > :first-child{ flex-basis:100%; }
+    #sessionOverlay .trainer-list{ max-height:none; min-height:0; overflow:visible; display:grid; grid-template-columns:1fr 1fr; gap:4px 10px; }
+    #sessionOverlay .trainer-opt{ font-size:14px; min-height:38px; }
+    #sessionOverlay .trainer-opt input{ width:20px; height:20px; flex:none; }
+    #sessionOverlay .field .trainer-opt{ overflow-wrap:anywhere; text-transform:none; font-weight:500; letter-spacing:0; color:var(--ink); }
+  }
+  /* Reports: filters are tucked away behind one bar that always says what is selected */
+  .rep-bar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .rep-sum{ font-size:13px; color:var(--ink-dim); min-width:0; overflow-wrap:anywhere; }
+  .rep-sum.active{ color:var(--accent); font-weight:600; }
+  .rep-filters{ border:1px solid var(--border-soft); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:14px; }
+  .rep-filters[hidden]{ display:none; }
+  .fchips{ display:flex; flex-wrap:wrap; gap:6px; }
+  .fchip-more{ border-style:dashed; color:var(--accent); font-weight:600; }
+  .fchip{ border:1px solid var(--border); background:var(--surface); color:var(--ink); border-radius:999px; padding:8px 13px; font-size:13px; font-family:inherit; cursor:pointer; min-height:38px; }
+  .fchip[aria-pressed="true"]{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:600; }
+  .rep-native{ display:none !important; }
+  .report-sect-h{ font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-dim); margin:8px 0 0; }
   /* number with big - / + buttons (the native arrows are too small to hit) */
   .stepper{ display:inline-flex; align-items:stretch; width:150px; }
   .stepper input{ width:64px; text-align:center; border-radius:0 !important; -moz-appearance:textfield; appearance:textfield; }
@@ -442,6 +485,36 @@
 
   .view[hidden]{ display:none; }
   .flexbar{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  /* Team + help lines (2026-11-28): phones get a card per person so Upraviť / Deaktivovať / Vymazať are never off to the right */
+  #addTrainerBtn{ padding:10px 20px; font-size:14px; font-weight:700; min-height:42px; box-shadow:0 2px 0 color-mix(in srgb, var(--accent) 55%, #000); }
+  .trainer-add{ background:color-mix(in srgb, var(--accent) 7%, var(--surface)); border:1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); border-radius:12px; padding:12px; }
+  @media (max-width:700px){
+    .desk-only{ display:none !important; }
+    #addTrainerBtn{ width:100%; min-height:46px; font-size:15px; }
+    #view-team .table-wrap{ overflow-x:visible; }
+    #view-team table, #view-team tbody{ display:block; }
+    #view-team thead{ display:none; }
+    #view-team tbody tr{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; padding:12px; margin-bottom:10px; border:1px solid var(--border); border-radius:12px; background:var(--surface); }
+    #view-team tbody td{ display:block; border:0; padding:0; }
+    #view-team tbody td:nth-child(1), #view-team tbody td:nth-child(2){ flex:1 1 100%; }
+    #view-team tbody td.num{ font-family:inherit; }
+    #view-team tbody td:nth-child(4)::before{ content:'Tréningy tento mesiac: '; color:var(--ink-dim); }
+    #view-team tbody td:nth-child(5)::before{ content:'Hodiny: '; color:var(--ink-dim); }
+    #view-team tbody td:nth-child(6){ flex:1 1 100%; }
+    #view-team tbody td:nth-child(7):empty{ display:none; }
+    #view-team tbody td:nth-child(6) .btn, #view-team tbody td:nth-child(7) .btn{ min-height:40px; }
+  }
+  /* Phone list (agenda): date on its own line, "13. Nov (štv)", time underneath */
+  #agendaList .a-time{ width:104px; line-height:1.3; }
+  #agendaList .a-date{ display:block; font-family:'IBM Plex Sans',system-ui,sans-serif; font-size:12.5px; font-weight:700; color:var(--ink); }
+  /* Len moje stays reachable inside "Len kalendár" */
+  #focusBar #focusMine{ border:2px solid transparent; }
+  #focusBar #focusMine[aria-pressed="true"]{ background:var(--hot); color:#1a1206; border-color:#fff; }
+  @media (max-width:700px){
+    body.focus .cal-toolbar{ padding-right:0; padding-top:50px; }
+    #focusBar{ left:10px; right:10px; justify-content:space-between; padding-left:12px; }
+    #focusBar button{ padding:8px 12px; }
+  }
 </style>
 </head>
 <body>
@@ -494,7 +567,7 @@
     </div>
   </div>
 
-  <div id="focusBar" role="status"><span>LEN KALENDÁR</span><button type="button" id="focusExit">✕ Ukončiť</button></div>
+  <div id="focusBar" role="status"><span>LEN KALENDÁR</span><button type="button" id="focusMine" aria-pressed="false">Len moje</button><button type="button" id="focusExit">✕ Ukončiť</button></div>
 
   <!-- CALENDAR VIEW -->
   <section class="view" id="view-calendar">
@@ -526,6 +599,7 @@
         <button class="subtab" data-scope="private">Súkromné</button>
         <button class="subtab active" data-scope="both">Oboje</button>
       </div>
+      <button class="btn btn-mine" id="onlyMineBtn" type="button" aria-pressed="false" title="Zobraziť v kalendári len tréningy, na ktorých ste vy">Len moje</button>
       <div class="cal-search">
         <input id="calSearch" type="search" placeholder="Hľadať klienta, trénera, značku…  ( / )" autocomplete="off" aria-label="Hľadať v tréningoch">
         <label class="check-field" id="searchPastWrap" hidden><input type="checkbox" id="searchPast"> aj minulé</label>
@@ -535,7 +609,6 @@
         <div class="subtabs" id="zoomToggle" title="Šírka hodiny v kalendári">
           <button class="subtab" data-px="110">Úzke</button><button class="subtab active" data-px="150">Bežné</button><button class="subtab" data-px="200">Široké</button>
         </div>
-        <button class="btn btn-sm" id="onlyMineBtn" title="Zobraziť v kalendári len tréningy, na ktorých ste vy">Len moje</button>
         <button class="btn btn-sm" id="fullDayBtn" title="Zobraziť celý deň, nielen hodiny s tréningami">Celý deň</button>
         <button class="btn btn-sm btn-focus" id="focusBtn" title="Zobraziť len kalendár (ukončíte tlačidlom ✕ alebo klávesom Esc)"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Len kalendár</button>
       </div>
@@ -567,15 +640,23 @@
 
   <section class="view" id="view-reports" hidden>
     <div class="card" style="display:flex; flex-direction:column; gap:16px;">
+      <div class="rep-bar">
+        <button class="btn btn-sm" type="button" id="repFilterToggle" aria-expanded="false" aria-controls="repFilters">Filtre ▾</button>
+        <span class="rep-sum" id="repFilterSummary"></span>
+        <button class="btn btn-ghost btn-sm" type="button" id="repFilterReset" hidden>Zrušiť filtre</button>
+      </div>
+      <div class="rep-filters" id="repFilters" hidden>
       <div class="row2" style="flex-wrap:wrap; align-items:flex-start;">
         <div class="field" style="min-width:170px;">
-          <label for="reportMonth">Mesiac(e)</label>
-          <select id="reportMonth" multiple size="4"></select>
-          <span style="font-size:11px; color:var(--ink-dim);">Cmd/Ctrl-klik pre výber viacerých</span>
+          <label id="reportMonthLabel">Mesiac(e)</label>
+          <div class="fchips" id="reportMonthChips"></div>
+          <select id="reportMonth" class="rep-native" multiple size="4" aria-hidden="true" tabindex="-1"></select>
+          <span style="font-size:11px; color:var(--ink-dim);">Dá sa vybrať viac mesiacov.</span>
         </div>
         <div class="field" style="min-width:150px;">
-          <label for="reportStatus">Stav</label>
-          <select id="reportStatus" multiple size="4">
+          <label id="reportStatusLabel">Stav</label>
+          <div class="fchips" id="reportStatusChips"></div>
+          <select id="reportStatus" class="rep-native" multiple size="4" aria-hidden="true" tabindex="-1">
             <option value="confirmed">Potvrdené</option>
             <option value="tentative">Predbežné</option>
             <option value="completed">Dokončené</option>
@@ -593,13 +674,14 @@
           <div id="reportTagChips" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;"></div>
         </div>
       </div>
+      </div>
       <div class="subtabs" id="reportSubtabs">
         <button class="subtab subtab-urgent" data-sub="confirm" id="confirmSubtab">Na potvrdenie</button>
         <button class="subtab subtab-urgent active" data-sub="missing">Chýba tréner</button>
         <button class="subtab subtab-urgent" data-sub="conflicts">Konflikty</button>
         <button class="subtab" data-sub="summary">Prehľad</button>
-        <button class="subtab" data-sub="vertigo">Vertigo</button>
-        <button class="subtab" data-sub="bytrainer">Vertigo tréningy</button>
+        <button class="subtab" data-sub="vertigo">Všetci tréneri</button>
+        <button class="subtab" data-sub="bytrainer">Jeden tréner</button>
         <button class="subtab" data-sub="private">Súkromné</button>
         <button class="subtab" data-sub="load">Vyťaženosť</button>
         <button class="subtab" data-sub="activity">Zmeny</button>
@@ -607,7 +689,7 @@
       </div>
 
       <div class="subview" id="sub-confirm" hidden>
-        <p class="cf-help">Predbežné tréningy, ktoré treba potvrdiť — zavolajte klientovi. Zoradené podľa času; nezávisí od filtrov vyššie.</p>
+        <p class="cf-help desk-only">Predbežné tréningy na potvrdenie.</p>
         <div id="confirmList" style="display:flex; flex-direction:column; gap:8px;"></div>
       </div>
 
@@ -682,7 +764,7 @@
           <button class="btn" id="loadNext">&rarr;</button>
           <button class="btn" id="loadToday">Tento týždeň</button>
         </div>
-        <p style="font-size:11.5px; color:var(--ink-dim); margin:0 0 10px;">Počet osôb v telocvični v danej hodine (všetky tréningy Vertigo aj súkromné, bez zrušených). Ak počet osôb nie je zadaný, počíta sa 1. Čísla slúžia len na odhad vyťaženosti; nič iné sa z nich nepočíta. Nezávisí od filtrov vyššie.</p>
+        <p class="desk-only" style="font-size:11.5px; color:var(--ink-dim); margin:0 0 10px;">Počet osôb v telocvični v danej hodine (všetky tréningy Vertigo aj súkromné, bez zrušených). Ak počet osôb nie je zadaný, počíta sa 1. Čísla slúžia len na odhad vyťaženosti; nič iné sa z nich nepočíta. Nezávisí od filtrov vyššie.</p>
         <div id="loadGrid" style="overflow-x:auto;"></div>
       </div>
 
@@ -703,7 +785,6 @@
       <div class="flexbar">
         <div>
           <h2 style="font-size:16px;">Tím</h2>
-          <p style="font-size:12.5px; color:var(--ink-dim); margin:4px 0 0;">Zoznam ľudí, roly a kto je aktívny. Zmena roly tu je presne to, čo by sa stalo naozaj &mdash; rovnaký Google účet, len iný prístup od tej chvíle.</p>
         </div>
         <div style="display:flex; align-items:center; gap:10px;">
           <span style="font-size:12px; color:var(--ink-dim);" id="rosterCount"></span>
@@ -764,7 +845,7 @@
         </div>
       </div>
 
-      <div class="series-note" id="statusLockNote" hidden>Dokončený tréning sa už nedá zmeniť na iný stav — dá sa iba zrušiť (tlačidlo „Zrušiť tréning“ dole).</div>
+      <div class="series-note" id="statusLockNote" hidden>Dokončený tréning sa dá už len zrušiť.</div>
 
       <div class="form-cols"><div class="form-col">
       <div class="field"><label for="f-client">Klient / skupina <span>(povinné)</span></label><input id="f-client" type="text" list="clientDatalist" autocomplete="off" placeholder="napr. Nováková"><datalist id="clientDatalist"></datalist></div>
@@ -1284,7 +1365,7 @@
     var trNames = s.trainerIds.map(trainerNameH).join(', ') || (s.requiredTrainers===0 ? 'Netreba trénera' : 'zatiaľ nikto');
     hoverPreview.innerHTML = '<div class="hp-title">'+esc(displayClient(s))+'</div>'+
       '<div class="hp-sub">'+fmtReportDate(s.date)+' &middot; '+s.start+'–'+s.end+'</div>'+
-      hpRow('Tréneri', trNames) + hpRow('Skupina', groupOf(s).name) + hpRow('Telefón', s.phone) +
+      hpRow('Tréneri', trNames) + hpRow('Telefón', s.phone) +
       (s.notes ? '<div class="hp-notes">'+esc(s.notes)+'</div>' : '') +
       (touch ? '<button type="button" class="btn btn-primary hp-open">Otvoriť</button>' : '');
     hoverPreview.classList.toggle('touch', !!touch);
@@ -1427,6 +1508,7 @@
     var restrictedSubs = {summary:1, vertigo:1, activity:1};   // Súkromné is open to trainers too, but only shows their own (see drawPrivate)
     if(isPrivateOnlyViewer()){ restrictedSubs.missing = 1; restrictedSubs.conflicts = 1; } // both list Vertigo clients
     var subtabButtons = document.querySelectorAll('#reportSubtabs .subtab');
+    document.querySelector('#reportSubtabs [data-sub=bytrainer]').textContent = t ? 'Moje tréningy' : 'Jeden tréner';
     subtabButtons.forEach(function(btn){ btn.hidden = (t && restrictedSubs[btn.dataset.sub]) || (btn.dataset.sub==='archive' && !isOwnerRole()); });
 
     var activeBtn = document.querySelector('#reportSubtabs .subtab.active');
@@ -1511,6 +1593,7 @@
     if(document.getElementById('calGridWrap').offsetParent === null){
       var items = document.querySelectorAll('#agendaList .agenda-item[data-d]');
       for(var k = 0; k < items.length; k++){ if(items[k].dataset.d >= iso){ target = items[k]; break; } }
+      if(!target) target = items[items.length - 1];   // nothing today or later: show the latest entry
       if(!target) return;
       y = target.getBoundingClientRect().top + window.scrollY - stickyH - 12;
     } else {
@@ -1527,7 +1610,8 @@
   // Which view the calendar shows must be readable from the calendar itself (the Vertigo/Súkromné/Oboje row is hidden in Len kalendár)
   function updateScopeUI(){
     var b = document.getElementById('scopeBadge'), name = clientScope==='gym' ? 'Vertigo' : clientScope==='private' ? 'Súkromné' : '';
-    b.textContent = name; b.hidden = !name;
+    var shown = [name, onlyMine ? 'Len moje' : ''].filter(Boolean).join(' · ');   // the calendar itself must say what it is filtered to
+    b.textContent = shown; b.hidden = !shown;
     var parts = ['LEN KALENDÁR']; if(name) parts.push(name); if(onlyMine) parts.push('Len moje');   // hidden filters must not be a surprise
     document.querySelector('#focusBar span').textContent = parts.join(' · ');
   }
@@ -1605,7 +1689,7 @@
     // the echo of our own sync is ignored: an old echo written back would cancel a smooth scroll that is still running
     topBar.addEventListener('scroll', function(){ if(Math.abs(topBar.scrollLeft - echoTop) <= 1) return; if(Math.abs(sc.scrollLeft - topBar.scrollLeft) > 1) sc.scrollLeft = topBar.scrollLeft; }, {passive:true});
     var zt = document.getElementById('zoomToggle');
-    function syncZoom(){ zt.querySelectorAll('.subtab').forEach(function(b){ b.classList.toggle('active', Number(b.dataset.px) === hourPx); }); document.getElementById('fullDayBtn').classList.toggle('btn-primary', fullDay); document.getElementById('onlyMineBtn').classList.toggle('btn-primary', onlyMine); }
+    function syncZoom(){ zt.querySelectorAll('.subtab').forEach(function(b){ b.classList.toggle('active', Number(b.dataset.px) === hourPx); }); document.getElementById('fullDayBtn').classList.toggle('btn-primary', fullDay); var mb = document.getElementById('onlyMineBtn'); mb.classList.toggle('btn-primary', onlyMine); mb.setAttribute('aria-pressed', onlyMine ? 'true' : 'false'); mb.textContent = onlyMine ? '✓ Len moje' : 'Len moje'; var fm = document.getElementById('focusMine'); if(fm){ fm.setAttribute('aria-pressed', onlyMine ? 'true' : 'false'); fm.textContent = onlyMine ? '✓ Len moje' : 'Len moje'; } }
     zt.addEventListener('click', function(e){
       var b = e.target.closest('.subtab'); if(!b) return;
       hourPx = Number(b.dataset.px); try{ localStorage.setItem('rozpis_hourpx', String(hourPx)); }catch(x){}
@@ -1789,6 +1873,8 @@
     if(pendingScroll){ var ps = pendingScroll; pendingScroll = null; scrollToDay(ps.date, ps.smooth); }
   }
 
+  var SK_DOW = ['ne','po','ut','st','štv','pi','so'];
+  function agendaDate(iso){ var d = new Date(iso+'T00:00:00'); return d.getDate()+'. '+SK_MON[d.getMonth()]+' ('+SK_DOW[d.getDay()]+')'; }   // "13. Nov (štv)"
   function renderAgenda(dates){
     var wrap = document.getElementById('agendaList');
     var items = [];
@@ -1802,14 +1888,14 @@
       if(it.kind==='block'){
         var b = it.data;
         return '<div class="agenda-item blocked" data-block-id="'+b.id+'" data-d="'+b.date+'">'+
-          '<span class="a-time">'+(dates.length>1?b.date.slice(5)+' ':'')+(b.allDay?'All day':(b.start+'–'+blockEnd(b)))+'</span>'+
+          '<span class="a-time">'+(dates.length>1?'<b class="a-date">'+agendaDate(b.date)+'</b>':'')+(b.allDay?'Celý deň':(b.start+'–'+blockEnd(b)))+'</span>'+
           '<span class="a-main"><div class="a-type">🚫 '+esc(b.label)+'</div><div class="a-sub">Blokované — žiadne rezervácie</div></span></div>';
       }
       var s = it.data;
       if(isMaskedForViewer(s)){
         if(s.status==='cancelled') return '';
         return '<div class="agenda-item" data-d="'+s.date+'" style="cursor:default; opacity:0.85;"><span class="dot" style="background:var(--ink-faint)"></span>'+
-          '<span class="a-time">'+(dates.length>1?s.date.slice(5)+' ':'')+s.start+'–'+s.end+'</span><span class="a-main"><div class="a-type">'+maskedLabel(s)+'</div></span></div>';
+          '<span class="a-time">'+(dates.length>1?'<b class="a-date">'+agendaDate(s.date)+'</b>':'')+s.start+'–'+s.end+'</span><span class="a-main"><div class="a-type">'+maskedLabel(s)+'</div></span></div>';
       }
       var color = colorVar(displayColor(s));
       var trNames = s.trainerIds.map(trainerNameH).join(', ') || (s.requiredTrainers===0 ? 'Netreba trénera' : '');
@@ -1820,7 +1906,7 @@
       if(missing) subParts.push('chýba ešte '+(s.requiredTrainers-s.trainerIds.length));
       return '<div class="agenda-item'+(s.status==='cancelled'?' cancelled':'')+'" data-id="'+s.id+'" data-d="'+s.date+'">'+
         '<span class="dot" style="background:'+color+'"></span>'+
-        '<span class="a-time">'+(dates.length>1?s.date.slice(5)+' ':'')+s.start+'–'+s.end+'</span>'+
+        '<span class="a-time">'+(dates.length>1?'<b class="a-date">'+agendaDate(s.date)+'</b>':'')+s.start+'–'+s.end+'</span>'+
         '<span class="a-main"><div class="a-type">'+esc(s.clientName||s.type)+(s.status==='cancelled'?' &middot; Zrušené':(s.status==='tentative'?' &middot; Predbežné':(s.status==='completed'?' &middot; <span style="color:var(--success);">Dokončené</span>':'')))+(missing?' &middot; <span style="color:var(--warning);">nedostatočne obsadené</span>':'')+(s.paid?' &middot; <span style="color:var(--success);">&#128176; Zaplatené</span>':'')+'</div>'+
         '<div class="a-sub">'+subParts.join(' &middot; ')+'</div></span>'+
       '</div>';
@@ -1905,7 +1991,7 @@
   window.addEventListener('scroll', function(){ if(viewMode === 'month' && !chipRaf) chipRaf = requestAnimationFrame(function(){ chipRaf = 0; updateChips(); }); }, {passive:true});
   document.getElementById('prevDay').addEventListener('click', function(){ if(viewMode==='month') stepMonth(-1); else selectedDate = addDays(selectedDate, viewMode==='week'?-7:-1); renderCalendar(); });
   document.getElementById('nextDay').addEventListener('click', function(){ if(viewMode==='month') stepMonth(1); else selectedDate = addDays(selectedDate, viewMode==='week'?7:1); renderCalendar(); });
-  document.getElementById('todayBtn').addEventListener('click', function(){ selectedDate = isoOf(new Date()); following = true; if(viewMode==='month') pendingScroll = {date:selectedDate, smooth:true}; renderCalendar(); });
+  document.getElementById('todayBtn').addEventListener('click', function(){ selectedDate = isoOf(new Date()); following = true; var listMode = document.getElementById('calGridWrap').offsetParent === null; if(viewMode==='month' || listMode) pendingScroll = {date:selectedDate, smooth:true}; renderCalendar(); });
   document.getElementById('addSessionBtn').addEventListener('click', function(){ openModal(null, {date:selectedDate, start:'16:00', durationMin:60}); });
 
   // ---------- modal ----------
@@ -2242,7 +2328,7 @@
     var thint = document.getElementById('trainerHint');
     if(thint){
       thint.hidden = !(!!s && isTrainerRole() && mode==='full');
-      thint.textContent = addOthersOK ? 'Môžete sa odobrať alebo pridať ďalšieho trénera (aj naraz). Už priradených trénerov mení len recepcia.'
+      thint.textContent = addOthersOK ? 'Seba môžete odobrať, ďalšieho trénera pridať. Ostatných mení recepcia.'
         : 'Môžete sa odobrať. Trénerov na súkromný tréning pridáva len recepcia.';
     }
 
@@ -2844,7 +2930,7 @@
     var months = allMonths();
     var prevSelected = Array.from(monthSel.selectedOptions).map(function(o){return o.value;});
     monthSel.innerHTML = months.map(function(m){ return '<option value="'+m+'">'+monthLabel(m)+'</option>'; }).join('');
-    var toSelect = prevSelected.length ? prevSelected : [ym(TODAY)];
+    var toSelect = prevSelected.length ? prevSelected : defaultReportMonths(monthSel);
     Array.from(monthSel.options).forEach(function(o){ o.selected = toSelect.indexOf(o.value)!==-1; });
 
     document.getElementById('reportTagDatalist').innerHTML = allTags().map(function(t){ return '<option value="'+esc(t)+'">'; }).join('');
@@ -2887,7 +2973,79 @@
     });
   }
 
-  function drawAll(){ if(archiveForReports()) return; drawSummary(); drawConfirm(); drawMissing(); drawByTrainer(); drawConflicts(); drawPrivate(); drawVertigo(); drawActivity(); drawLoad(); }
+  // ---- filter bar: chips for month and status (the two hidden selects stay the single source of truth), one summary line ----
+  function defaultReportMonths(sel){   // default selection: this month and every later month that exists
+    var cur = ym(TODAY), vals = Array.from(sel.options).map(function(o){ return o.value; }).filter(function(v){ return v >= cur; });
+    return vals.length ? vals : (sel.options.length ? [sel.options[sel.options.length-1].value] : []);
+  }
+  var SK_MON = ['Jan','Feb','Mar','Apr','Máj','Jún','Júl','Aug','Sep','Okt','Nov','Dec'];
+  function monShort(v){ return SK_MON[+v.slice(5,7)-1] + ' ' + v.slice(2,4); }   // "2026-11" -> "Nov 26"
+  var REP_RECENT = 6, repMonthsExpanded = false;
+  function repChips(selId, boxId, keepOne){
+    var sel = document.getElementById(selId), box = document.getElementById(boxId), isMonth = selId==='reportMonth';
+    var items = Array.from(sel.options).map(function(o, i){ return {o:o, i:i}; });
+    var hidden = [], expanded = true;
+    if(isMonth){
+      items.reverse();   // newest first, only to pick the recent ones; they are shown in calendar order below
+      if(items.length > REP_RECENT + 1){
+        var older = items.slice(REP_RECENT), olderPicked = older.some(function(x){ return x.o.selected; });
+        expanded = repMonthsExpanded || olderPicked;
+        hidden = older;
+        if(!expanded) items = items.slice(0, REP_RECENT);
+        hidden = {n: older.length, forced: olderPicked};
+      }
+      items.reverse();   // oldest -> newest, so Jan 27 comes after Dec 26
+    }
+    var moreBtn = (isMonth && hidden.n && !hidden.forced) ? '<button type="button" class="fchip fchip-more" data-more="1">'+(expanded ? 'Skryť staršie ▴' : 'Staršie mesiace ('+hidden.n+') ▾')+'</button>' : '';
+    box.innerHTML = moreBtn + items.map(function(x){
+      return '<button type="button" class="fchip" data-i="'+x.i+'" aria-pressed="'+(x.o.selected?'true':'false')+'">'+esc(isMonth ? monShort(x.o.value) : x.o.textContent)+'</button>';
+    }).join('');   // the "older months" button sits first, where the older months would be
+    box.querySelectorAll('.fchip[data-i]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var o = sel.options[+b.dataset.i]; o.selected = !o.selected;
+        if(keepOne && !sel.selectedOptions.length) o.selected = true;   // a report always needs a month
+        sel.dispatchEvent(new Event('change', {bubbles:true}));
+      });
+    });
+    var more = box.querySelector('[data-more]');
+    if(more) more.addEventListener('click', function(){ repMonthsExpanded = !repMonthsExpanded; repChips(selId, boxId, keepOne); });
+  }
+  // "Nov 26 – Feb 27, Apr 27": months that follow each other are joined into one range
+  function monthRanges(vals){
+    var v = vals.slice().sort(), runs = [], idx = function(x){ return (+x.slice(0,4))*12 + (+x.slice(5,7)); };
+    v.forEach(function(x){ var r = runs[runs.length-1]; if(r && idx(x) === idx(r[r.length-1]) + 1) r.push(x); else runs.push([x]); });
+    return runs.map(function(r){ return r.length > 1 ? monShort(r[0]) + ' – ' + monShort(r[r.length-1]) : monShort(r[0]); }).join(', ');
+  }
+  function updateRepFilterUI(){
+    var mSel = document.getElementById('reportMonth'), sSel = document.getElementById('reportStatus');
+    if(!mSel.options.length) return;
+    repChips('reportMonth', 'reportMonthChips', true);
+    repChips('reportStatus', 'reportStatusChips', false);
+    var stats = Array.from(sSel.selectedOptions).map(function(o){ return STATUS_LABEL[o.value] || o.textContent; });
+    var def = defaultReportMonths(mSel), pickedVals = Array.from(mSel.selectedOptions).map(function(o){ return o.value; });
+    var curOnly = pickedVals.length===def.length && def.every(function(v){ return pickedVals.indexOf(v)!==-1; });   // = the default
+    var parts = [curOnly ? 'Od: ' + monShort(pickedVals.slice().sort()[0] || '0000-01') + ' a ďalšie' : 'Mesiac: ' + monthRanges(pickedVals)];
+    if(stats.length) parts.push('Stav: ' + stats.join(', '));
+    if(reportTagFilters.length) parts.push('Značka: ' + reportTagFilters.join(', '));
+    var changed = !curOnly || stats.length || reportTagFilters.length;
+    var sum = document.getElementById('repFilterSummary');
+    sum.textContent = parts.join(' · ');
+    sum.classList.toggle('active', !!changed);
+    document.getElementById('repFilterReset').hidden = !changed;
+  }
+  document.getElementById('repFilterToggle').addEventListener('click', function(){
+    var box = document.getElementById('repFilters'); box.hidden = !box.hidden;
+    this.setAttribute('aria-expanded', box.hidden ? 'false' : 'true');
+    this.textContent = box.hidden ? 'Filtre ▾' : 'Skryť filtre ▴';
+  });
+  document.getElementById('repFilterReset').addEventListener('click', function(){
+    var m = document.getElementById('reportMonth'), def = defaultReportMonths(m);
+    Array.from(m.options).forEach(function(o){ o.selected = def.indexOf(o.value)!==-1; });
+    Array.from(document.getElementById('reportStatus').options).forEach(function(o){ o.selected = false; });
+    reportTagFilters.length = 0; renderTagChips(); drawAll();
+  });
+
+  function drawAll(){ updateRepFilterUI(); if(archiveForReports()) return; drawSummary(); drawConfirm(); drawMissing(); drawByTrainer(); drawConflicts(); drawPrivate(); drawVertigo(); drawActivity(); drawLoad(); }
 
   // A cell starting with = + - @ is executed as a formula when the CSV is opened in Excel/Sheets — prefix it so it stays plain text.
   function csvEscape(v){ v=String(v==null?'':v); if(/^[=+\-@\t\r]/.test(v)) v = "'"+v; return /[";\r\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }   // fields are separated by ";" (see the export), so a comma needs no quoting
@@ -3187,15 +3345,23 @@
   document.getElementById('vertigoUnpaidOnly').addEventListener('change', drawVertigo);
 
   function drawMissing(){
-    var monthSessions = filteredMonthSessions().filter(isMissing).sort(function(a,b){ return a.date===b.date ? toMin(a.start)-toMin(b.start) : a.date.localeCompare(b.date); });
+    var all = filteredMonthSessions().filter(isMissing).sort(function(a,b){ return a.date===b.date ? toMin(a.start)-toMin(b.start) : a.date.localeCompare(b.date); });
     var wrap = document.getElementById('missingList');
-    var lastDate = null;
-    wrap.innerHTML = monthSessions.length ? monthSessions.map(function(s){
-      var have = s.trainerIds.map(trainerNameH).join(', ') || 'zatiaľ nikto';
-      var heading = s.date!==lastDate ? (lastDate=s.date, '<div class="report-date-h">'+fmtDateHeading(s.date)+'</div>') : '';
-      return heading + '<div class="flag-row" data-id="'+s.id+'"><div class="fr-main">'+esc(s.clientName||s.type)+' &middot; '+s.start+'–'+s.end+
-        '<div class="fr-sub">Potrebuje '+s.requiredTrainers+', má '+s.trainerIds.length+' ('+have+')'+(s.tag?' &middot; '+esc(s.tag):'')+'</div></div></div>';
-    }).join('') : '<div class="agenda-empty">V tomto výbere nič nechýba.</div>';
+    function rows(list){
+      var lastDate = null;
+      return list.map(function(s){
+        var have = s.trainerIds.map(trainerNameH).join(', ') || 'zatiaľ nikto';
+        var heading = s.date!==lastDate ? (lastDate=s.date, '<div class="report-date-h">'+fmtDateHeading(s.date)+'</div>') : '';
+        return heading + '<div class="flag-row" data-id="'+s.id+'"><div class="fr-main">'+esc(s.clientName||s.type)+' &middot; '+s.start+'–'+s.end+
+          '<div class="fr-sub">Potrebuje '+s.requiredTrainers+', má '+s.trainerIds.length+' ('+have+')'+(s.tag?' &middot; '+esc(s.tag):'')+'</div></div></div>';
+      }).join('');
+    }
+    // Still to come: somebody has to be found. Already held: nobody can be found any more, but who led it is missing from the record (hours, pay).
+    var ahead = all.filter(function(s){ return !hasEnded(s); }), held = all.filter(hasEnded);
+    var html = '';
+    if(ahead.length) html += '<div class="report-sect-h">Treba nájsť trénera</div>' + rows(ahead);
+    if(held.length) html += '<div class="report-sect-h">Už prebehlo – doplňte, kto ho viedol</div>' + rows(held);
+    wrap.innerHTML = html || '<div class="agenda-empty">V tomto výbere nič nechýba.</div>';
     wrap.querySelectorAll('.flag-row').forEach(function(row){ row.addEventListener('click', function(){ openModal(row.dataset.id); }); });
   }
 
@@ -3399,7 +3565,7 @@
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
   // Which page and which server code are running: hover over "Obnoviť". (The server's build is also what its web address shows when opened.)
-  var PAGE_BUILD = '2026-11-24-assign-1', serverBuild = '?';
+  var PAGE_BUILD = '2026-11-28-launch-13', serverBuild = '?';
   function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Obnoviť údaje · stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
@@ -3792,7 +3958,7 @@
   var FRESH_TEXT = {
     busy:['busy', 'Aktualizujem…', 'Načítavajú sa aktuálne údaje. Môžete pokračovať v práci.'],
     ok:['ok', '✓ Aktuálne', ''],
-    fail:['stale', 'Údaje nemusia byť aktuálne · Obnoviť', 'Spojenie so serverom zlyháva alebo je pomalé. Kliknutím skúsite znova.'],
+    fail:['stale', 'Údaje nemusia byť aktuálne · Obnoviť', 'Údaje sa obnovujú.'],
     idle:['stale', 'Údaje môžu byť staré · obnovia sa dotykom', 'Obrazovka bola dlhšie nečinná. Po dotyku alebo pohybe myšou sa údaje hneď obnovia (kliknutím hneď).']
   };
   function freshRender(){
@@ -3800,7 +3966,7 @@
     var st = freshState(), t = FRESH_TEXT[st];
     if(!t){ freshTag.hidden = true; return; }
     var txt = t[1];
-    if(st === 'fail' && lastContactAt){ var lc = new Date(lastContactAt); txt = 'Údaje z ' + lc.getHours() + ':' + ('0' + lc.getMinutes()).slice(-2) + ' · spojenie zlyháva · Obnoviť'; }
+    if(st === 'fail' && lastContactAt){ var lc = new Date(lastContactAt); txt = 'Údaje z ' + lc.getHours() + ':' + ('0' + lc.getMinutes()).slice(-2) + ' · Obnoviť'; }
     freshTag.hidden = false; freshTag.className = 'fresh-tag ' + t[0]; freshTag.textContent = txt; freshTag.title = t[2];
   }
   // Ask for news now if the last word from the server is old — unless something would be disturbed (a save, a poll already out, an open form).
@@ -4204,6 +4370,10 @@
     S.push(['Prvé kroky', true,
       '<p>Stránka je <b>rozpis tréningov</b>. Hore sú záložky <b>Kalendár</b>' + (admin ? ', <b>Tím</b>' : '') + ' a <b>Reporty</b>. Všetko, čo zmeníte, sa ukladá automaticky — stačí vyplniť údaje a kliknúť <b>Uložiť tréning</b>.</p>' +
       '<p>Vpravo hore uvidíte, či sa zmena uložila: <b>„Ukladá sa…“</b> → <b>„Uložené ✓“</b>. Ak sa objaví <b>„Overuje sa uloženie“</b>, nič nerobte — stránka to skúša znova a môžete pokračovať v práci.</p>']);
+    S.push(['Ikona na ploche', false,
+      '<p>Aby ste stránku mali vždy poruke, uložte si ju na plochu telefónu.</p>' +
+      '<p><b>iPhone (Safari):</b> klepnite na ikonu <b>Zdieľať</b> (štvorec so šípkou dole), nižšie vyberte <b>Pridať na plochu</b> a potvrďte <b>Pridať</b>.</p>' +
+      '<p><b>Android (Chrome):</b> klepnite na menu <b>⋮</b> vpravo hore, vyberte <b>Pridať na plochu</b> (niekedy <b>Inštalovať aplikáciu</b>) a potvrďte <b>Pridať</b>.</p>']);
     S.push(['Kalendár', false,
       '<p>Prepínač <b>Deň / Týždeň / Mesiac</b> mení rozsah. <b>Mesiac</b> ukáže všetky dni mesiaca pod sebou; každý týždeň má hlavičku s číslom týždňa, dnešný deň je zvýraznený a tlačidlo <b>Dnes</b> naň skočí. Šípky listujú po mesiacoch. Farba tréningu hovorí, do ktorej skupiny patrí (legenda je nad kalendárom). Tréningy sa zobrazujú podľa hodín; <b>Celý deň</b> ukáže aj hodiny bez tréningov, <b>Úzke / Bežné / Široké</b> mení šírku hodiny.</p>' +
       '<p><b>Vertigo / Súkromné / Oboje</b> filtruje, čo vidíte. <b>Len moje</b> ukáže iba tréningy, na ktorých ste vy. Pole <b>Hľadať</b> (skratka „/“) nájde tréningy podľa klienta, trénera, značky alebo telefónu a vypíše ich pod kalendárom — nadchádzajúce, alebo aj minulé po zaškrtnutí. <b>Len kalendár</b> (alebo klávesa „F“) nechá na obrazovke len kalendár; ukončíte ho tlačidlom „✕ Ukončiť“ alebo klávesom Esc.</p>' +
@@ -4220,8 +4390,8 @@
     S.push(['Môj kalendár', false,
       '<p>Tlačidlo <b>Môj kalendár</b> vám dá odkaz, vďaka ktorému uvidíte svoje tréningy v Google alebo Apple Kalendári (aj v telefóne). Odkaz je súkromný — nezdieľajte ho.</p>']);
     S.push(['Reporty', false,
-      '<p><b>Na potvrdenie</b> ukazuje predbežné tréningy, ktoré treba potvrdiť (zavolajte klientovi; číslo sa dá kliknúť). „Potvrdiť“ potvrdí daný tréning hneď. Pri takých tréningoch sa hore zobrazí aj výstraha. <b>Chýba tréner</b> ukazuje tréningy, ktoré ešte potrebujú trénera. <b>Konflikty</b> hľadá prekrývajúce sa tréningy trénera. <b>Vertigo tréningy</b> a <b>Súkromné</b> sú zoznamy po mesiacoch' + (admin ? '' : ' (len vaše)') + '. <b>Vyťaženosť</b> ukazuje počet ľudí v telocvični po hodinách.</p>' +
-      (admin ? '<p>Recepcia a majiteľ vidia aj <b>Prehľad</b> (hodiny a export do CSV), <b>Vertigo</b> (platby) a <b>Zmeny</b> (kto čo zmenil).</p>' : '')]);
+      '<p><b>Na potvrdenie</b> ukazuje predbežné tréningy, ktoré treba potvrdiť (zavolajte klientovi; číslo sa dá kliknúť). „Potvrdiť“ potvrdí daný tréning hneď. Pri takých tréningoch sa hore zobrazí aj výstraha. <b>Chýba tréner</b> ukazuje tréningy, ktoré ešte potrebujú trénera. <b>Konflikty</b> hľadá prekrývajúce sa tréningy trénera. ' + (admin ? '<b>Jeden tréner</b> ukáže tréningy Vertigo vybraného trénera (hodiny a zoznam) a ' : '<b>Moje tréningy</b> a ') + '<b>Súkromné</b> sú zoznamy po mesiacoch' + (admin ? '' : ' (len vaše)') + '. <b>Vyťaženosť</b> ukazuje počet ľudí v telocvični po hodinách.</p>' +
+      (admin ? '<p>Recepcia a majiteľ vidia aj <b>Prehľad</b> (hodiny a export do CSV), <b>Všetci tréneri</b> (tréningy Vertigo všetkých trénerov, majiteľ tu značí platby) a <b>Zmeny</b> (kto čo zmenil).</p>' : '')]);
     if(admin) S.push(['Tím', false, '<p>V záložke <b>Tím</b> sa pridávajú a upravujú ľudia, ich úloha (majiteľ, recepcia, tréner) a prístup. Zmena prístupu platí hneď.</p>']);
     S.push(['Obnoviť', false,
       '<p>Tlačidlo <b>Obnoviť</b> (v úzkom okne ikona so šípkami v kruhu) načíta aktuálny stav zo servera — použite ho, ak podozrievate, že vidíte staré údaje alebo keď niečo nefunguje ako má. Ak je medzitým zverejnená novšia verzia stránky, načíta aj tú. Tlačidlo <b>Účet</b> (ikona osoby) ukrýva <b>Odhlásiť</b> a <b>Odhlásiť všade</b>.</p>']);
@@ -4229,7 +4399,7 @@
       '<p>Stránka anonymne počíta, ktoré funkcie sa používajú (napr. koľkokrát sa otvorila záložka Reporty) — len počty podľa úlohy, <b>bez mien</b> a bez obsahu tréningov. Slúži to iba na zlepšovanie stránky.</p>']);
     return S;
   }
-  var HELP_KEYS = {'Prvé kroky':'first_steps', 'Kalendár':'calendar', 'Pridať tréning':'add_training', 'Upraviť, zrušiť, vrátiť':'edit_cancel', 'Môj kalendár':'my_calendar',
+  var HELP_KEYS = {'Prvé kroky':'first_steps', 'Kalendár':'calendar', 'Pridať tréning':'add_training', 'Upraviť, zrušiť, vrátiť':'edit_cancel', 'Môj kalendár':'my_calendar', 'Ikona na ploche':'home_screen',
     'Reporty':'reports', 'Tím':'team', 'Obnoviť':'refresh_update', 'Ochrana súkromia':'privacy'};   // names for the usage counters (help_sec_<key>)
   function helpDialog(){
     if(helpOv) return helpOv;
@@ -4260,7 +4430,7 @@
   function confirmItems(){
     var now = Date.now(), admin = !isTrainerRole(), out = {late:[], red:[], soon:[], later:[], old:[]};
     sessions.forEach(function(s){
-      if(s.status !== 'tentative' || s._archived) return;
+      if(s.status !== 'tentative' || s._archived || isPrivateSession(s)) return;   // Private trainings are never chased for confirmation: only Vertigo ones
       if(!admin && (!isAssigned(s) || isMaskedForViewer(s))) return;
       if(hasEnded(s)){ if(admin) (now - startMsOf(s) <= CONFIRM_LATE_DAYS * 86400000 ? out.late : out.old).push(s); return; }   // past + still tentative: only admin can settle it
       var h = (startMsOf(s) - now) / 3600000;
@@ -4532,6 +4702,7 @@
   }
   document.getElementById('focusBtn').addEventListener('click', function(){ setFocus(true); });
   document.getElementById('focusExit').addEventListener('click', function(){ setFocus(false); });
+  document.getElementById('focusMine').addEventListener('click', function(){ document.getElementById('onlyMineBtn').click(); });
   var escHadOverlay = false;   // Esc that closes a form/dialog must not also end Focus: note whether one was open BEFORE the other handlers close it
   document.addEventListener('keydown', function(e){ if(e.key === 'Escape') escHadOverlay = anyOverlayOpen(); }, true);
   document.addEventListener('keydown', function(e){
