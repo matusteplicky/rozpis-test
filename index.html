@@ -3307,7 +3307,8 @@
     }).join('');
     var canCheck = isAdminOrOwnerRole() && !READ_ONLY && g.sev > 0 && g.rows.length === g.n;
     var chkNote = g.checked && g.checkInfo ? '<span class="act-chk">✓ Skontroloval(a) '+esc(g.checkInfo.checkedBy || '?')+', '+esc(dayLabel(g.checkInfo.checkedAt))+' '+clockOf(g.checkInfo.checkedAt)+'</span>' : (g.reopened ? '<span class="act-chk reopened">Nová zmena po kontrole</span>' : '');
-    var chkBtn = canCheck ? '<button class="btn btn-sm act-check" type="button" data-rows="'+g.rows.join(',')+'" data-on="'+(g.checked ? '0' : '1')+'">'+(g.checked ? 'Zrušiť kontrolu' : 'Skontrolované ✓')+'</button>' : '';
+    var needsServer = isAdminOrOwnerRole() && !READ_ONLY && g.sev > 0 && g.rows.length < g.n;   // the server is too old to say which log line is which
+    var chkBtn = needsServer ? '<span class="act-chk reopened">Označiť nejde – treba aktualizovať server</span>' : canCheck ? '<button class="btn btn-sm act-check" type="button" data-rows="'+g.rows.join(',')+'" data-on="'+(g.checked ? '0' : '1')+'">'+(g.checked ? 'Zrušiť kontrolu' : 'Skontrolované ✓')+'</button>' : '';
     return '<details class="act-card'+(g.sev ? ' sev'+g.sev : '')+(g.checked ? ' checked' : '')+'"><summary>' +
       '<span class="act-what">'+esc(g.label)+(g.isPrivate ? ' <span class="act-role">· súkromný</span>' : '')+'</span>'+flagHtml+'<span class="act-time">'+timeTxt+'</span>' +
       '<span class="act-sub"><span class="act-act">'+esc(g.actionTxt)+'</span> · <b>'+esc(g.byName)+'</b> <span class="act-role">('+esc(ROLE_LABEL[g.role] || '')+')</span>'+(g.isTeam ? '' : ' · '+esc(whenTxt(g.when)))+'</span>' +
