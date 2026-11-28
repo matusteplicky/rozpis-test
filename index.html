@@ -1991,7 +1991,7 @@
   window.addEventListener('scroll', function(){ if(viewMode === 'month' && !chipRaf) chipRaf = requestAnimationFrame(function(){ chipRaf = 0; updateChips(); }); }, {passive:true});
   document.getElementById('prevDay').addEventListener('click', function(){ if(viewMode==='month') stepMonth(-1); else selectedDate = addDays(selectedDate, viewMode==='week'?-7:-1); renderCalendar(); });
   document.getElementById('nextDay').addEventListener('click', function(){ if(viewMode==='month') stepMonth(1); else selectedDate = addDays(selectedDate, viewMode==='week'?7:1); renderCalendar(); });
-  document.getElementById('todayBtn').addEventListener('click', function(){ selectedDate = isoOf(new Date()); following = true; var listMode = document.getElementById('calGridWrap').offsetParent === null; if(viewMode==='month' || listMode) pendingScroll = {date:selectedDate, smooth:true}; renderCalendar(); });
+  document.getElementById('todayBtn').addEventListener('click', function(){ selectedDate = isoOf(new Date()); following = true; pendingScroll = {date:selectedDate, smooth:true}; renderCalendar(); });   // every view: bring today's row (or, on a phone, its first list entry) into view
   document.getElementById('addSessionBtn').addEventListener('click', function(){ openModal(null, {date:selectedDate, start:'16:00', durationMin:60}); });
 
   // ---------- modal ----------
@@ -3565,7 +3565,7 @@
   }
   var syncCtls = [], pollCtl = null, pollAborted = false;
   // Which page and which server code are running: hover over "Obnoviť". (The server's build is also what its web address shows when opened.)
-  var PAGE_BUILD = '2026-11-28-launch-13', serverBuild = '?';
+  var PAGE_BUILD = '2026-11-28-launch-14', serverBuild = '?';
   function setBuildInfo(b){ serverBuild = String(b).slice(0, 40); var rb = document.getElementById('refreshBtn'); if(rb) rb.title = 'Obnoviť údaje · stránka ' + PAGE_BUILD + ' · server ' + serverBuild; }
   function post(body){
     // text/plain keeps this a "simple" cross-origin request (no preflight), which Apps Script web apps accept
